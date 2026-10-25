@@ -516,18 +516,11 @@ public class MainActivity extends Activity {
 
     private void showPrintStudentDialog() {
         if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
-        JSONArray students = readStudents();
-        if (students.length() == 0) { info("ابتدا دست‌کم یک شرکت‌کننده ثبت کن."); return; }
-        String[] labels = new String[students.length()];
-        for (int i = 0; i < students.length(); i++) {
-            JSONObject s = students.optJSONObject(i);
-            labels[i] = (i + 1) + ". " + (s == null ? "بدون نام" : s.optString("name", "بدون نام"));
-        }
-        new AlertDialog.Builder(this).setTitle("انتخاب شرکت‌کننده برای چاپ")
-            .setItems(labels, (dialog, which) -> {
-                JSONObject s = students.optJSONObject(which);
-                if (s != null) printPairedSheets(s.optString("name", ""), s.optString("id", ""));
-            }).setNegativeButton("انصراف", null).show();
+        new AlertDialog.Builder(this)
+            .setTitle("چاپ آزمون‌های نسخه‌دار")
+            .setMessage("پرسشنامه و پاسخنامهٔ جفت‌شده برای مدل‌های مختلف چاپ می‌شوند. نام شرکت‌کننده از قبل لازم نیست؛ نام پس از دریافت پاسخنامه ثبت می‌شود.")
+            .setPositiveButton("چاپ برگه‌ها", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
+            .setNegativeButton("انصراف", null).show();
     }
 
     private void printPairedSheets(String participantName, String participantId) {
@@ -542,9 +535,7 @@ public class MainActivity extends Activity {
             final int pageCount = (total + 99) / 100;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
-            String safeName = escapeHtml(participantName);
             String safeExam = escapeHtml(examName());
-            String safeId = escapeHtml(participantId);
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
@@ -567,6 +558,7 @@ public class MainActivity extends Activity {
                 JSONObject variant = variants.optJSONObject(v);
                 if (variant == null) continue;
                 String modelId = String.valueOf((char)('A' + v));
+                String sheetSetId = UUID.randomUUID().toString();
                 JSONArray questions = variant.optJSONArray("questions");
                 String answerKey = variant.optString("answer_key", "");
                 if (questions == null || questions.length() < total || answerKey.length() < total) {
@@ -574,7 +566,7 @@ public class MainActivity extends Activity {
                     return;
                 }
                 for (int page = 1; page <= pageCount; page++) {
-                    String payload = "AZY3|" + encodedExamName + "|" + participantId + "|"
+                    String payload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|"
                             + modelId + "|T1|" + page + "|" + pageCount;
                     com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, 320, 320);
                     Bitmap qr = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
@@ -589,8 +581,7 @@ public class MainActivity extends Activity {
                         html.append("<section class='page'><h1 class='head'>").append(safeExam)
                             .append(" — برگه سؤال‌ها (مدل ").append(modelId).append(")</h1>")
                             .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
-                            .append("<div class='meta'>شرکت‌کننده: ").append(safeName).append("</div>")
-                            .append("<div class='meta'>شناسه: ").append(safeId).append(" | مدل: ").append(modelId).append("</div>")
+                            .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                             .append("<div class='meta'>تعداد سؤال: ").append(total).append("</div><div class='clear'></div><hr/>");
                         for (int i = 0; i < total; i++) {
                             JSONObject q = questions.optJSONObject(i);
@@ -607,10 +598,9 @@ public class MainActivity extends Activity {
                     }
                     html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
-                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه (مدل ").append(modelId).append(")</h1>")
+                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
                         .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
-                        .append("<div class='meta'>شرکت‌کننده: ").append(safeName).append("</div>")
-                        .append("<div class='meta'>شناسه: ").append(safeId).append(" | مدل: ").append(modelId).append("</div>")
+                        .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                         .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
                         .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
                         .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها در صفحه‌ها پیوسته است.</div><div class='cols'>");
@@ -639,8 +629,8 @@ public class MainActivity extends Activity {
             web.setWebViewClient(new WebViewClient() {
                 @Override public void onPageFinished(WebView view, String url) {
                     PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                    if (pm != null) pm.print("AzmoonYar-" + participantName,
-                        view.createPrintDocumentAdapter("AzmoonYar-" + participantName),
+                    if (pm != null) pm.print("AzmoonYar-" + examName(),
+                        view.createPrintDocumentAdapter("AzmoonYar-" + examName()),
                         new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                             .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
                     else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
