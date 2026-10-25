@@ -1086,15 +1086,17 @@ public class MainActivity extends Activity {
                 "^\\s*(?:(?:سوال|سؤال|پرسش)\\s*)?(\\d{1,3})\\s*[.)،:：-]\\s*(.*)$");
         java.util.regex.Pattern optionStart = java.util.regex.Pattern.compile(
                 "^\\s*([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*(.*)$");
+        // Accept common answer-key styles: 1-الف, 1: الف, 1)الف, or 1 الف.
         java.util.regex.Pattern answerPair = java.util.regex.Pattern.compile(
-                "(\\d{1,3})\\s*[-:.)،]\\s*([الفبجدA-Da-d])",
+                "(\d{1,3})\s*(?:[-:.)،=]\s*|\s+)([الفبجدA-Da-d])",
                 java.util.regex.Pattern.CASE_INSENSITIVE);
 
         for (String raw : lines) {
             String line = raw.trim();
             if (line.isEmpty()) continue;
             if (line.contains("پاسخنامه") || line.contains("پاسخ‌نامه")
-                    || line.contains("کلید پاسخ") || line.contains("پاسخ صحیح")) {
+                    || line.contains("کلید پاسخ") || line.contains("پاسخ صحیح")
+                    || line.contains("پاسخ‌های صحیح") || line.contains("پاسخ هاي صحيح")) {
                 inAnswerKey = true;
                 java.util.regex.Matcher pairs = answerPair.matcher(line);
                 while (pairs.find()) {
