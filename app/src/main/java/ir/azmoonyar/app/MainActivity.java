@@ -56,10 +56,7 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
-        if (!prefs.getBoolean("vosk_model_prompted", false)) {
-            prefs.edit().putBoolean("vosk_model_prompted", true).apply();
-            new android.os.Handler(getMainLooper()).postDelayed(this::downloadPersianSpeechModel, 700);
-        }
+        new android.os.Handler(getMainLooper()).postDelayed(this::downloadPersianSpeechModel, 700);
     }
 
     @Override protected void onResume() {
@@ -161,7 +158,7 @@ public class MainActivity extends Activity {
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
-        addButton("دانلود موتور گفتار فارسی (Vosk)", v -> downloadPersianSpeechModel());
+        addButton("مدل صوتی فارسی", v -> downloadPersianSpeechModel());
         addButton("تنظیمات ذخیره تصاویر پاسخنامه", v -> showImageRetentionDialog());
         addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
         addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
@@ -175,28 +172,25 @@ public class MainActivity extends Activity {
 
     private void downloadPersianSpeechModel() {
         File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
-        if (new File(modelDir, "am/final.mdl").exists() || new File(modelDir, "conf/model.conf").exists()) {
-            showStyledInfo("مدل گفتار فارسی از قبل روی گوشی آماده است. مرحلهٔ اتصال میکروفون و تبدیل صدا به متن جداگانه انجام می‌شود.");
+        if (new File(modelDir, "am/final.mdl").exists() && new File(modelDir, "conf/model.conf").exists()) {
             return;
         }
-        new AlertDialog.Builder(this)
-                .setTitle("دانلود مدل گفتار فارسی")
-                .setMessage("مدل سبک فارسی Vosk حدود ۵۳ مگابایت است. فقط با تأیید شما دانلود می‌شود و پس از نصب، برای تبدیل صدا به متن به اینترنت نیاز ندارد. بهتر است از Wi‑Fi استفاده کنید.")
-                .setNegativeButton("بعداً", null)
-                .setPositiveButton("شروع دانلود", (dialog, which) -> startPersianModelDownload(modelDir))
-                .show();
+        startPersianModelDownload(modelDir);
     }
 
     private void startPersianModelDownload(File modelDir) {
         ProgressDialog progress = new ProgressDialog(this);
-        progress.setTitle("آماده‌سازی گفتار فارسی");
-        progress.setMessage("در حال دانلود و نصب مدل Vosk…");
-        progress.setIndeterminate(true);
+        progress.setTitle("مدل صوتی فارسی");
+        progress.setMessage("در حال دانلود…");
+        progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progress.setMax(100);
+        progress.setProgress(0);
         progress.setCancelable(false);
+        progress.setCanceledOnTouchOutside(false);
         progress.show();
         new Thread(() -> {
-            File zipFile = new File(getCacheDir(), "vosk-fa-model.zip");
-            File stagingDir = new File(getFilesDir(), "vosk-model-installing");
+            File zipFile = new File(getCacheDir(), "persian-speech-model.zip");
+            File stagingDir = new File(getFilesDir(), "persian-speech-installing");
             String error = null;
             try {
                 HttpURLConnection connection = (HttpURLConnection) new URL(
@@ -207,15 +201,39 @@ public class MainActivity extends Activity {
                 connection.connect();
                 int code = connection.getResponseCode();
                 if (code < 200 || code >= 300) throw new java.io.IOException("HTTP " + code);
+                int totalBytes = connection.getContentLength();
                 try (InputStream in = connection.getInputStream();
                      FileOutputStream out = new FileOutputStream(zipFile)) {
                     byte[] buffer = new byte[16384];
                     int count;
-                    while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                    long downloaded = 0;
+                    int lastPercent = -1;
+                    while ((count = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, count);
+                        downloaded += count;
+                        if (totalBytes > 0) {
+                            int percent = (int) Math.min(100, downloaded * 100L / totalBytes);
+                            if (percent != lastPercent) {
+                                lastPercent = percent;
+                                final int p = percent;
+                                runOnUiThread(() -> {
+                                    progress.setProgress(p);
+                                    progress.setMessage("مدل صوتی فارسی — " + p + "٪");
+                                });
+                            }
+                        } else {
+                            final long mb = downloaded / (1024 * 1024);
+                            runOnUiThread(() -> progress.setMessage("مدل صوتی فارسی — " + mb + " مگابایت دانلود شد"));
+                        }
+                    }
                 } finally {
                     connection.disconnect();
                 }
 
+                runOnUiThread(() -> {
+                    progress.setProgress(100);
+                    progress.setMessage("در حال آماده‌سازی مدل صوتی فارسی…");
+                });
                 deleteTree(stagingDir);
                 if (!stagingDir.mkdirs() && !stagingDir.isDirectory()) {
                     throw new java.io.IOException("ساخت پوشهٔ نصب ناموفق بود");
@@ -260,20 +278,17 @@ public class MainActivity extends Activity {
                 error = e.getMessage() == null ? "خطای ناشناخته" : e.getMessage();
                 deleteTree(stagingDir);
             } finally {
-                // Keep the downloaded archive only until extraction completes.
                 //noinspection ResultOfMethodCallIgnored
                 zipFile.delete();
             }
             final String result = error;
             runOnUiThread(() -> {
                 progress.dismiss();
-                if (result == null) {
-                    showStyledInfo("مدل فارسی Vosk دانلود و نصب شد. این مرحله فقط مدل را آماده کرده است؛ ضبط صدا و تبدیل واقعی به متن هنوز باید متصل شود.");
-                } else {
-                    showStyledInfo("دانلود/نصب مدل کامل نشد: " + result + "\nاینترنت را بررسی کن و دوباره تلاش کن.");
+                if (result != null) {
+                    showStyledInfo("دریافت مدل صوتی فارسی کامل نشد. اینترنت را بررسی کن و برنامه را دوباره باز کن.");
                 }
             });
-        }, "vosk-model-download").start();
+        }, "persian-speech-model-download").start();
     }
 
     private void deleteTree(File file) {
