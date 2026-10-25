@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
         addButton("چاپ برگه‌های دانش‌آموز با QR مشترک", v -> showPrintStudentDialog());
+        addButton("چاپ کلید پاسخ معلم", v -> printTeacherAnswerKey());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
@@ -303,6 +304,58 @@ public class MainActivity extends Activity {
         if (value == null) return "";
         return value.replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private void printTeacherAnswerKey() {
+        if (examName().trim().isEmpty()) {
+            info("ابتدا آزمون را تعریف کن.");
+            return;
+        }
+        String answerKey = key();
+        int count = questionCount();
+        StringBuilder rows = new StringBuilder();
+        int filled = 0;
+        for (int i = 0; i < count; i++) {
+            char answer = i < answerKey.length() ? answerKey.charAt(i) : '-';
+            if (answer >= 'A' && answer <= 'D') filled++;
+            rows.append("<tr><td>").append(i + 1).append("</td><td>")
+                .append(answer >= 'A' && answer <= 'D' ? answer : '—')
+                .append("</td></tr>");
+        }
+        if (filled != count) {
+            new AlertDialog.Builder(this)
+                .setTitle("کلید پاسخ کامل نیست")
+                .setMessage("پاسخ صحیح ").setPositiveButton("ثبت کلید", (d, w) -> showKeyDialog())
+                .setNegativeButton("فعلاً نه", null).show();
+            return;
+        }
+        String html = "<html><head><meta charset='utf-8'><style>"
+            + "@page{size:A4;margin:14mm}body{font-family:sans-serif;color:#111;direction:rtl}"
+            + "h1{font-size:20px}p{font-size:12px}table{border-collapse:collapse;width:100%;margin-top:12px}"
+            + "th,td{border:1px solid #555;padding:6px;text-align:center;font-size:13px}"
+            + "th{background:#eee}</style></head><body><h1>کلید پاسخ معلم</h1><p>"
+            + escapeHtml(examName()) + " — تعداد سؤال: " + count
+            + "</p><table><thead><tr><th>شماره سؤال</th><th>پاسخ صحیح</th></tr></thead><tbody>"
+            + rows + "</tbody></table><p>این برگه مخصوص معلم است؛ همراه پاسخنامه دانش‌آموز چاپ نشود.</p></body></html>";
+        WebView web = new WebView(this);
+        web.getSettings().setDefaultTextEncodingName("UTF-8");
+        web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (pm != null) {
+                    android.print.PrintDocumentAdapter adapter =
+                        view.createPrintDocumentAdapter("AzmoonYar-Teacher-Key");
+                    pm.print("AzmoonYar-Teacher-Key", adapter,
+                        new PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
+                            .build());
+                } else {
+                    info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                }
+            }
+        });
     }
 
     private void showKeyDialog() {
