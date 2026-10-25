@@ -87,6 +87,7 @@ public class MainActivity extends Activity {
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
+        addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
@@ -276,6 +277,37 @@ public class MainActivity extends Activity {
         }
         new AlertDialog.Builder(this).setTitle("کلید پاسخ — "+filled+"/"+questionCount())
           .setMessage(lines.toString()).setPositiveButton("بستن",null).show();
+    }
+
+    private void showReportsCenter() {
+        ReportStore reportStore = new ReportStore(this);
+        JSONArray inbox = reportStore.getInbox();
+        StringBuilder message = new StringBuilder();
+        message.append("صندوق گزارش‌های محلی\\n");
+        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\\n\\n");
+        if (inbox.length() == 0) {
+            message.append("هنوز گزارشی ثبت نشده است. گزارش واقعی پس از پیاده‌سازی تصحیح و تحلیل خودکار ساخته می‌شود.\\n\\n");
+        } else {
+            for (int i = inbox.length() - 1; i >= 0; i--) {
+                JSONObject item = inbox.optJSONObject(i);
+                if (item == null) continue;
+                message.append(item.optString("title", "گزارش ارزیابی")).append("\\n")
+                    .append(item.optString("body", "")).append("\\n")
+                    .append(item.optString("created_at", "")).append("\\n")
+                    .append(item.optBoolean("read", false) ? "خوانده‌شده" : "خوانده‌نشده")
+                    .append("\\n\\n");
+                reportStore.markRead(item.optString("id", ""));
+            }
+        }
+        message.append("حریم خصوصی و رضایت\\n")
+            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\\n")
+            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\\n")
+            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\\n")
+            .append("• تحلیل و تصحیح خودکار هنوز تکمیل نشده؛ هیچ نتیجهٔ ساختگی ارسال نمی‌شود.");
+        new AlertDialog.Builder(this).setTitle("گزارش‌ها و حریم خصوصی")
+            .setMessage(message.toString())
+            .setPositiveButton("باشه", null)
+            .show();
     }
 
     private void info(String message) {
