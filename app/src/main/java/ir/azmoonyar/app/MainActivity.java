@@ -544,7 +544,9 @@ public class MainActivity extends Activity {
             JSONArray variants = readSavedVariants();
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
-             String safeExam = escapeHtml(examName());
+            String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    Base64.URL_SAFE | Base64.NO_WRAP);
+            String safeExam = escapeHtml(examName());
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
