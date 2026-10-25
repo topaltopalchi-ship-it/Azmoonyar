@@ -537,7 +537,7 @@ public class MainActivity extends Activity {
                 info("برای چاپ نسخه‌دار، ابتدا به تعداد سؤال‌های آزمون سؤال در بانک سؤال ثبت کن.");
                 return;
             }
-            JSONArray variants = RandomExamBuilder.generateVariants(bank, 5, System.nanoTime());
+            JSONArray variants = getOrCreateExamVariants(bank, 5);
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
@@ -651,6 +651,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    private JSONArray getOrCreateExamVariants(JSONArray bank, int count) throws Exception {
+        String cacheKey = "exam_variants_" + Integer.toHexString(examName().hashCode()) + "_" + bank.length();
+        String saved = prefs.getString(cacheKey, "");
+        if (!saved.isEmpty()) {
+            try {
+                JSONArray cached = new JSONArray(saved);
+                if (cached.length() == count) return cached;
+            } catch (Exception ignored) { }
+        }
+        JSONArray variants = RandomExamBuilder.generateVariants(bank, count, System.nanoTime());
+        prefs.edit().putString(cacheKey, variants.toString()).apply();
+        return variants;
+    }
+
     private String escapeHtml(String value) {
         if (value == null) return "";
         return value.replace("&", "&amp;").replace("<", "&lt;")
@@ -746,53 +760,63 @@ public class MainActivity extends Activity {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
-        String answerKey = key();
-        int count = questionCount();
-        StringBuilder rows = new StringBuilder();
-        int filled = 0;
-        for (int i = 0; i < count; i++) {
-            char answer = i < answerKey.length() ? answerKey.charAt(i) : '-';
-            if (answer >= 'A' && answer <= 'D') filled++;
-            rows.append("<tr><td>").append(i + 1).append("</td><td>")
-                .append(answer >= 'A' && answer <= 'D' ? answer : '—')
-                .append("</td></tr>");
-        }
-        if (filled != count) {
-            int missing = count - filled;
-            new AlertDialog.Builder(this)
-                .setTitle("کلید پاسخ کامل نیست")
-                .setMessage("برای " + missing + " سؤال هنوز پاسخ صحیح ثبت نشده است. ابتدا کلید را کامل کن؛ سپس می‌توانی آن را چاپ کنی.")
-                .setPositiveButton("ثبت پاسخ", (d, w) -> showKeyDialog())
-                .setNegativeButton("فعلاً نه", null).show();
+        JSONArray bank = readQuestionBank();
+        if (bank.length() < questionCount()) {
+            info("برای ساخت کلید مدل‌ها، ابتدا بانک سؤال را کامل کن.");
             return;
         }
-        String html = "<html><head><meta charset='utf-8'><style>"
-            + "@page{size:A4;margin:14mm}body{font-family:sans-serif;color:#111;direction:rtl}"
-            + "h1{font-size:20px}p{font-size:12px}table{border-collapse:collapse;width:100%;margin-top:12px}"
-            + "th,td{border:1px solid #555;padding:6px;text-align:center;font-size:13px}"
-            + "th{background:#eee}</style></head><body><h1>کلید پاسخ معلم</h1><p>"
-            + escapeHtml(examName()) + " — تعداد سؤال: " + count
-            + "</p><table><thead><tr><th>شماره سؤال</th><th>پاسخ صحیح</th></tr></thead><tbody>"
-            + rows + "</tbody></table><p>این برگه مخصوص معلم است؛ همراه پاسخنامه شرکت‌کننده چاپ نشود.</p></body></html>";
-        WebView web = new WebView(this);
-        web.getSettings().setDefaultTextEncodingName("UTF-8");
-        web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
-        web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) {
-                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                if (pm != null) {
-                    android.print.PrintDocumentAdapter adapter =
-                        view.createPrintDocumentAdapter("AzmoonYar-Teacher-Key");
-                    pm.print("AzmoonYar-Teacher-Key", adapter,
-                        new PrintAttributes.Builder()
-                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
-                            .build());
-                } else {
-                    info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+        try {
+            JSONArray variants = getOrCreateExamVariants(bank, 5);
+            StringBuilder html = new StringBuilder();
+            html.append("<html><head><meta charset='utf-8'><style>")
+                .append("@page{size:A4 portrait;margin:12mm}body{font-family:sans-serif;color:#111;direction:rtl}")
+                .append("h1{text-align:center;font-size:18px}h2{font-size:14px;margin:7mm 0 2mm}")
+                .append("p{font-size:10px}table{border-collapse:collapse;width:100%;table-layout:fixed;margin-bottom:5mm}")
+                .append("th,td{border:0.3mm solid #777;text-align:center;height:7mm;font-size:10px}")
+                .append(".num{width:15%}.bubble{display:inline-block;width:4.5mm;height:4.5mm;border:0.4mm solid #111;border-radius:50%}")
+                .append(".correct{background:#111}.note{border:1px solid #777;padding:2mm;font-size:10px}")
+                .append("</style></head><body><h1>کلیدهای پاسخ محرمانه — مسئول آزمون</h1><p>")
+                .append(escapeHtml(examName())).append(" | فقط برای مسئول آزمون؛ در اختیار شرکت‌کنندگان قرار نگیرد.</p>");
+            for (int v = 0; v < variants.length(); v++) {
+                JSONObject variant = variants.optJSONObject(v);
+                if (variant == null) continue;
+                String modelId = String.valueOf((char)('A' + v));
+                JSONArray questions = variant.optJSONArray("questions");
+                if (questions == null || questions.length() < questionCount()) {
+                    info("کلید یکی از مدل‌ها کامل نیست؛ ابتدا مدل‌ها را دوباره بساز.");
+                    return;
                 }
+                String answerKey = variant.optString("answer_key", "");
+                html.append("<h2>کلید داخلی مدل ").append(modelId).append("</h2><table><thead><tr><th class='num'>شماره</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
+                for (int q = 0; q < questionCount(); q++) {
+                    char answer = q < answerKey.length() ? answerKey.charAt(q) : '-';
+                    html.append("<tr><td>").append(q + 1).append("</td>");
+                    for (int option = 0; option < 4; option++) {
+                        html.append("<td><span class='bubble");
+                        if (answer == (char)('A' + option)) html.append(" correct");
+                        html.append("'></span></td>");
+                    }
+                    html.append("</tr>");
+                }
+                html.append("</tbody></table>");
             }
-        });
+            html.append("<div class='note'>حباب سیاه گزینهٔ صحیح است. این برگه محرمانه است و نباید همراه برگه‌های شرکت‌کنندگان توزیع شود.</div></body></html>");
+            WebView web = new WebView(this);
+            web.getSettings().setDefaultTextEncodingName("UTF-8");
+            web.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
+            web.setWebViewClient(new WebViewClient() {
+                @Override public void onPageFinished(WebView view, String url) {
+                    PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                    if (pm != null) pm.print("AzmoonYar-Teacher-Variant-Keys",
+                        view.createPrintDocumentAdapter("AzmoonYar-Teacher-Variant-Keys"),
+                        new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
+                    else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                }
+            });
+        } catch (Exception e) {
+            info("ساخت کلیدهای مدل‌ها ناموفق بود؛ بانک سؤال را بررسی کن.");
+        }
     }
 
     private void showKeyDialog() {
