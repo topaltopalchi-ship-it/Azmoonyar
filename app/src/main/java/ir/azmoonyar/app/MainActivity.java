@@ -158,11 +158,11 @@ public class MainActivity extends Activity {
         refreshSummary();
 
         addButtonGrid(
-                new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
-                new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
+                new String[]{"تعریف / ویرایش آزمون", "تصحیح پاسخنامه"},
+                new View.OnClickListener[]{v -> showExamDialog(), v -> showManualGradingDialog()});
         addButtonGrid(
-                new String[]{"چاپ نسخه‌های ساخته‌شده", "اسکن زنده پاسخنامه"},
-                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> openScanner()});
+                new String[]{"چاپ نسخه‌های ساخته‌شده", "تحلیل نمرات"},
+                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> showGradeAnalysis()});
         addButtonGrid(
                 new String[]{"تنظیمات ذخیره تصاویر"},
                 new View.OnClickListener[]{v -> showImageRetentionDialog()});
@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
                 new String[]{"ساخت نسخه‌های تصادفی آزمون"},
                 new View.OnClickListener[]{v -> generateRandomVariants()});
         TextView note = new TextView(this);
-        note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
+        note.setText("QR پرسشنامه و پاسخنامه برای تشخیص مدل آزمون حفظ می‌شود. شناسهٔ شرکت‌کننده روی برگه چاپ نمی‌شود. تصحیح دستی و تحلیل نمرات در دسترس است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
@@ -371,10 +371,9 @@ public class MainActivity extends Activity {
     private void refreshSummary() {
         if (summary == null || prefs == null) return;
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
-        int scanned=prefs.getInt("scanned_sheet_count",0);
-        int studentCount=readStudents().length();
         int variants=readSavedVariants().length();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nنسخه‌های ذخیره‌شده: "+variants+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های QR اسکن‌شده: "+scanned);
+        int graded=readGradeResults().length();
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nنسخه‌های ذخیره‌شده: "+variants+"\nپاسخنامه‌های تصحیح‌شده: "+graded);
     }
 
     private void showExamDialog() {
@@ -527,14 +526,14 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("چاپ نسخه‌های ذخیره‌شده")
             .setMessage("تعداد نسخه‌های آمادهٔ چاپ: " + saved.length()
-                + "\nبرای هر نسخه، برگه سؤال‌ها و پاسخنامه با QR اختصاصی ساخته می‌شود."
-                + "\nبا تأیید چاپ، همهٔ صفحات به صف چاپ اندروید ارسال می‌شوند.")
-            .setPositiveButton("چاپ پرسشنامه و پاسخنامه", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
+                + "\nQR پرسشنامه و پاسخنامه حفظ می‌شود تا مدل آزمون و کلید تصحیح مشخص باشد."
+                + "\nشناسهٔ اختصاصی شرکت‌کننده روی برگه چاپ نمی‌شود.")
+            .setPositiveButton("چاپ پرسشنامه و پاسخنامه", (dialog, which) -> printPairedSheets())
             .setNegativeButton("انصراف", null).show();
     }
 
 
-        private void printPairedSheets(String participantName, String participantId) {
+    private void printPairedSheets() {
         try {
             JSONArray bank = readQuestionBank();
             if (bank.length() < questionCount()) {
@@ -544,9 +543,7 @@ public class MainActivity extends Activity {
             JSONArray variants = readSavedVariants();
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
-            String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    Base64.URL_SAFE | Base64.NO_WRAP);
-            String safeExam = escapeHtml(examName());
+             String safeExam = escapeHtml(examName());
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
@@ -570,7 +567,7 @@ public class MainActivity extends Activity {
                 if (variant == null) continue;
                 String modelId = String.valueOf((char)('A' + v));
                 String sheetSetId = variant.optString("sheet_set_id", "");
-                if (sheetSetId.isEmpty()) { info("شناسه QR نسخه ذخیره نشده است؛ نسخه‌ها را دوباره بساز."); return; }
+                if (sheetSetId.isEmpty()) { info("اطلاعات QR مدل آزمون ذخیره نشده است؛ نسخه‌ها را دوباره بساز."); return; }
                 JSONArray questions = variant.optJSONArray("questions");
                 String answerKey = variant.optString("answer_key", "");
                 if (questions == null || questions.length() < total || answerKey.length() < total) {
@@ -1470,7 +1467,7 @@ public class MainActivity extends Activity {
         });
         new AlertDialog.Builder(this)
             .setTitle("تعداد نسخه‌های تصادفی")
-            .setMessage("برای هر نسخه، ترتیب سؤال‌ها و گزینه‌ها تصادفی می‌شود. کلید صحیح و شناسه QR همان نسخه نیز ذخیره می‌شوند تا بعداً برای تصحیح استفاده شوند.")
+            .setMessage("برای هر نسخه، ترتیب سؤال‌ها و گزینه‌ها تصادفی می‌شود و کلید تصحیح همان مدل به‌صورت داخلی ذخیره می‌شود. QR برگه‌ها برای شناسایی مدل حفظ می‌شود؛ شناسهٔ شرکت‌کننده چاپ نمی‌شود.")
             .setView(group)
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ساخت و ذخیره نسخه‌ها", (dialog, which) -> {
@@ -1489,7 +1486,7 @@ public class MainActivity extends Activity {
                     new AlertDialog.Builder(this)
                         .setTitle("نسخه‌ها ذخیره شدند")
                         .setMessage(variants.length() + " نسخه ساخته و در حافظه برنامه ذخیره شد. برای هر نسخه، کلید تصحیح و QR اختصاصی نگهداری می‌شود.")
-                        .setPositiveButton("چاپ نسخه‌ها", (d, w) -> printPairedSheets("", UUID.randomUUID().toString()))
+                        .setPositiveButton("چاپ نسخه‌ها", (d, w) -> printPairedSheets())
                         .setNegativeButton("بعداً", null)
                         .show();
                 } catch (Exception e) {
