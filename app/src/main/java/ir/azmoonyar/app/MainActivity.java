@@ -826,12 +826,208 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("بانک سؤال (" + bank.length() + ")")
             .setMessage(bank.length() == 0
-                ? "هنوز سؤالی ثبت نشده است. برای ساخت نسخه‌های تصادفی، سؤال و چهار گزینه و پاسخ صحیح را ثبت کن."
-                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
+                ? "هنوز سؤالی ثبت نشده است. می‌توانی سؤال‌ها را دستی اضافه کنی یا فایل بانک سؤال JSON/CSV را از گوشی وارد کنی."
+                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند. برای افزودن گروهی، فایل JSON یا CSV وارد کن.")
             .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
-            .setNeutralButton("بستن", null)
+            .setNeutralButton("وارد کردن فایل", (d,w) -> chooseQuestionBankFile())
             .setNegativeButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
             .show();
+    }
+
+    private static final int REQUEST_QUESTION_BANK_FILE = 5207;
+
+    private void chooseQuestionBankFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                "application/json", "text/json", "text/csv", "application/csv",
+                "application/vnd.ms-excel", "text/plain"
+        });
+        try {
+            startActivityForResult(intent, REQUEST_QUESTION_BANK_FILE);
+        } catch (Exception e) {
+            info("باز کردن فایل‌گزین گوشی ممکن نشد.");
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_QUESTION_BANK_FILE || resultCode != RESULT_OK
+                || data == null || data.getData() == null) return;
+        try (InputStream input = getContentResolver().openInputStream(data.getData())) {
+            if (input == null) throw new IllegalArgumentException("فایل قابل خواندن نیست.");
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            String content = new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            String name = "";
+            if (data.getData().getLastPathSegment() != null) {
+                name = data.getData().getLastPathSegment().toLowerCase(Locale.ROOT);
+            }
+            JSONArray imported;
+            String trimmed = content.trim();
+            if (trimmed.startsWith("[") || trimmed.startsWith("{") || name.endsWith(".json")) {
+                imported = parseQuestionBankJson(trimmed);
+            } else {
+                imported = parseQuestionBankCsv(content);
+            }
+            if (imported.length() == 0) {
+                info("هیچ سؤال معتبری در فایل پیدا نشد؛ بانک فعلی تغییر نکرد.");
+                return;
+            }
+            JSONArray existing = readQuestionBank();
+            int added = 0;
+            for (int i = 0; i < imported.length(); i++) {
+                JSONObject item = imported.optJSONObject(i);
+                if (item == null) continue;
+                item.put("id", UUID.randomUUID().toString());
+                existing.put(item);
+                added++;
+            }
+            prefs.edit().putString("question_bank_json", existing.toString()).apply();
+            refreshSummary();
+            new AlertDialog.Builder(this)
+                    .setTitle("واردکردن بانک سؤال انجام شد")
+                    .setMessage(added + " سؤال معتبر اضافه شد.\nتعداد کل سؤال‌های بانک: " + existing.length()
+                            + "\nپاسخ صحیح هر سؤال همراه آن ذخیره شده است. نسخه‌های آزمون را حالا می‌توانی بسازی.")
+                    .setPositiveButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
+                    .setNegativeButton("باشه", null)
+                    .show();
+        } catch (Exception e) {
+            info("فایل وارد نشد: " + (e.getMessage() == null ? "قالب فایل یا داده‌ها معتبر نیست." : e.getMessage())
+                    + "\nقالب مجاز: JSON یا CSV با متن سؤال، چهار گزینه و پاسخ صحیح.");
+        }
+    }
+
+    private JSONArray parseQuestionBankJson(String source) throws Exception {
+        Object rootObject;
+        if (source.startsWith("[")) {
+            rootObject = new JSONArray(source);
+        } else {
+            JSONObject rootJson = new JSONObject(source);
+            rootObject = rootJson.optJSONArray("questions");
+            if (rootObject == null) throw new IllegalArgumentException("در JSON باید آرایهٔ questions یا آرایهٔ مستقیم سؤال‌ها وجود داشته باشد.");
+        }
+        JSONArray rows = (JSONArray) rootObject;
+        JSONArray valid = new JSONArray();
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i);
+            if (row == null) continue;
+            String text = firstNonEmpty(row.optString("text", ""), row.optString("question", ""));
+            JSONArray options = row.optJSONArray("options");
+            String[] optionValues = new String[4];
+            if (options != null && options.length() >= 4) {
+                for (int j = 0; j < 4; j++) optionValues[j] = options.optString(j, "").trim();
+            } else {
+                optionValues[0] = firstNonEmpty(row.optString("option_a", ""), row.optString("A", ""));
+                optionValues[1] = firstNonEmpty(row.optString("option_b", ""), row.optString("B", ""));
+                optionValues[2] = firstNonEmpty(row.optString("option_c", ""), row.optString("C", ""));
+                optionValues[3] = firstNonEmpty(row.optString("option_d", ""), row.optString("D", ""));
+            }
+            int correctIndex = readCorrectIndex(row);
+            if (isValidQuestion(text, optionValues, correctIndex)) {
+                JSONObject normalized = new JSONObject();
+                normalized.put("id", UUID.randomUUID().toString());
+                normalized.put("text", text);
+                normalized.put("topic", row.optString("topic", ""));
+                JSONArray normalizedOptions = new JSONArray();
+                for (String option : optionValues) normalizedOptions.put(option);
+                normalized.put("options", normalizedOptions);
+                normalized.put("correct_index", correctIndex);
+                valid.put(normalized);
+            }
+        }
+        return valid;
+    }
+
+    private int readCorrectIndex(JSONObject row) {
+        if (row.has("correct_index")) {
+            int value = row.optInt("correct_index", -1);
+            if (value >= 0 && value <= 3) return value;
+        }
+        String correct = firstNonEmpty(row.optString("correct_answer", ""),
+                row.optString("answer", ""), row.optString("correct", "")).trim().toUpperCase(Locale.ROOT);
+        if (correct.length() == 1 && correct.charAt(0) >= 'A' && correct.charAt(0) <= 'D') {
+            return correct.charAt(0) - 'A';
+        }
+        try {
+            int numeric = Integer.parseInt(correct);
+            if (numeric >= 1 && numeric <= 4) return numeric - 1;
+        } catch (NumberFormatException ignored) { }
+        return -1;
+    }
+
+    private JSONArray parseQuestionBankCsv(String source) throws Exception {
+        JSONArray valid = new JSONArray();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (String line : source.split("\\r?\\n")) if (!line.trim().isEmpty()) lines.add(line);
+        if (lines.isEmpty()) return valid;
+        int start = 0;
+        java.util.List<String> first = parseCsvLine(lines.get(0));
+        if (first.size() >= 6 && (first.get(0).toLowerCase(Locale.ROOT).contains("question")
+                || first.get(0).contains("سؤال"))) start = 1;
+        for (int i = start; i < lines.size(); i++) {
+            java.util.List<String> cells = parseCsvLine(lines.get(i));
+            if (cells.size() < 6) continue;
+            String text = cells.get(0).trim();
+            String[] options = new String[]{cells.get(1).trim(), cells.get(2).trim(),
+                    cells.get(3).trim(), cells.get(4).trim()};
+            String correct = cells.get(5).trim().toUpperCase(Locale.ROOT);
+            int correctIndex = -1;
+            if (correct.length() == 1 && correct.charAt(0) >= 'A' && correct.charAt(0) <= 'D') {
+                correctIndex = correct.charAt(0) - 'A';
+            } else {
+                try {
+                    int numeric = Integer.parseInt(correct);
+                    if (numeric >= 1 && numeric <= 4) correctIndex = numeric - 1;
+                } catch (NumberFormatException ignored) { }
+            }
+            if (!isValidQuestion(text, options, correctIndex)) continue;
+            JSONObject item = new JSONObject();
+            item.put("id", UUID.randomUUID().toString());
+            item.put("text", text);
+            item.put("topic", cells.size() > 6 ? cells.get(6).trim() : "");
+            JSONArray optionArray = new JSONArray();
+            for (String option : options) optionArray.put(option);
+            item.put("options", optionArray);
+            item.put("correct_index", correctIndex);
+            valid.put(item);
+        }
+        return valid;
+    }
+
+    private java.util.List<String> parseCsvLine(String line) {
+        java.util.List<String> cells = new java.util.ArrayList<>();
+        StringBuilder cell = new StringBuilder();
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                if (quoted && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    cell.append('"'); i++;
+                } else quoted = !quoted;
+            } else if (ch == ',' && !quoted) {
+                cells.add(cell.toString()); cell.setLength(0);
+            } else {
+                cell.append(ch);
+            }
+        }
+        cells.add(cell.toString());
+        return cells;
+    }
+
+    private String firstNonEmpty(String... values) {
+        for (String value : values) if (value != null && !value.trim().isEmpty()) return value.trim();
+        return "";
+    }
+
+    private boolean isValidQuestion(String text, String[] options, int correctIndex) {
+        if (text == null || text.trim().isEmpty() || options == null || options.length != 4
+                || correctIndex < 0 || correctIndex > 3) return false;
+        for (String option : options) if (option == null || option.trim().isEmpty()) return false;
+        return true;
     }
 
     private void showAddBankQuestionDialog() {
