@@ -13,6 +13,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.util.Size;
+import android.util.Base64;
 
 import androidx.annotation.NonNull;
 import androidx.activity.ComponentActivity;
@@ -47,7 +48,7 @@ import java.util.concurrent.Executors;
 
 /**
  * Continuous offline QR scanner. Frames are analyzed in memory and are never saved.
- * Accepted QR payload format: AZY1|exact exam name|unique sheet ID.
+ * Accepted QR payloads: legacy AZY1|exact exam name|unique sheet ID, and AZY2|URL-safe Base64 exam name|unique sheet ID.
  * This activity registers sheet IDs only; OMR bubble reading/grading is not implemented yet.
  */
 public class ScanActivity extends ComponentActivity {
@@ -251,11 +252,21 @@ public class ScanActivity extends ComponentActivity {
     private void registerIfValid(String payload) {
         if (isFinishing() || !scannerActive) return;
         String[] parts = payload.split("\\|", 3);
-        if (parts.length != 3 || !"AZY1".equals(parts[0])) {
+        if (parts.length != 3 || !("AZY1".equals(parts[0]) || "AZY2".equals(parts[0]))) {
             showStatus("QR دیده شد، اما قالب آزمون‌یار نیست.");
             return;
         }
-        if (!examName.equals(parts[1].trim())) {
+        String decodedExamName;
+        try {
+            decodedExamName = "AZY2".equals(parts[0])
+                    ? new String(Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP),
+                            java.nio.charset.StandardCharsets.UTF_8).trim()
+                    : parts[1].trim();
+        } catch (IllegalArgumentException badPayload) {
+            showStatus("نام آزمون در QR معتبر نیست.");
+            return;
+        }
+        if (!examName.equals(decodedExamName)) {
             showStatus("این پاسخنامه برای آزمون فعلی نیست.");
             return;
         }
