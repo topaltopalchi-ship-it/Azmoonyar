@@ -1554,6 +1554,194 @@ public class MainActivity extends Activity {
             }).show();
     }
 
+
+    private JSONArray readGradeResults() {
+        try { return new JSONArray(prefs.getString("grade_results_json", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    /** Manual answer entry is available now; camera-based OMR recognition is not yet implemented. */
+    private void showManualGradingDialog() {
+        JSONArray variants = readSavedVariants();
+        if (variants.length() == 0) {
+            info("ابتدا بانک سؤال را کامل کن و از بخش ساخت نسخه‌های تصادفی، حداقل یک نسخه بساز.");
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(8), dp(4), dp(8), dp(4));
+
+        EditText studentName = new EditText(this);
+        styleInput(studentName);
+        studentName.setSingleLine(true);
+        studentName.setHint("نام دانش‌آموز (اختیاری؛ بدون شناسه)");
+        form.addView(studentName);
+
+        TextView variantLabel = new TextView(this);
+        variantLabel.setText("مدل برگه را انتخاب کن:");
+        variantLabel.setTextSize(15);
+        form.addView(variantLabel);
+
+        RadioGroup modelGroup = new RadioGroup(this);
+        modelGroup.setOrientation(RadioGroup.HORIZONTAL);
+        for (int i = 0; i < variants.length(); i++) {
+            RadioButton model = new RadioButton(this);
+            model.setText("مدل " + (char)('A' + i));
+            model.setTag(i);
+            modelGroup.addView(model);
+            if (i == 0) model.setChecked(true);
+        }
+        form.addView(modelGroup);
+
+        EditText answerInput = new EditText(this);
+        styleInput(answerInput);
+        answerInput.setSingleLine(false);
+        answerInput.setMinLines(3);
+        answerInput.setGravity(Gravity.TOP | Gravity.START);
+        answerInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+                | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        answerInput.setHint("پاسخ‌ها به ترتیب سؤال‌ها؛ مثال: ABCD-A?D\n- یعنی بی‌پاسخ و ? یعنی نیازمند بررسی");
+        form.addView(answerInput);
+
+        new AlertDialog.Builder(this)
+            .setTitle("تصحیح پاسخنامه")
+            .setMessage("فعلاً پاسخ‌ها را از روی برگه وارد کن. تصحیح با کلید همان مدل انجام و نتیجه ذخیره می‌شود؛ خواندن خودکار حباب‌ها با دوربین هنوز آماده نیست.")
+            .setView(form)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("تصحیح و ذخیره نمره", (dialog, which) -> {
+                int selectedIndex = 0;
+                int checked = modelGroup.getCheckedRadioButtonId();
+                RadioButton selected = modelGroup.findViewById(checked);
+                if (selected != null && selected.getTag() instanceof Integer) {
+                    selectedIndex = (Integer) selected.getTag();
+                }
+                JSONObject variant = variants.optJSONObject(selectedIndex);
+                if (variant == null) {
+                    info("مدل انتخاب‌شده معتبر نیست.");
+                    return;
+                }
+                String raw = answerInput.getText().toString().toUpperCase(Locale.ROOT)
+                        .replace('А', 'A').replace('В', 'B').replace('С', 'C').replace('Д', 'D');
+                raw = raw.replaceAll("[\\s,;،]+", "");
+                if (raw.length() != questionCount()) {
+                    info("باید دقیقاً " + questionCount() + " پاسخ وارد کنی. برای سؤال بی‌پاسخ از - و برای مورد مبهم از ? استفاده کن.");
+                    return;
+                }
+                String[] recognized = new String[raw.length()];
+                for (int i = 0; i < raw.length(); i++) {
+                    char ch = raw.charAt(i);
+                    if ((ch >= 'A' && ch <= 'D') || ch == '-' || ch == '?') {
+                        recognized[i] = ch == '-' ? "" : (ch == '?' ? "?" : String.valueOf(ch));
+                    } else {
+                        info("نویسهٔ نامعتبر در پاسخ سؤال " + (i + 1) + ". فقط A، B، C، D، - و ? مجاز است.");
+                        return;
+                    }
+                }
+                try {
+                    ExamGrader.Result grade = ExamGrader.grade(variant, recognized);
+                    JSONObject saved = grade.toJson();
+                    saved.put("exam_name", examName());
+                    saved.put("student_name", studentName.getText().toString().trim());
+                    saved.put("model", String.valueOf((char)('A' + selectedIndex)));
+                    saved.put("graded_at", System.currentTimeMillis());
+                    JSONArray results = readGradeResults();
+                    results.put(saved);
+                    prefs.edit().putString("grade_results_json", results.toString()).apply();
+                    refreshSummary();
+                    info("تصحیح انجام شد.\nنام: " + (saved.optString("student_name").isEmpty() ? "ثبت نشده" : saved.optString("student_name"))
+                            + "\nنمره: " + String.format(Locale.ROOT, "%.2f", grade.percentage) + "٪"
+                            + "\nصحیح: " + grade.correct + " | غلط: " + grade.incorrect
+                            + " | سفید: " + grade.blank + " | نیازمند بررسی: " + grade.review);
+                } catch (Exception e) {
+                    info("تصحیح انجام نشد: " + (e.getMessage() == null ? "کلید پاسخ مدل را بررسی کن." : e.getMessage()));
+                }
+            })
+            .show();
+    }
+
+    private void showGradeAnalysis() {
+        JSONArray results = readGradeResults();
+        if (results.length() == 0) {
+            new AlertDialog.Builder(this)
+                .setTitle("تحلیل نمرات دانش‌آموزان")
+                .setMessage("هنوز نمره‌ای ثبت نشده است.\nابتدا از دکمهٔ «تصحیح پاسخنامه» پاسخ‌های یک دانش‌آموز را وارد و ذخیره کن.")
+                .setPositiveButton("رفتن به تصحیح", (d, w) -> showManualGradingDialog())
+                .setNegativeButton("بستن", null)
+                .show();
+            return;
+        }
+        double sum = 0.0, highest = -1.0, lowest = 101.0;
+        int totalCorrect = 0, totalIncorrect = 0, totalBlank = 0, totalReview = 0;
+        int questionTotal = 0;
+        int[] wrongByQuestion = new int[questionCount()];
+        int[] attemptedByQuestion = new int[questionCount()];
+        StringBuilder details = new StringBuilder();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            double score = result.optDouble("percentage", 0.0);
+            sum += score;
+            highest = Math.max(highest, score);
+            lowest = Math.min(lowest, score);
+            totalCorrect += result.optInt("correct", 0);
+            totalIncorrect += result.optInt("incorrect", 0);
+            totalBlank += result.optInt("blank", 0);
+            totalReview += result.optInt("review", 0);
+            JSONArray items = result.optJSONArray("items");
+            if (items != null) {
+                for (int q = 0; q < Math.min(items.length(), wrongByQuestion.length); q++) {
+                    JSONObject item = items.optJSONObject(q);
+                    if (item == null) continue;
+                    String status = item.optString("status", "");
+                    if ("CORRECT".equals(status) || "INCORRECT".equals(status)) attemptedByQuestion[q]++;
+                    if ("INCORRECT".equals(status)) wrongByQuestion[q]++;
+                }
+            }
+            details.append(i + 1).append(". ")
+                .append(result.optString("student_name", "").trim().isEmpty() ? "بدون نام" : result.optString("student_name"))
+                .append(" | مدل ").append(result.optString("model", "-"))
+                .append(" | ").append(String.format(Locale.ROOT, "%.2f", score)).append("%")
+                .append(" | صحیح ").append(result.optInt("correct", 0))
+                .append("، غلط ").append(result.optInt("incorrect", 0))
+                .append("، سفید ").append(result.optInt("blank", 0)).append("\n");
+        }
+        double average = sum / results.length();
+        StringBuilder analysis = new StringBuilder();
+        analysis.append("تعداد برگه‌های تصحیح‌شده: ").append(results.length()).append("\n")
+            .append("میانگین نمره: ").append(String.format(Locale.ROOT, "%.2f", average)).append("%\n")
+            .append("بالاترین نمره: ").append(String.format(Locale.ROOT, "%.2f", highest)).append("%\n")
+            .append("پایین‌ترین نمره: ").append(String.format(Locale.ROOT, "%.2f", lowest)).append("%\n\n")
+            .append("مجموع پاسخ‌های صحیح: ").append(totalCorrect).append("\n")
+            .append("مجموع پاسخ‌های غلط: ").append(totalIncorrect).append("\n")
+            .append("مجموع بی‌پاسخ‌ها: ").append(totalBlank).append("\n")
+            .append("موارد نیازمند بررسی: ").append(totalReview).append("\n\n")
+            .append("سؤال‌های دشوارتر (بیشترین پاسخ غلط):\n");
+        java.util.ArrayList<Integer> hardest = new java.util.ArrayList<>();
+        for (int i = 0; i < wrongByQuestion.length; i++) if (attemptedByQuestion[i] > 0) hardest.add(i);
+        java.util.Collections.sort(hardest, (a, b) -> Integer.compare(wrongByQuestion[b], wrongByQuestion[a]));
+        int shown = 0;
+        for (Integer q : hardest) {
+            if (shown++ >= 5) break;
+            analysis.append("سؤال ").append(q + 1).append(": ")
+                .append(wrongByQuestion[q]).append(" غلط از ")
+                .append(attemptedByQuestion[q]).append(" پاسخ بررسی‌شده\n");
+        }
+        analysis.append("\nفهرست نمره‌ها:\n").append(details);
+        ScrollView scroll = new ScrollView(this);
+        TextView content = new TextView(this);
+        content.setText(analysis.toString());
+        content.setTextSize(15);
+        content.setTextColor(Color.rgb(30, 41, 59));
+        content.setPadding(dp(14), dp(12), dp(14), dp(12));
+        scroll.addView(content);
+        new AlertDialog.Builder(this)
+            .setTitle("تحلیل نمرات دانش‌آموزان")
+            .setView(scroll)
+            .setPositiveButton("بستن", null)
+            .show();
+    }
+
     private void showReportsCenter() {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
