@@ -417,32 +417,106 @@ public class MainActivity extends Activity {
     }
 
     private void showAddStudentDialog() {
-        EditText name = new EditText(this); styleInput(name);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(8), dp(6), dp(8), dp(2));
+        EditText name = new EditText(this);
+        styleInput(name);
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
-        new AlertDialog.Builder(this)
+        form.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        Button voice = new Button(this);
+        voice.setText("🎙 گفتن نام با صدا");
+        voice.setAllCaps(false);
+        form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
-                .setView(name)
+                .setView(form)
                 .setNegativeButton("انصراف", null)
-                .setPositiveButton("ذخیره", (d, w) -> {
-                    String studentName = name.getText().toString().trim();
-                    if (studentName.isEmpty()) {
-                        info("نام شرکت‌کننده را وارد کن.");
-                        return;
+                .setPositiveButton("ذخیره", null)
+                .create();
+        voice.setOnClickListener(v -> startPersianNameCapture(name, voice));
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String studentName = name.getText().toString().trim();
+            if (studentName.isEmpty()) {
+                info("نام شرکت‌کننده را وارد کن یا با صدا بگو.");
+                return;
+            }
+            JSONArray students = readStudents();
+            try {
+                JSONObject student = new JSONObject();
+                student.put("id", UUID.randomUUID().toString());
+                student.put("name", studentName);
+                students.put(student);
+                prefs.edit().putString("students_json", students.toString()).apply();
+                refreshSummary();
+                dialog.dismiss();
+                info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد.");
+            } catch (Exception e) {
+                info("ذخیره شرکت‌کننده انجام نشد؛ دوباره تلاش کن.");
+            }
+        }));
+        dialog.show();
+    }
+
+    private void startPersianNameCapture(EditText target, Button voiceButton) {
+        if (android.os.Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 731);
+            voiceButton.setText("برای ضبط، مجوز میکروفن را بده");
+            return;
+        }
+        File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
+        if (!new File(modelDir, "am/final.mdl").exists()) {
+            info("مدل صوتی فارسی هنوز آماده نیست؛ پس از تکمیل دانلود دوباره تلاش کن.");
+            return;
+        }
+        voiceButton.setEnabled(false);
+        voiceButton.setText("در حال آماده‌سازی میکروفن…");
+        new Thread(() -> {
+            PersianSpeechCapture capture = null;
+            try {
+                capture = new PersianSpeechCapture(modelDir.getAbsolutePath(), new PersianSpeechCapture.Listener() {
+                    @Override public void onText(String text) {
+                        runOnUiThread(() -> {
+                            target.setText(text);
+                            target.setSelection(target.getText().length());
+                            voiceButton.setText("🎙 گفتن نام با صدا");
+                            voiceButton.setEnabled(true);
+                        });
                     }
-                    JSONArray students = readStudents();
-                    try {
-                        JSONObject student = new JSONObject();
-                        student.put("id", UUID.randomUUID().toString());
-                        student.put("name", studentName);
-                        students.put(student);
-                        prefs.edit().putString("students_json", students.toString()).apply();
-                        refreshSummary();
-                        info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد.");
-                    } catch (Exception e) {
-                        info("ذخیره شرکت‌کننده انجام نشد؛ دوباره تلاش کن.");
+                    @Override public void onStatus(String status) {
+                        runOnUiThread(() -> voiceButton.setText(status));
                     }
-                }).show();
+                    @Override public void onError(String message) {
+                        runOnUiThread(() -> {
+                            voiceButton.setText("🎙 تلاش دوباره برای گفتن نام");
+                            voiceButton.setEnabled(true);
+                            info(message);
+                        });
+                    }
+                });
+                PersianSpeechCapture ready = capture;
+                runOnUiThread(() -> {
+                    voiceButton.setText("اکنون نام را بگو… (برای توقف دوباره بزن)");
+                    voiceButton.setEnabled(true);
+                    voiceButton.setOnClickListener(v -> {
+                        voiceButton.setEnabled(false);
+                        voiceButton.setText("در حال پردازش گفتار…");
+                        ready.stop();
+                    });
+                });
+                capture.start();
+            } catch (Exception e) {
+                if (capture != null) capture.stop();
+                runOnUiThread(() -> {
+                    voiceButton.setText("🎙 گفتن نام با صدا");
+                    voiceButton.setEnabled(true);
+                    info("تشخیص گفتار شروع نشد؛ دوباره تلاش کن.");
+                });
+            }
+        }, "persian-name-recognition").start();
     }
 
     private void showPrintStudentDialog() {
