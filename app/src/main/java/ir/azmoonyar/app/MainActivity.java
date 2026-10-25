@@ -520,7 +520,8 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("چاپ نسخه‌های ذخیره‌شده")
             .setMessage("تعداد نسخه‌های آمادهٔ چاپ: " + saved.length()
-                + "\nهر نسخه QR اختصاصی و کلید تصحیح متناظر دارد.")
+                + "\nبرای هر نسخه، برگه سؤال‌ها و پاسخنامه با QR اختصاصی ساخته می‌شود."
+                + "\nبا تأیید چاپ، همهٔ صفحات به صف چاپ اندروید ارسال می‌شوند.")
             .setPositiveButton("چاپ پرسشنامه و پاسخنامه", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
             .setNegativeButton("انصراف", null).show();
     }
@@ -581,25 +582,23 @@ public class MainActivity extends Activity {
                     String qr64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
                     int first = (page - 1) * 100;
                     int last = Math.min(page * 100, total);
-                    if (page == 1) {
-                        html.append("<section class='page'><h1 class='head'>").append(safeExam)
-                            .append(" — برگه سؤال‌ها</h1>")
-                            .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
-                            .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
-                            .append("<div class='meta'>تعداد سؤال: ").append(total).append("</div><div class='clear'></div><hr/>");
-                        for (int i = 0; i < total; i++) {
-                            JSONObject q = questions.optJSONObject(i);
-                            if (q == null) continue;
-                            html.append("<article class='question'><b>").append(i + 1).append(". ")
-                                .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
-                            JSONArray options = q.optJSONArray("options");
-                            if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
-                                html.append("<div>").append((char)('A' + j)).append(") ")
-                                    .append(escapeHtml(options.optString(j, ""))).append("</div>");
-                            html.append("</div></article>");
-                        }
-                        html.append("</section>");
+                    html.append("<section class='page'><h1 class='head'>").append(safeExam)
+                        .append(" — برگه سؤال‌ها (صفحه ").append(page).append(" از ").append(pageCount).append(")</h1>")
+                        .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
+                        .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
+                        .append("<div class='meta'>تعداد کل سؤال‌ها: ").append(total).append("</div><div class='clear'></div><hr/>");
+                    for (int i = first; i < last; i++) {
+                        JSONObject q = questions.optJSONObject(i);
+                        if (q == null) continue;
+                        html.append("<article class='question'><b>").append(i + 1).append(". ")
+                            .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
+                        JSONArray options = q.optJSONArray("options");
+                        if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
+                            html.append("<div>").append((char)('A' + j)).append(") ")
+                                .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                        html.append("</div></article>");
                     }
+                    html.append("</section>");
                     html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
