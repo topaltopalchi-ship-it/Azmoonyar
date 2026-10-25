@@ -42,17 +42,24 @@ public final class PersianSpeechCapture implements RecognitionListener {
     }
 
     @Override public void onPartialResult(String hypothesis) { }
-    @Override public void onResult(String hypothesis) { }
+
+    @Override public void onResult(String hypothesis) {
+        deliverRecognizedText(hypothesis);
+    }
 
     @Override public void onFinalResult(String hypothesis) {
+        deliverRecognizedText(hypothesis);
+    }
+
+    private void deliverRecognizedText(String hypothesis) {
         if (delivered) return;
-        delivered = true;
         String text = "";
         try { text = new JSONObject(hypothesis).optString("text", "").trim(); }
         catch (Exception ignored) { }
+        if (text.isEmpty()) return;
+        delivered = true;
         stopResources();
-        if (text.isEmpty()) listener.onError("نام تشخیص داده نشد؛ لطفاً واضح‌تر بگو یا تایپ کن.");
-        else listener.onText(text);
+        listener.onText(text);
     }
 
     @Override public void onError(Exception exception) {
