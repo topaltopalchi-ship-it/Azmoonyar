@@ -56,6 +56,10 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+        if (!prefs.getBoolean("vosk_model_prompted", false)) {
+            prefs.edit().putBoolean("vosk_model_prompted", true).apply();
+            new android.os.Handler(getMainLooper()).postDelayed(this::downloadPersianSpeechModel, 700);
+        }
     }
 
     @Override protected void onResume() {
