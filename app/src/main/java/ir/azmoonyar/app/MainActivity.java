@@ -1074,8 +1074,8 @@ public class MainActivity extends Activity {
                 .replace("\u200c", " "));
         // Split options that are printed inline on the same PDF line.
         normalized = normalized.replaceAll(
-                "(?m)(?<!\\\\S)([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*", "\\n$1) ");
-        String[] lines = normalized.split("\\\\r?\\\\n");
+                "(?m)(?<!\\S)([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*", "\n$1) ");
+        String[] lines = normalized.split("\\r?\\n");
         java.util.Map<Integer, Integer> answerKey = new java.util.HashMap<>();
         java.util.List<JSONObject> questions = new java.util.ArrayList<>();
         JSONObject current = null;
@@ -1083,11 +1083,11 @@ public class MainActivity extends Activity {
         java.util.List<String> options = new java.util.ArrayList<>();
         boolean inAnswerKey = false;
         java.util.regex.Pattern qStart = java.util.regex.Pattern.compile(
-                "^\\\\s*(?:(?:سوال|سؤال|پرسش)\\\\s*)?(\\\\d{1,3})\\\\s*[.)،:：-]\\\\s*(.*)$");
+                "^\\s*(?:(?:سوال|سؤال|پرسش)\\s*)?(\\d{1,3})\\s*[.)،:：-]\\s*(.*)$");
         java.util.regex.Pattern optionStart = java.util.regex.Pattern.compile(
-                "^\\\\s*([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*(.*)$");
+                "^\\s*([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*(.*)$");
         java.util.regex.Pattern answerPair = java.util.regex.Pattern.compile(
-                "(\\\\d{1,3})\\\\s*[-:.)،]\\\\s*([الفبجدA-Da-d])",
+                "(\\d{1,3})\\s*[-:.)،]\\s*([الفبجدA-Da-d])",
                 java.util.regex.Pattern.CASE_INSENSITIVE);
 
         for (String raw : lines) {
