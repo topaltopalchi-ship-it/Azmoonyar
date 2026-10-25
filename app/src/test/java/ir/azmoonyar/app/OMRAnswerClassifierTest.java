@@ -36,9 +36,9 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void sendsNearTieToReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.72, 0.68, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+    public void sendsLowMarginSingleMarkToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.50, 0.39, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
