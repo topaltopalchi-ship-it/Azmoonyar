@@ -4,6 +4,10 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.widget.ImageView;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.webkit.WebView;
@@ -46,6 +50,9 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
+    private static final int REQUEST_QUESTION_IMAGE = 5208;
+    private String pendingQuestionImageFile = "";
+    private ImageView questionImagePreview;
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
     private String examName() { return prefs.getString("exam_name", ""); }
@@ -557,6 +564,7 @@ public class MainActivity extends Activity {
                 .append(".meta{font-size:10px;margin:2mm 0}.qr{width:25mm;height:25mm;float:left}.clear{clear:both}")
                 .append(".instructions{font-size:9px;border:1px solid #333;padding:2mm;margin:2mm 0}")
                 .append(".question{font-size:11px;line-height:1.35;margin:0 0 2.5mm;page-break-inside:avoid;break-inside:avoid}")
+                .append(".figure{margin:1.5mm 5mm;max-height:45mm;text-align:center}.figure img{max-width:100%;max-height:45mm;object-fit:contain}")
                 .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1mm;margin:1mm 5mm 0;font-size:10px}")
                 .append(".cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:3mm}")
                 .append(".col{border:0.3mm solid #111;padding:2mm 1.5mm;border-radius:1mm}")
@@ -599,7 +607,14 @@ public class MainActivity extends Activity {
                         JSONObject q = questions.optJSONObject(i);
                         if (q == null) continue;
                         html.append("<article class='question'><b>").append(i + 1).append(". ")
-                            .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
+                            .append(escapeHtml(q.optString("text", ""))).append("</b>");
+                        String figureFile = q.optString("image_file", "");
+                        if (!figureFile.isEmpty()) {
+                            String figureData = questionImageDataUri(figureFile);
+                            if (!figureData.isEmpty()) html.append("<div class='figure'><img src='")
+                                .append(figureData).append("'/></div>");
+                        }
+                        html.append("<div class='options'>");
                         JSONArray options = q.optJSONArray("options");
                         if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
                             html.append("<div>").append((char)('A' + j)).append(") ")
@@ -1021,6 +1036,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_QUESTION_IMAGE) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) importQuestionImage(data.getData());
+            return;
+        }
         if (requestCode != REQUEST_QUESTION_BANK_FILE || resultCode != RESULT_OK
                 || data == null || data.getData() == null) return;
         String name = data.getData().getLastPathSegment() == null ? "" :
@@ -1382,25 +1401,60 @@ public class MainActivity extends Activity {
     }
 
     private void showAddBankQuestionDialog() {
+        pendingQuestionImageFile = "";
+        questionImagePreview = null;
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
         EditText question = new EditText(this); styleInput(question);
         question.setHint("متن سؤال");
-        form.addView(question);
+        content.addView(question);
         EditText topic = new EditText(this); styleInput(topic);
         topic.setHint("مبحث (اختیاری؛ مثل نوار قلب یا رادیکال)");
-        form.addView(topic);
+        content.addView(topic);
+
+        TextView imageLabel = new TextView(this);
+        imageLabel.setText("تصویر سؤال (اختیاری): شکل هندسی، نوار قلب، نمودار یا تصویر آموزشی");
+        imageLabel.setTextColor(Color.rgb(30, 41, 59));
+        imageLabel.setTextSize(14);
+        imageLabel.setPadding(0, dp(12), 0, dp(6));
+        content.addView(imageLabel);
+        questionImagePreview = new ImageView(this);
+        questionImagePreview.setAdjustViewBounds(true);
+        questionImagePreview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        questionImagePreview.setMaxHeight(dp(180));
+        questionImagePreview.setVisibility(View.GONE);
+        content.addView(questionImagePreview, new LinearLayout.LayoutParams(-1, dp(180)));
+        Button chooseImage = new Button(this);
+        chooseImage.setText("انتخاب تصویر از گالری");
+        chooseImage.setAllCaps(false);
+        chooseImage.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            try { startActivityForResult(intent, REQUEST_QUESTION_IMAGE); }
+            catch (Exception e) { info("باز کردن گالری ممکن نشد."); }
+        });
+        content.addView(chooseImage);
+        Button removeImage = new Button(this);
+        removeImage.setText("حذف تصویر انتخاب‌شده");
+        removeImage.setAllCaps(false);
+        removeImage.setOnClickListener(v -> clearPendingQuestionImage());
+        content.addView(removeImage);
+
         EditText[] options = new EditText[4];
         for (int i = 0; i < 4; i++) {
             options[i] = new EditText(this); styleInput(options[i]);
             options[i].setSingleLine(false);
             options[i].setHint("گزینه " + (char)('A' + i));
-            form.addView(options[i]);
+            content.addView(options[i]);
         }
         TextView label = new TextView(this);
         label.setText("پاسخ صحیح را انتخاب کن:");
-        form.addView(label);
+        content.addView(label);
         RadioGroup correctGroup = new RadioGroup(this);
         correctGroup.setOrientation(RadioGroup.HORIZONTAL);
         for (int i = 0; i < 4; i++) {
@@ -1410,9 +1464,11 @@ public class MainActivity extends Activity {
             rb.setTag(i);
             correctGroup.addView(rb);
         }
-        form.addView(correctGroup);
+        content.addView(correctGroup);
+        scroll.addView(content);
+        form.addView(scroll);
         new AlertDialog.Builder(this).setTitle("افزودن به بانک سؤال").setView(form)
-            .setNegativeButton("انصراف", null)
+            .setNegativeButton("انصراف", (d,w) -> clearPendingQuestionImage())
             .setPositiveButton("ذخیره", (d,w) -> {
                 String qText = question.getText().toString().trim();
                 if (qText.isEmpty()) { info("متن سؤال را وارد کن."); return; }
@@ -1434,13 +1490,83 @@ public class MainActivity extends Activity {
                     item.put("topic", topic.getText().toString().trim());
                     item.put("options", optionArray);
                     item.put("correct_index", correctIndex);
+                    if (!pendingQuestionImageFile.isEmpty()) item.put("image_file", pendingQuestionImageFile);
                     bank.put(item);
                     prefs.edit().putString("question_bank_json", bank.toString()).apply();
-                    info("سؤال در بانک محلی ذخیره شد.");
+                    pendingQuestionImageFile = "";
+                    questionImagePreview = null;
+                    info("سؤال و تصویر آن در بانک محلی ذخیره شد.");
                 } catch (Exception e) {
                     info("ذخیره سؤال ناموفق بود.");
                 }
             }).show();
+    }
+
+    private void clearPendingQuestionImage() {
+        if (!pendingQuestionImageFile.isEmpty()) {
+            try { new File(getFilesDir(), "question_images/" + pendingQuestionImageFile).delete(); }
+            catch (Exception ignored) { }
+        }
+        pendingQuestionImageFile = "";
+        if (questionImagePreview != null) {
+            questionImagePreview.setImageDrawable(null);
+            questionImagePreview.setVisibility(View.GONE);
+        }
+    }
+
+    private void importQuestionImage(android.net.Uri uri) {
+        if (uri == null) return;
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalArgumentException("تصویر قابل خواندن نیست.");
+            Bitmap original = BitmapFactory.decodeStream(input);
+            if (original == null) throw new IllegalArgumentException("قالب تصویر پشتیبانی نمی‌شود.");
+            int maxSide = 1200;
+            float scale = Math.min(1f, maxSide / (float) Math.max(original.getWidth(), original.getHeight()));
+            int width = Math.max(1, Math.round(original.getWidth() * scale));
+            int height = Math.max(1, Math.round(original.getHeight() * scale));
+            Bitmap scaled = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(scaled);
+            canvas.drawColor(Color.WHITE);
+            Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+            canvas.drawBitmap(original, null, new android.graphics.Rect(0, 0, width, height), paint);
+            if (scaled != original) original.recycle();
+            File directory = new File(getFilesDir(), "question_images");
+            if (!directory.exists() && !directory.mkdirs()) throw new IllegalStateException("پوشه تصویر ساخته نشد.");
+            String fileName = UUID.randomUUID().toString() + ".jpg";
+            File destination = new File(directory, fileName);
+            try (java.io.FileOutputStream output = new java.io.FileOutputStream(destination)) {
+                if (!scaled.compress(Bitmap.CompressFormat.JPEG, 82, output)) throw new IllegalStateException("فشرده‌سازی تصویر انجام نشد.");
+            } finally {
+                scaled.recycle();
+            }
+            if (!pendingQuestionImageFile.isEmpty()) {
+                try { new File(directory, pendingQuestionImageFile).delete(); } catch (Exception ignored) { }
+            }
+            pendingQuestionImageFile = fileName;
+            if (questionImagePreview != null) {
+                questionImagePreview.setImageURI(null);
+                questionImagePreview.setImageBitmap(BitmapFactory.decodeFile(destination.getAbsolutePath()));
+                questionImagePreview.setVisibility(View.VISIBLE);
+            }
+            info("تصویر انتخاب شد؛ هنگام چاپ زیر متن سؤال قرار می‌گیرد.");
+        } catch (Exception e) {
+            info("تصویر اضافه نشد. یک تصویر JPG یا PNG دیگر انتخاب کن.");
+        }
+    }
+
+    private String questionImageDataUri(String fileName) {
+        if (fileName == null || fileName.isEmpty()) return "";
+        File imageFile = new File(new File(getFilesDir(), "question_images"), fileName);
+        if (!imageFile.isFile()) return "";
+        try (InputStream input = new java.io.FileInputStream(imageFile);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            return "data:image/jpeg;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        }
     }
 
 
