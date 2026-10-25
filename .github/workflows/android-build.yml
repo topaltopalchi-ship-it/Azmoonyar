@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 jobs:
-  debug-build:
+  android-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,11 +19,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Compile debug and release variants
+        run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
         uses: actions/upload-artifact@v4
         with:
-          name: azmoonyar-debug-apk
+          name: azmoonyar-debug-apk-testing-only
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Upload unsigned release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: azmoonyar-release-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
