@@ -579,7 +579,7 @@ public class MainActivity extends Activity {
                     int last = Math.min(page * 100, total);
                     if (page == 1) {
                         html.append("<section class='page'><h1 class='head'>").append(safeExam)
-                            .append(" — برگه سؤال‌ها (مدل ").append(modelId).append(")</h1>")
+                            .append(" — برگه سؤال‌ها</h1>")
                             .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
                             .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                             .append("<div class='meta'>تعداد سؤال: ").append(total).append("</div><div class='clear'></div><hr/>");
@@ -642,7 +642,7 @@ public class MainActivity extends Activity {
     }
 
     private JSONArray getOrCreateExamVariants(JSONArray bank, int count) throws Exception {
-        String cacheKey = "exam_variants_" + Integer.toHexString(examName().hashCode()) + "_" + bank.length();
+        String cacheKey = "exam_variants_" + Integer.toHexString((examName() + "|" + bank.toString()).hashCode()) + "_" + count;
         String saved = prefs.getString(cacheKey, "");
         if (!saved.isEmpty()) {
             try {
