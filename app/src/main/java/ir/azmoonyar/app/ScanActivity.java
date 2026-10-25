@@ -58,6 +58,7 @@ public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
     private static final int QUESTIONS_PER_PRINT_PAGE = 20;
+    private static final int QUESTIONS_PER_FIGURE_PAGE = 6;
     private static final int MAX_PRINT_PAGES = 50;
 
     private PreviewView previewView;
@@ -364,8 +365,22 @@ public class ScanActivity extends ComponentActivity {
             return;
         }
         JSONArray variantQuestions = matchedVariant.optJSONArray("questions");
-        int expectedPageCount = variantQuestions == null ? 0
-                : (variantQuestions.length() + QUESTIONS_PER_PRINT_PAGE - 1) / QUESTIONS_PER_PRINT_PAGE;
+        int expectedQuestionCount = Math.min(
+                matchedVariant.optInt("question_count", variantQuestions == null ? 0 : variantQuestions.length()),
+                variantQuestions == null ? 0 : variantQuestions.length());
+        boolean hasFigures = false;
+        if (variantQuestions != null) {
+            for (int qi = 0; qi < expectedQuestionCount; qi++) {
+                JSONObject printedQuestion = variantQuestions.optJSONObject(qi);
+                if (printedQuestion != null && !printedQuestion.optString("image_file", "").isEmpty()) {
+                    hasFigures = true;
+                    break;
+                }
+            }
+        }
+        int questionsPerPage = hasFigures ? QUESTIONS_PER_FIGURE_PAGE : QUESTIONS_PER_PRINT_PAGE;
+        int expectedPageCount = expectedQuestionCount < 1 ? 0
+                : (expectedQuestionCount + questionsPerPage - 1) / questionsPerPage;
         if (pageCount < 1 || pageCount > MAX_PRINT_PAGES || page < 1 || page > pageCount
                 || expectedPageCount < 1 || pageCount != expectedPageCount
                 || !"T1".equals(templateId)) {
