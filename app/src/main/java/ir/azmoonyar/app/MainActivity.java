@@ -829,9 +829,164 @@ public class MainActivity extends Activity {
                 ? "هنوز سؤالی ثبت نشده است. می‌توانی سؤال‌ها را دستی اضافه کنی یا فایل بانک سؤال JSON/CSV را از گوشی وارد کنی."
                 : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند. برای افزودن گروهی، فایل JSON یا CSV وارد کن.")
             .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
-            .setNeutralButton("وارد کردن فایل", (d,w) -> chooseQuestionBankFile())
+            .setNeutralButton("واردکردن / دانلود بانک", (d,w) -> showQuestionBankImportOptions())
             .setNegativeButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
             .show();
+    }
+
+    private void showQuestionBankImportOptions() {
+        new AlertDialog.Builder(this)
+                .setTitle("افزودن بانک سؤال")
+                .setItems(new String[]{"دانلود بانک دانشگاهی رایگان", "واردکردن فایل از گوشی", "دانلود از لینک مستقیم JSON/CSV"}, (dialog, which) -> {
+                    if (which == 0) browseUniversityQuestionBanks();
+                    else if (which == 1) chooseQuestionBankFile();
+                    else promptQuestionBankUrl();
+                })
+                .setNegativeButton("بستن", null)
+                .show();
+    }
+
+    private void browseUniversityQuestionBanks() {
+        new AlertDialog.Builder(this)
+                .setTitle("منابع رایگان دانشگاهی")
+                .setMessage("منبع متن‌باز MockTest Hub شامل مجموعه‌های تمرینی NIMCET، CUET-PG، GATE و JAM است. فایل‌های موجود در مخزن را می‌توانی انتخاب و به بانک فعلی اضافه کنی. زبان و پوشش سؤال‌ها بسته به فایل متفاوت است؛ قبل از استفاده، پاسخ‌ها را بازبینی کن. مجوز مخزن MIT اعلام شده است.")
+                .setPositiveButton("نمایش فایل‌های قابل دانلود", (d,w) -> loadUniversityBankIndex())
+                .setNeutralButton("مشاهده منبع", (d,w) -> {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/AdithSuresh2004/exam-questions"))); }
+                    catch (Exception ignored) { info("نشانی منبع: github.com/AdithSuresh2004/exam-questions"); }
+                })
+                .setNegativeButton("لغو", null)
+                .show();
+    }
+
+    private void promptQuestionBankUrl() {
+        EditText urlInput = new EditText(this);
+        styleInput(urlInput);
+        urlInput.setSingleLine(true);
+        urlInput.setHint("https://.../questions.json");
+        new AlertDialog.Builder(this)
+                .setTitle("دانلود از لینک مستقیم")
+                .setMessage("لینک باید مستقیماً به فایل JSON یا CSV برسد، نه صفحهٔ وب یا فایل PDF. فقط از منابعی استفاده کن که اجازهٔ استفاده از سؤال‌ها را می‌دهند.")
+                .setView(urlInput)
+                .setPositiveButton("دانلود و افزودن", (d,w) -> downloadQuestionBankUrl(urlInput.getText().toString().trim(), "بانک آنلاین"))
+                .setNegativeButton("لغو", null)
+                .show();
+    }
+
+    private void loadUniversityBankIndex() {
+        new Thread(() -> {
+            try {
+                String api = "https://api.github.com/repos/AdithSuresh2004/exam-questions/git/trees/main?recursive=1";
+                String response = downloadText(api, 4 * 1024 * 1024);
+                JSONObject rootJson = new JSONObject(response);
+                JSONArray tree = rootJson.optJSONArray("tree");
+                java.util.ArrayList<String> paths = new java.util.ArrayList<>();
+                if (tree != null) {
+                    for (int i = 0; i < tree.length(); i++) {
+                        JSONObject entry = tree.optJSONObject(i);
+                        if (entry == null || !"blob".equals(entry.optString("type"))) continue;
+                        String p = entry.optString("path", "");
+                        String lower = p.toLowerCase(Locale.ROOT);
+                        if (lower.endsWith(".json")
+                                && (lower.startsWith("nimcet/") || lower.startsWith("cuet-pg/")
+                                || lower.startsWith("gate/") || lower.startsWith("jam/"))) paths.add(p);
+                    }
+                }
+                java.util.Collections.sort(paths);
+                runOnUiThread(() -> {
+                    if (paths.isEmpty()) {
+                        info("در حال حاضر فایل JSON قابل دانلودی در دسته‌های دانشگاهی منبع پیدا نشد.");
+                        return;
+                    }
+                    String[] labels = new String[paths.size()];
+                    for (int i = 0; i < paths.size(); i++) labels[i] = paths.get(i);
+                    new AlertDialog.Builder(this)
+                            .setTitle("انتخاب بانک سؤال (" + paths.size() + " فایل)")
+                            .setItems(labels, (dialog, which) -> {
+                                String path = paths.get(which);
+                                String url = "https://raw.githubusercontent.com/AdithSuresh2004/exam-questions/main/" + path;
+                                downloadQuestionBankUrl(url, path);
+                            })
+                            .setNegativeButton("بستن", null)
+                            .show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> info("فهرست منبع آنلاین دریافت نشد. اتصال اینترنت را بررسی کن یا از لینک مستقیم JSON استفاده کن."));
+            }
+        }).start();
+    }
+
+    private void downloadQuestionBankUrl(String sourceUrl, String sourceName) {
+        if (sourceUrl == null || !(sourceUrl.startsWith("https://"))) {
+            info("برای امنیت، فقط لینک HTTPS پذیرفته می‌شود.");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String content = downloadText(sourceUrl, 8 * 1024 * 1024);
+                JSONArray imported = parseQuestionBankJson(content.trim());
+                if (imported.length() == 0) throw new IllegalArgumentException("سؤال چهارگزینه‌ای معتبر با پاسخ صحیح در فایل پیدا نشد.");
+                runOnUiThread(() -> confirmOnlineQuestionBankImport(imported, sourceName));
+            } catch (Exception e) {
+                runOnUiThread(() -> info("دانلود بانک انجام نشد: " + (e.getMessage() == null ? "قالب فایل پشتیبانی نمی‌شود." : e.getMessage())));
+            }
+        }).start();
+    }
+
+    private String downloadText(String address, int maxBytes) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
+        connection.setConnectTimeout(12000);
+        connection.setReadTimeout(15000);
+        connection.setRequestProperty("User-Agent", "Azmoonyar-QuestionBank/1.0");
+        connection.setRequestProperty("Accept", "application/json,text/csv,text/plain,*/*");
+        try {
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) throw new IllegalArgumentException("سرور فایل را با وضعیت " + status + " برگرداند.");
+            try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    if (output.size() + count > maxBytes) throw new IllegalArgumentException("حجم فایل بیش از حد مجاز است.");
+                    output.write(buffer, 0, count);
+                }
+                return new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private void confirmOnlineQuestionBankImport(JSONArray imported, String sourceName) {
+        new AlertDialog.Builder(this)
+                .setTitle("پیش‌نمایش بانک دانلودشده")
+                .setMessage("منبع: " + sourceName + "\nسؤال‌های معتبر شناسایی‌شده: " + imported.length()
+                        + "\nسؤال‌ها به بانک فعلی اضافه می‌شوند و سؤال‌های قبلی پاک نمی‌شوند. پیش از استفاده در آزمون رسمی، کلید پاسخ‌ها را بررسی کن.")
+                .setPositiveButton("افزودن به بانک", (d,w) -> {
+                    try {
+                        JSONArray existing = readQuestionBank();
+                        int added = 0;
+                        for (int i = 0; i < imported.length(); i++) {
+                            JSONObject item = imported.optJSONObject(i);
+                            if (item == null) continue;
+                            item.put("id", UUID.randomUUID().toString());
+                            item.put("source", sourceName);
+                            existing.put(item);
+                            added++;
+                        }
+                        prefs.edit().putString("question_bank_json", existing.toString()).apply();
+                        refreshSummary();
+                        new AlertDialog.Builder(this)
+                                .setTitle("بانک سؤال اضافه شد")
+                                .setMessage(added + " سؤال اضافه شد. تعداد کل بانک: " + existing.length())
+                                .setPositiveButton("ساخت نسخه‌های آزمون", (dd,ww) -> generateRandomVariants())
+                                .setNegativeButton("باشه", null)
+                                .show();
+                    } catch (Exception e) {
+                        info("ذخیره بانک سؤال انجام نشد.");
+                    }
+                })
+                .setNegativeButton("لغو", null)
+                .show();
     }
 
     private static final int REQUEST_QUESTION_BANK_FILE = 5207;
@@ -911,15 +1066,44 @@ public class MainActivity extends Activity {
             if (rootObject == null) throw new IllegalArgumentException("در JSON باید آرایهٔ questions یا آرایهٔ مستقیم سؤال‌ها وجود داشته باشد.");
         }
         JSONArray rows = (JSONArray) rootObject;
-        JSONArray valid = new JSONArray();
+        JSONArray expandedRows = new JSONArray();
         for (int i = 0; i < rows.length(); i++) {
-            JSONObject row = rows.optJSONObject(i);
+            JSONObject item = rows.optJSONObject(i);
+            if (item == null) continue;
+            JSONArray nested = item.optJSONArray("questions");
+            if (nested != null) {
+                for (int j = 0; j < nested.length(); j++) {
+                    JSONObject q = nested.optJSONObject(j);
+                    if (q != null) {
+                        if (!q.has("topic")) q.put("topic", item.optString("section_name", item.optString("subject", "")));
+                        expandedRows.put(q);
+                    }
+                }
+            } else {
+                expandedRows.put(item);
+            }
+        }
+        JSONArray valid = new JSONArray();
+        for (int i = 0; i < expandedRows.length(); i++) {
+            JSONObject row = expandedRows.optJSONObject(i);
             if (row == null) continue;
-            String text = firstNonEmpty(row.optString("text", ""), row.optString("question", ""));
+            String text = firstNonEmpty(row.optString("text", ""),
+                    row.optString("question", ""), row.optString("question_text", ""), row.optString("prompt", ""));
             JSONArray options = row.optJSONArray("options");
             String[] optionValues = new String[4];
+            String[] optionIds = new String[4];
             if (options != null && options.length() >= 4) {
-                for (int j = 0; j < 4; j++) optionValues[j] = options.optString(j, "").trim();
+                for (int j = 0; j < 4; j++) {
+                    Object option = options.opt(j);
+                    if (option instanceof JSONObject) {
+                        JSONObject optionObject = (JSONObject) option;
+                        optionValues[j] = firstNonEmpty(optionObject.optString("text", ""), optionObject.optString("value", ""));
+                        optionIds[j] = firstNonEmpty(optionObject.optString("opt_id", ""), optionObject.optString("id", ""));
+                    } else {
+                        optionValues[j] = options.optString(j, "").trim();
+                        optionIds[j] = String.valueOf((char) ('A' + j));
+                    }
+                }
             } else {
                 optionValues[0] = firstNonEmpty(row.optString("option_a", ""), row.optString("A", ""));
                 optionValues[1] = firstNonEmpty(row.optString("option_b", ""), row.optString("B", ""));
@@ -927,15 +1111,20 @@ public class MainActivity extends Activity {
                 optionValues[3] = firstNonEmpty(row.optString("option_d", ""), row.optString("D", ""));
             }
             int correctIndex = readCorrectIndex(row);
+            if (correctIndex < 0) {
+                String correctId = firstNonEmpty(row.optString("correct_opt_id", ""), row.optString("correct_option_id", ""));
+                for (int j = 0; j < optionIds.length; j++) if (correctId.equals(optionIds[j])) correctIndex = j;
+            }
             if (isValidQuestion(text, optionValues, correctIndex)) {
                 JSONObject normalized = new JSONObject();
                 normalized.put("id", UUID.randomUUID().toString());
                 normalized.put("text", text);
-                normalized.put("topic", row.optString("topic", ""));
+                normalized.put("topic", row.optString("topic", row.optString("subject", "")));
                 JSONArray normalizedOptions = new JSONArray();
                 for (String option : optionValues) normalizedOptions.put(option);
                 normalized.put("options", normalizedOptions);
                 normalized.put("correct_index", correctIndex);
+                if (row.has("explanation")) normalized.put("explanation", row.optString("explanation", ""));
                 valid.put(normalized);
             }
         }
