@@ -55,6 +55,82 @@
   "notes": [
     "This is a first printable template specification; validate with physical print and camera tests before production grading.",
     "Bubble geometry uses millimetres in the SVG viewBox and should be transformed from detected page corners after perspective correction.",
-    "Low-confidence, blank, and multiple-marked answers must be flagged for manual review."
-  ]
+    "Low-confidence, blank, and multiple-marked answers must be flagged for manual review.",
+    "For exams above 100 questions, generate additional A4 pages using the same geometry; keep global question numbering continuous (101-200, 201-300, etc.)."
+  ],
+  "pagination": {
+    "maxQuestionsPerPage": 100,
+    "pageCountFormula": "ceil(totalQuestions / 100)",
+    "pageNumbering": "1-based",
+    "questionNumbering": "continuous across all pages, never reset to 1 on later pages",
+    "pageRangesExample": {
+      "50": [
+        {
+          "page": 1,
+          "firstQuestion": 1,
+          "lastQuestion": 50
+        }
+      ],
+      "100": [
+        {
+          "page": 1,
+          "firstQuestion": 1,
+          "lastQuestion": 100
+        }
+      ],
+      "200": [
+        {
+          "page": 1,
+          "firstQuestion": 1,
+          "lastQuestion": 100
+        },
+        {
+          "page": 2,
+          "firstQuestion": 101,
+          "lastQuestion": 200
+        }
+      ],
+      "300": [
+        {
+          "page": 1,
+          "firstQuestion": 1,
+          "lastQuestion": 100
+        },
+        {
+          "page": 2,
+          "firstQuestion": 101,
+          "lastQuestion": 200
+        },
+        {
+          "page": 3,
+          "firstQuestion": 201,
+          "lastQuestion": 300
+        }
+      ],
+      "400": [
+        {
+          "page": 1,
+          "firstQuestion": 1,
+          "lastQuestion": 100
+        },
+        {
+          "page": 2,
+          "firstQuestion": 101,
+          "lastQuestion": 200
+        },
+        {
+          "page": 3,
+          "firstQuestion": 201,
+          "lastQuestion": 300
+        },
+        {
+          "page": 4,
+          "firstQuestion": 301,
+          "lastQuestion": 400
+        }
+      ]
+    },
+    "lastPageRule": "The final page contains only the remaining questions; do not print unused question rows.",
+    "identityRule": "All pages in one answer sheet share the same exam/attempt/template identity, but each page has a distinct pageIndex and totalPages marker or QR payload to prevent page mixing."
+  }
 }
