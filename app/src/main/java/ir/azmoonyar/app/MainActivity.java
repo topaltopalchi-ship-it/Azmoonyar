@@ -88,6 +88,8 @@ public class MainActivity extends Activity {
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
         addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
+        addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
+        addButton("ساخت ۳ نسخه تصادفی آزمون", v -> generateRandomVariants());
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
@@ -277,6 +279,120 @@ public class MainActivity extends Activity {
         }
         new AlertDialog.Builder(this).setTitle("کلید پاسخ — "+filled+"/"+questionCount())
           .setMessage(lines.toString()).setPositiveButton("بستن",null).show();
+    }
+
+    private JSONArray readQuestionBank() {
+        try { return new JSONArray(prefs.getString("question_bank_json", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showQuestionBank() {
+        JSONArray bank = readQuestionBank();
+        new AlertDialog.Builder(this)
+            .setTitle("بانک سؤال (" + bank.length() + ")")
+            .setMessage(bank.length() == 0
+                ? "هنوز سؤالی ثبت نشده است. برای ساخت نسخه‌های تصادفی، سؤال و چهار گزینه و پاسخ صحیح را ثبت کن."
+                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
+            .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
+            .setNeutralButton("بستن", null)
+            .setNegativeButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
+            .show();
+    }
+
+    private void showAddBankQuestionDialog() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(10), dp(4), dp(10), dp(4));
+        EditText question = new EditText(this);
+        question.setHint("متن سؤال");
+        form.addView(question);
+        EditText topic = new EditText(this);
+        topic.setHint("مبحث (اختیاری؛ مثل نوار قلب یا رادیکال)");
+        form.addView(topic);
+        EditText[] options = new EditText[4];
+        for (int i = 0; i < 4; i++) {
+            options[i] = new EditText(this);
+            options[i].setSingleLine(false);
+            options[i].setHint("گزینه " + (char)('A' + i));
+            form.addView(options[i]);
+        }
+        TextView label = new TextView(this);
+        label.setText("پاسخ صحیح را انتخاب کن:");
+        form.addView(label);
+        RadioGroup correctGroup = new RadioGroup(this);
+        correctGroup.setOrientation(RadioGroup.HORIZONTAL);
+        for (int i = 0; i < 4; i++) {
+            RadioButton rb = new RadioButton(this);
+            rb.setText(String.valueOf((char)('A' + i)));
+            rb.setTag(i);
+            correctGroup.addView(rb);
+        }
+        form.addView(correctGroup);
+        new AlertDialog.Builder(this).setTitle("افزودن به بانک سؤال").setView(form)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره", (d,w) -> {
+                String qText = question.getText().toString().trim();
+                if (qText.isEmpty()) { info("متن سؤال را وارد کن."); return; }
+                JSONArray optionArray = new JSONArray();
+                for (EditText option : options) {
+                    String value = option.getText().toString().trim();
+                    if (value.isEmpty()) { info("هر چهار گزینه باید تکمیل شوند."); return; }
+                    optionArray.put(value);
+                }
+                int checked = correctGroup.getCheckedRadioButtonId();
+                if (checked == -1) { info("گزینه صحیح را انتخاب کن."); return; }
+                RadioButton selected = correctGroup.findViewById(checked);
+                int correctIndex = (Integer) selected.getTag();
+                try {
+                    JSONArray bank = readQuestionBank();
+                    JSONObject item = new JSONObject();
+                    item.put("id", UUID.randomUUID().toString());
+                    item.put("text", qText);
+                    item.put("topic", topic.getText().toString().trim());
+                    item.put("options", optionArray);
+                    item.put("correct_index", correctIndex);
+                    bank.put(item);
+                    prefs.edit().putString("question_bank_json", bank.toString()).apply();
+                    info("سؤال در بانک محلی ذخیره شد.");
+                } catch (Exception e) {
+                    info("ذخیره سؤال ناموفق بود.");
+                }
+            }).show();
+    }
+
+    private void generateRandomVariants() {
+        JSONArray bank = readQuestionBank();
+        if (bank.length() < 2) {
+            info("برای ساخت نسخه‌های متفاوت، دست‌کم ۲ سؤال در بانک ثبت کن. برای کاهش تقلب بهتر است سؤال‌های بیشتری وارد شود.");
+            return;
+        }
+        try {
+            JSONArray variants = RandomExamBuilder.generateVariants(bank, 3, System.nanoTime());
+            StringBuilder report = new StringBuilder();
+            report.append("سه نسخهٔ تصادفی ساخته شد.\\n")
+                .append("ترتیب سؤال‌ها و گزینه‌ها در هر نسخه تغییر کرده و کلید هر نسخه جداگانه محاسبه شده است.\\n")
+                .append("این مرحله پیش‌نمایش است؛ هنوز برگهٔ چاپی هر نسخه و QR نسخه به اسکن/تصحیح متصل نشده است.\\n\\n");
+            for (int v = 0; v < variants.length(); v++) {
+                JSONObject variant = variants.optJSONObject(v);
+                if (variant == null) continue;
+                report.append("نسخه ").append(variant.optString("variant_id")).append(" — کلید: ")
+                    .append(variant.optString("answer_key")).append("\\n");
+                JSONArray questions = variant.optJSONArray("questions");
+                if (questions != null) {
+                    for (int i = 0; i < questions.length(); i++) {
+                        JSONObject q = questions.optJSONObject(i);
+                        if (q != null) report.append(i + 1).append(". ")
+                            .append(q.optString("text")).append(" [").append(q.optString("correct_letter")).append("]")
+                            .append("\\n");
+                    }
+                }
+                report.append("\\n");
+            }
+            new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های تصادفی")
+                .setMessage(report.toString()).setPositiveButton("بستن", null).show();
+        } catch (Exception e) {
+            info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
+        }
     }
 
     private void showReportsCenter() {
