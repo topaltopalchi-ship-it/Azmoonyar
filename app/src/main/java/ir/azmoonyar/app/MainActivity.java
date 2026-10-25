@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
         addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
         addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
-        addButton("ساخت ۳ نسخه تصادفی آزمون", v -> generateRandomVariants());
+        addButton("ساخت یک یا چند نسخه تصادفی آزمون", v -> generateRandomVariants());
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
@@ -362,37 +362,63 @@ public class MainActivity extends Activity {
 
     private void generateRandomVariants() {
         JSONArray bank = readQuestionBank();
-        if (bank.length() < 2) {
-            info("برای ساخت نسخه‌های متفاوت، دست‌کم ۲ سؤال در بانک ثبت کن. برای کاهش تقلب بهتر است سؤال‌های بیشتری وارد شود.");
+        if (bank.length() < 1) {
+            info("ابتدا حداقل یک سؤال در بانک سؤال ثبت کن.");
             return;
         }
-        try {
-            JSONArray variants = RandomExamBuilder.generateVariants(bank, 3, System.nanoTime());
-            StringBuilder report = new StringBuilder();
-            report.append("سه نسخهٔ تصادفی ساخته شد.\\n")
-                .append("ترتیب سؤال‌ها و گزینه‌ها در هر نسخه تغییر کرده و کلید هر نسخه جداگانه محاسبه شده است.\\n")
-                .append("این مرحله پیش‌نمایش است؛ هنوز برگهٔ چاپی هر نسخه و QR نسخه به اسکن/تصحیح متصل نشده است.\\n\\n");
-            for (int v = 0; v < variants.length(); v++) {
-                JSONObject variant = variants.optJSONObject(v);
-                if (variant == null) continue;
-                report.append("نسخه ").append(variant.optString("variant_id")).append(" — کلید: ")
-                    .append(variant.optString("answer_key")).append("\\n");
-                JSONArray questions = variant.optJSONArray("questions");
-                if (questions != null) {
-                    for (int i = 0; i < questions.length(); i++) {
-                        JSONObject q = questions.optJSONObject(i);
-                        if (q != null) report.append(i + 1).append(". ")
-                            .append(q.optString("text")).append(" [").append(q.optString("correct_letter")).append("]")
-                            .append("\\n");
-                    }
-                }
-                report.append("\\n");
+        String[] labels = {"۱ نسخه (یک مدل)", "۲ نسخه", "۳ نسخه", "۵ نسخه", "۱۰ نسخه"};
+        int[] counts = {1, 2, 3, 5, 10};
+        RadioGroup group = new RadioGroup(this);
+        group.setOrientation(RadioGroup.VERTICAL);
+        final int[] selectedCount = {3};
+        for (int i = 0; i < labels.length; i++) {
+            RadioButton option = new RadioButton(this);
+            option.setText(labels[i]);
+            option.setTag(counts[i]);
+            group.addView(option);
+            if (counts[i] == 3) {
+                option.setChecked(true);
+                selectedCount[0] = 3;
             }
-            new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های تصادفی")
-                .setMessage(report.toString()).setPositiveButton("بستن", null).show();
-        } catch (Exception e) {
-            info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
         }
+        group.setOnCheckedChangeListener((g, checkedId) -> {
+            RadioButton selected = g.findViewById(checkedId);
+            if (selected != null) selectedCount[0] = (Integer) selected.getTag();
+        });
+        new AlertDialog.Builder(this)
+            .setTitle("تعداد مدل‌های آزمون")
+            .setMessage("یک مدل ثابت یا چند نسخه با ترتیب متفاوت سؤال‌ها و گزینه‌ها بساز.")
+            .setView(group)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ساخت پیش‌نمایش", (dialog, which) -> {
+                try {
+                    JSONArray variants = RandomExamBuilder.generateVariants(bank, selectedCount[0], System.nanoTime());
+                    StringBuilder report = new StringBuilder();
+                    report.append("تعداد نسخه‌های ساخته‌شده: ").append(variants.length()).append("\\n")
+                        .append("ترتیب سؤال‌ها و گزینه‌ها جابه‌جا شده و کلید هر نسخه جداگانه محاسبه شده است.\\n")
+                        .append("توجه: این پیش‌نمایش است؛ چاپ نسخه‌بندی‌شده و اتصال شناسهٔ نسخه به QR و تصحیح هنوز تکمیل نشده است.\\n\\n");
+                    for (int v = 0; v < variants.length(); v++) {
+                        JSONObject variant = variants.optJSONObject(v);
+                        if (variant == null) continue;
+                        report.append("نسخه ").append(variant.optString("variant_id")).append(" — کلید: ")
+                            .append(variant.optString("answer_key")).append("\\n");
+                        JSONArray questions = variant.optJSONArray("questions");
+                        if (questions != null) {
+                            for (int i = 0; i < questions.length(); i++) {
+                                JSONObject q = questions.optJSONObject(i);
+                                if (q != null) report.append(i + 1).append(". ")
+                                    .append(q.optString("text")).append(" [").append(q.optString("correct_letter")).append("]")
+                                    .append("\\n");
+                            }
+                        }
+                        report.append("\\n");
+                    }
+                    new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های آزمون")
+                        .setMessage(report.toString()).setPositiveButton("بستن", null).show();
+                } catch (Exception e) {
+                    info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
+                }
+            }).show();
     }
 
     private void showReportsCenter() {
