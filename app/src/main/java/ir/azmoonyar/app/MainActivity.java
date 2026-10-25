@@ -939,40 +939,90 @@ public class MainActivity extends Activity {
         });
         new AlertDialog.Builder(this)
             .setTitle("تعداد مدل‌های آزمون")
-            .setMessage("یک مدل ثابت یا چند نسخه با ترتیب متفاوت سؤال‌ها و گزینه‌ها بساز.")
+            .setMessage("برای هر مدل، کلید تصحیح به‌طور خودکار ساخته می‌شود. کلید در پیش‌نمایش مخصوص مسئول آزمون است و روی برگه شرکت‌کننده چاپ نمی‌شود.")
             .setView(group)
             .setNegativeButton("انصراف", null)
-            .setPositiveButton("ساخت پیش‌نمایش", (dialog, which) -> {
+            .setPositiveButton("ساخت مدل‌ها و کلیدها", (dialog, which) -> {
                 try {
                     JSONArray variants = RandomExamBuilder.generateVariants(bank, selectedCount[0], System.nanoTime());
-                    StringBuilder report = new StringBuilder();
-                    report.append("تعداد نسخه‌های ساخته‌شده: ").append(variants.length()).append("\n")
-                        .append("ترتیب سؤال‌ها و گزینه‌ها جابه‌جا شده و کلید هر نسخه جداگانه محاسبه شده است.\n")
-                        .append("توجه: این پیش‌نمایش است؛ چاپ نسخه‌بندی‌شده و اتصال شناسهٔ نسخه به QR و تصحیح هنوز تکمیل نشده است.\n\n");
+                    ScrollView scroll = new ScrollView(this);
+                    LinearLayout content = new LinearLayout(this);
+                    content.setOrientation(LinearLayout.VERTICAL);
+                    content.setPadding(dp(12), dp(8), dp(12), dp(16));
+                    scroll.addView(content);
+                    TextView intro = new TextView(this);
+                    intro.setText("مدل‌ها و کلیدهای اختصاصی ساخته شدند. بیضی رنگی نشان‌دهندهٔ گزینهٔ صحیح هر سؤال است. این صفحه پیش‌نمایش مسئول آزمون است؛ نام مدل نباید روی پرسشنامه یا پاسخنامهٔ شرکت‌کننده چاپ شود.");
+                    intro.setTextSize(14);
+                    intro.setTextColor(Color.rgb(30, 41, 59));
+                    intro.setPadding(dp(4), dp(6), dp(4), dp(12));
+                    content.addView(intro);
                     for (int v = 0; v < variants.length(); v++) {
                         JSONObject variant = variants.optJSONObject(v);
                         if (variant == null) continue;
-                        report.append("نسخه ").append(variant.optString("variant_id")).append(" — کلید: ")
-                            .append(variant.optString("answer_key")).append("\n");
+                        TextView heading = new TextView(this);
+                        heading.setText("کلید داخلی مدل " + variant.optString("variant_id") +
+                                "   •   " + variant.optString("answer_key").length() + " سؤال");
+                        heading.setTextSize(17);
+                        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+                        heading.setTextColor(Color.rgb(29, 78, 216));
+                        heading.setPadding(dp(4), dp(12), dp(4), dp(8));
+                        content.addView(heading);
                         JSONArray questions = variant.optJSONArray("questions");
-                        if (questions != null) {
-                            for (int i = 0; i < questions.length(); i++) {
-                                JSONObject q = questions.optJSONObject(i);
-                                if (q != null) report.append(i + 1).append(". ")
-                                    .append(q.optString("text")).append(" [").append(q.optString("correct_letter")).append("]")
-                                    .append("\n");
+                        if (questions == null) continue;
+                        for (int i = 0; i < questions.length(); i++) {
+                            JSONObject q = questions.optJSONObject(i);
+                            if (q == null) continue;
+                            LinearLayout row = new LinearLayout(this);
+                            row.setOrientation(LinearLayout.HORIZONTAL);
+                            row.setGravity(Gravity.CENTER_VERTICAL);
+                            row.setPadding(dp(4), dp(5), dp(4), dp(5));
+                            TextView number = new TextView(this);
+                            number.setText(String.valueOf(i + 1) + ".");
+                            number.setTextSize(14);
+                            number.setTextColor(Color.rgb(51, 65, 85));
+                            number.setGravity(Gravity.CENTER);
+                            row.addView(number, new LinearLayout.LayoutParams(dp(34), -2));
+                            char correct = q.optString("correct_letter", "").isEmpty()
+                                    ? '-' : q.optString("correct_letter").charAt(0);
+                            for (int option = 0; option < 4; option++) {
+                                char letter = (char) ('A' + option);
+                                TextView bubble = new TextView(this);
+                                bubble.setText(String.valueOf(letter));
+                                bubble.setTextSize(12);
+                                bubble.setTypeface(null, android.graphics.Typeface.BOLD);
+                                bubble.setGravity(Gravity.CENTER);
+                                int color = letter == correct ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139);
+                                android.graphics.drawable.GradientDrawable bubbleBg = new android.graphics.drawable.GradientDrawable();
+                                bubbleBg.setColor(letter == correct ? Color.rgb(220, 252, 231) : Color.WHITE);
+                                bubbleBg.setCornerRadius(dp(30));
+                                bubbleBg.setStroke(dp(2), color);
+                                bubble.setBackground(bubbleBg);
+                                bubble.setTextColor(color);
+                                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(38), dp(30));
+                                bp.leftMargin = dp(3);
+                                bp.rightMargin = dp(3);
+                                row.addView(bubble, bp);
                             }
+                            TextView questionText = new TextView(this);
+                            questionText.setText(q.optString("text", ""));
+                            questionText.setTextSize(12);
+                            questionText.setTextColor(Color.rgb(51, 65, 85));
+                            questionText.setMaxLines(2);
+                            questionText.setPadding(dp(6), 0, dp(4), 0);
+                            row.addView(questionText, new LinearLayout.LayoutParams(0, -2, 1f));
+                            content.addView(row);
+                            View separator = new View(this);
+                            separator.setBackgroundColor(Color.rgb(226, 232, 240));
+                            content.addView(separator, new LinearLayout.LayoutParams(-1, dp(1)));
                         }
-                        report.append("\n");
                     }
-                    new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های آزمون")
-                        .setMessage(report.toString()).setPositiveButton("بستن", null).show();
+                    new AlertDialog.Builder(this).setTitle("پیش‌نمایش مدل‌ها و کلیدهای بیضی")
+                        .setView(scroll).setPositiveButton("بستن", null).show();
                 } catch (Exception e) {
-                    info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
+                    info("ساخت مدل‌ها ناموفق بود: " + e.getMessage());
                 }
             }).show();
     }
-
 
     private void showImageRetentionDialog() {
         final String[] values = {"never", "all", "suspicious"};
