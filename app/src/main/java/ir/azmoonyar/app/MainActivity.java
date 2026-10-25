@@ -93,7 +93,7 @@ public class MainActivity extends Activity {
 
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
-        addButton("چاپ برگه‌های دانش‌آموز با QR مشترک", v -> showPrintStudentDialog());
+        addButton("چاپ برگه‌های دانش‌آموز با QR اختصاصی", v -> showPrintStudentDialog());
         addButton("چاپ کلید پاسخ معلم", v -> printTeacherAnswerKey());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
                         students.put(student);
                         prefs.edit().putString("students_json", students.toString()).apply();
                         refreshSummary();
-                        info("دانش‌آموز ذخیره شد. شناسه یکتا ایجاد شده است؛ چاپ پرسشنامه/پاسخنامه و QR مشترک در مرحله بعد اضافه می‌شود.");
+                        info("دانش‌آموز ذخیره شد و شناسه یکتای او ایجاد شد. از گزینهٔ چاپ برگه‌های دانش‌آموز، برگهٔ اختصاصی همراه QR را چاپ کن.");
                     } catch (Exception e) {
                         info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
                     }
