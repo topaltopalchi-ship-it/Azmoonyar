@@ -83,6 +83,8 @@ public final class RandomExamBuilder {
                     item.put("position", position + 1);
                     item.put("text", source.optString("text", ""));
                     item.put("topic", source.optString("topic", ""));
+                    String imageFile = source.optString("image_file", "");
+                    if (!imageFile.isEmpty()) item.put("image_file", imageFile);
                     item.put("options", options);
                     item.put("correct_index", newCorrect);
                     item.put("correct_letter", String.valueOf((char) ('A' + newCorrect)));
