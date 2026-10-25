@@ -15,6 +15,9 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.UUID;
 import java.util.Locale;
 
 /** Offline exam setup and answer-key editor. */
@@ -69,6 +72,7 @@ public class MainActivity extends Activity {
         refreshSummary();
 
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
+        addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
@@ -115,6 +119,66 @@ public class MainActivity extends Activity {
             prefs.edit().putString("exam_name",n).putInt("question_count",c).putString("answer_key",nk.toString()).apply();
             refreshSummary(); info("آزمون روی دستگاه ذخیره شد.");
           }).show();
+    }
+
+    private JSONArray readStudents() {
+        try { return new JSONArray(prefs.getString("students_json", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showStudentsDialog() {
+        JSONArray students = readStudents();
+        StringBuilder list = new StringBuilder();
+        for (int i = 0; i < students.length(); i++) {
+            JSONObject student = students.optJSONObject(i);
+            if (student != null) list.append(i + 1).append(". ")
+                    .append(student.optString("name", "بدون نام"))
+                    .append("  —  شناسه: ").append(student.optString("id", ""))
+                    .append("\\n");
+        }
+        if (list.length() == 0) list.append("هنوز دانش‌آموزی ثبت نشده است.\\n");
+        new AlertDialog.Builder(this)
+                .setTitle("فهرست دانش‌آموزان")
+                .setMessage(list.toString())
+                .setPositiveButton("افزودن دانش‌آموز", (d, w) -> showAddStudentDialog())
+                .setNeutralButton("بستن", null)
+                .show();
+    }
+
+    private void showAddStudentDialog() {
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setHint("نام و نام خانوادگی دانش‌آموز");
+        new AlertDialog.Builder(this)
+                .setTitle("ثبت دانش‌آموز")
+                .setView(name)
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("ذخیره", (d, w) -> {
+                    String studentName = name.getText().toString().trim();
+                    if (studentName.isEmpty()) {
+                        info("نام دانش‌آموز را وارد کن.");
+                        return;
+                    }
+                    JSONArray students = readStudents();
+                    for (int i = 0; i < students.length(); i++) {
+                        JSONObject existing = students.optJSONObject(i);
+                        if (existing != null && studentName.equalsIgnoreCase(existing.optString("name", ""))) {
+                            info("دانش‌آموزی با همین نام ثبت شده است. برای جلوگیری از اشتباه، ابتدا فهرست را بررسی کن.");
+                            return;
+                        }
+                    }
+                    try {
+                        JSONObject student = new JSONObject();
+                        student.put("id", UUID.randomUUID().toString());
+                        student.put("name", studentName);
+                        students.put(student);
+                        prefs.edit().putString("students_json", students.toString()).apply();
+                        refreshSummary();
+                        info("دانش‌آموز ذخیره شد. شناسه یکتا ایجاد شده است؛ چاپ پرسشنامه/پاسخنامه و QR مشترک در مرحله بعد اضافه می‌شود.");
+                    } catch (Exception e) {
+                        info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
+                    }
+                }).show();
     }
 
     private void showKeyDialog() {
