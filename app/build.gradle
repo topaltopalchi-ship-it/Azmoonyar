@@ -1,5 +1,11 @@
 plugins { id 'com.android.application' }
 
+def signingStorePath = System.getenv('AZMOONYAR_KEYSTORE_PATH')
+def signingStorePassword = System.getenv('AZMOONYAR_KEYSTORE_PASSWORD')
+def signingKeyAlias = System.getenv('AZMOONYAR_KEY_ALIAS')
+def signingKeyPassword = System.getenv('AZMOONYAR_KEY_PASSWORD')
+def signingReady = signingStorePath && signingStorePassword && signingKeyAlias && signingKeyPassword
+
 android {
     namespace 'ir.azmoonyar.app'
     compileSdk 35
@@ -10,6 +16,25 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.2.0'
+    }
+
+    signingConfigs {
+        if (signingReady) {
+            release {
+                storeFile file(signingStorePath)
+                storePassword signingStorePassword
+                keyAlias signingKeyAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (signingReady) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 }
 
