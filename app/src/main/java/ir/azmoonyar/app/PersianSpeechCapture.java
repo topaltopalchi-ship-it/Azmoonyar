@@ -68,7 +68,11 @@ public final class PersianSpeechCapture implements RecognitionListener {
 
     private String extractText(String hypothesis) {
         try {
-            return new JSONObject(hypothesis).optString("text", "").trim();
+            JSONObject result = new JSONObject(hypothesis);
+            String text = result.optString("text", "").trim();
+            // Vosk partial hypotheses use the "partial" field; final results use "text".
+            if (text.isEmpty()) text = result.optString("partial", "").trim();
+            return text;
         } catch (Exception ignored) {
             return "";
         }
