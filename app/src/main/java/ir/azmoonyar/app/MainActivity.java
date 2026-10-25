@@ -146,7 +146,6 @@ public class MainActivity extends Activity {
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت و مدیریت شرکت‌کنندگان", v -> showStudentsDialog());
         addButton("چاپ پاسخنامه با QR اختصاصی", v -> showPrintStudentDialog());
-        addButton("چاپ کلید پاسخ معلم", v -> printTeacherAnswerKey());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
@@ -216,12 +215,12 @@ public class MainActivity extends Activity {
     private void showExamDialog() {
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
         EditText name=new EditText(this); styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
-        EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۳۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
+        EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۱۰۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
         new AlertDialog.Builder(this).setTitle("تعریف آزمون").setView(form)
           .setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
             String n=name.getText().toString().trim(); int c;
             try { c=Integer.parseInt(count.getText().toString().trim()); } catch(Exception e) { info("تعداد سؤال را به‌صورت عدد وارد کن."); return; }
-            if(n.isEmpty() || c<1 || c>300) { info("نام آزمون لازم است و تعداد سؤال باید بین ۱ تا ۳۰۰ باشد."); return; }
+            if(n.isEmpty() || c<1 || c>1000) { info("نام آزمون لازم است و تعداد سؤال باید بین ۱ تا ۱۰۰۰ باشد."); return; }
             String old=key(); StringBuilder nk=new StringBuilder();
             for(int i=0;i<c;i++) nk.append(i<old.length()?old.charAt(i):'-');
             prefs.edit().putString("exam_name",n).putInt("question_count",c).putString("answer_key",nk.toString()).apply();
@@ -256,7 +255,7 @@ public class MainActivity extends Activity {
     private void showAddStudentDialog() {
         EditText name = new EditText(this); styleInput(name);
         name.setSingleLine(true);
-        name.setHint("نام و نام خانوادگی دانش‌آموز");
+        name.setHint("نام و نام خانوادگی شرکت‌کننده");
         new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
                 .setView(name)
@@ -275,7 +274,7 @@ public class MainActivity extends Activity {
                         students.put(student);
                         prefs.edit().putString("students_json", students.toString()).apply();
                         refreshSummary();
-                        info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد. از گزینهٔ چاپ برگه‌های دانش‌آموز، برگهٔ اختصاصی همراه QR را چاپ کن.");
+                        info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد.");
                     } catch (Exception e) {
                         info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
                     }
@@ -285,7 +284,7 @@ public class MainActivity extends Activity {
     private void showPrintStudentDialog() {
         if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
         JSONArray students = readStudents();
-        if (students.length() == 0) { info("ابتدا دست‌کم یک دانش‌آموز ثبت کن."); return; }
+        if (students.length() == 0) { info("ابتدا دست‌کم یک شرکت‌کننده ثبت کن."); return; }
         String[] labels = new String[students.length()];
         for (int i = 0; i < students.length(); i++) {
             JSONObject s = students.optJSONObject(i);
