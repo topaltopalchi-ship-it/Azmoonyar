@@ -48,7 +48,7 @@ import java.util.concurrent.Executors;
 
 /**
  * Continuous offline QR scanner. Frames are analyzed in memory and are never saved.
- * Accepted QR payloads: legacy AZY1|exact exam name|unique sheet ID, and AZY2|URL-safe Base64 exam name|unique sheet ID.
+ * Accepted QR payloads: legacy AZY1/AZY2 and AZY3|Base64 exam|participant ID|model|template|page|page count.
  * This activity registers sheet IDs only; OMR bubble reading/grading is not implemented yet.
  */
 public class ScanActivity extends ComponentActivity {
@@ -269,7 +269,11 @@ public class ScanActivity extends ComponentActivity {
 
     private void registerIfValid(String payload) {
         if (isFinishing() || !scannerActive) return;
-        String[] parts = payload.split("\\|", 3);
+        String[] parts = payload.split("\\|", -1);
+        if (parts.length == 7 && "AZY3".equals(parts[0])) {
+            registerPageQr(parts);
+            return;
+        }
         if (parts.length != 3 || !("AZY1".equals(parts[0]) || "AZY2".equals(parts[0]))) {
             showStatus("QR دیده شد، اما قالب آزمون‌یار نیست.");
             return;
@@ -293,11 +297,52 @@ public class ScanActivity extends ComponentActivity {
             showStatus("شناسهٔ پاسخنامه معتبر نیست.");
             return;
         }
+        registerUniqueId(examName + "::" + sheetId, "شناسهٔ پاسخنامه ثبت شد: " + sheetId
+                + " — حباب‌ها هنوز خوانده نشده‌اند.");
+    }
 
-        String uniqueKey = examName + "::" + sheetId;
+    private void registerPageQr(String[] parts) {
+        String decodedExamName;
+        try {
+            decodedExamName = new String(Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP),
+                    java.nio.charset.StandardCharsets.UTF_8).trim();
+        } catch (IllegalArgumentException badPayload) {
+            showStatus("نام آزمون در QR معتبر نیست.");
+            return;
+        }
+        if (!examName.equals(decodedExamName)) {
+            showStatus("این پاسخنامه برای آزمون فعلی نیست.");
+            return;
+        }
+        String participantId = parts[2].trim();
+        String modelId = parts[3].trim();
+        String templateId = parts[4].trim();
+        int page;
+        int pageCount;
+        try {
+            page = Integer.parseInt(parts[5]);
+            pageCount = Integer.parseInt(parts[6]);
+        } catch (NumberFormatException badPage) {
+            showStatus("شماره صفحه در QR معتبر نیست.");
+            return;
+        }
+        if (participantId.isEmpty() || participantId.length() > 100
+                || modelId.isEmpty() || templateId.isEmpty()
+                || pageCount < 1 || pageCount > 10 || page < 1 || page > pageCount) {
+            showStatus("اطلاعات صفحه در QR معتبر نیست.");
+            return;
+        }
+        String uniqueKey = examName + "::" + participantId + "::" + modelId + "::"
+                + templateId + "::page:" + page;
+        registerUniqueId(uniqueKey, "صفحه " + page + " از " + pageCount + " ثبت شد"
+                + " — شرکت‌کننده: " + participantId + "، مدل: " + modelId
+                + ". پاسخ‌ها هنوز خوانده نشده‌اند.");
+    }
+
+    private void registerUniqueId(String uniqueKey, String successMessage) {
         Set<String> saved = new HashSet<>(prefs.getStringSet("scanned_sheet_ids", Collections.emptySet()));
         if (saved.contains(uniqueKey)) {
-            showStatus("این پاسخنامه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
+            showStatus("این پاسخنامه/صفحه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
             refreshCount();
             return;
         }
@@ -306,7 +351,7 @@ public class ScanActivity extends ComponentActivity {
                 .putStringSet("scanned_sheet_ids", saved)
                 .putInt("scanned_sheet_count", saved.size())
                 .apply();
-        showStatus("شناسهٔ پاسخنامه ثبت شد: " + sheetId + " — حباب‌ها هنوز خوانده نشده‌اند.");
+        showStatus(successMessage);
         refreshCount();
     }
 
