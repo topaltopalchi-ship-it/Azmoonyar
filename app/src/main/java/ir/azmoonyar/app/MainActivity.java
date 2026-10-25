@@ -146,6 +146,7 @@ public class MainActivity extends Activity {
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
         addButton("چاپ برگه‌های دانش‌آموز با QR اختصاصی", v -> showPrintStudentDialog());
+        addButton("چاپ پاسخنامه استاندارد چندبرگی", v -> printStandardAnswerSheets());
         addButton("چاپ کلید پاسخ معلم", v -> printTeacherAnswerKey());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
@@ -397,6 +398,90 @@ public class MainActivity extends Activity {
         if (value == null) return "";
         return value.replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    /** Prints the standard OMR sheet as one A4 page per 100 questions. */
+    private void printStandardAnswerSheets() {
+        if (examName().trim().isEmpty()) {
+            info("ابتدا آزمون را تعریف کن.");
+            return;
+        }
+        final int total = questionCount();
+        if (total < 1 || total > 1000) {
+            info("تعداد سؤال باید بین ۱ تا ۱۰۰۰ باشد.");
+            return;
+        }
+        try {
+            String safeExam = escapeHtml(examName());
+            StringBuilder html = new StringBuilder();
+            html.append("<html><head><meta charset='utf-8'><style>")
+                .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
+                .append("body{margin:0;font-family:sans-serif;color:#111;direction:rtl}")
+                .append(".sheet{width:210mm;height:297mm;padding:10mm 12mm 9mm;position:relative;page-break-after:always;overflow:hidden}")
+                .append(".sheet:last-child{page-break-after:auto}")
+                .append(".head{text-align:center;font-size:17px;font-weight:bold;margin:0 0 2mm}")
+                .append(".sub{text-align:center;font-size:9px;margin:0 0 4mm}")
+                .append(".meta{font-size:10px;margin:2mm 0 3mm;display:flex;justify-content:space-between}")
+                .append(".instruction{font-size:9px;border:0.3mm solid #777;padding:2mm;margin-bottom:3mm}")
+                .append(".cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm}")
+                .append(".col{border:0.35mm solid #111;border-radius:2mm;padding:2mm 1.5mm}")
+                .append("table{width:100%;border-collapse:collapse;table-layout:fixed}")
+                .append("th{font-size:9px;height:6mm;border-bottom:0.3mm solid #333}")
+                .append("td{height:4.45mm;text-align:center;padding:0;font-size:8px}")
+                .append("td.num{width:13mm;font-weight:bold;text-align:center}")
+                .append("td.opt{width:10mm}")
+                .append(".bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
+                .append(".marks{position:absolute;width:3mm;height:3mm;border:0.4mm solid #111}")
+                .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
+                .append(".foot{position:absolute;bottom:7mm;left:12mm;right:12mm;text-align:center;font-size:7px}")
+                .append("</style></head><body>");
+            int pages = (total + 99) / 100;
+            for (int page = 0; page < pages; page++) {
+                int first = page * 100 + 1;
+                int last = Math.min(total, first + 99);
+                html.append("<section class='sheet'>")
+                    .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
+                    .append("<h1 class='head'>آزمون‌یار | پاسخنامه چهارگزینه‌ای</h1>")
+                    .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page + 1).append(" از ").append(pages).append("</p>")
+                    .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
+                    .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
+                    .append("<div class='cols'>");
+                for (int col = 0; col < 2; col++) {
+                    int colFirst = first + col * 50;
+                    int colLast = Math.min(last, colFirst + 49);
+                    html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>الف</th><th>ب</th><th>ج</th><th>د</th></tr></thead><tbody>");
+                    for (int q = colFirst; q <= colLast; q++) {
+                        html.append("<tr><td class='num'>").append(q).append("</td>");
+                        for (int option = 0; option < 4; option++) html.append("<td class='opt'><span class='bubble'></span></td>");
+                        html.append("</tr>");
+                    }
+                    html.append("</tbody></table></div>");
+                }
+                html.append("</div><div class='foot'>AZY-OMR-100-v1 • A4 • چهار گزینه • صفحه ")
+                    .append(page + 1).append(" از ").append(pages).append("</div></section>");
+            }
+            html.append("</body></html>");
+            WebView web = new WebView(this);
+            web.getSettings().setDefaultTextEncodingName("UTF-8");
+            web.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
+            web.setWebViewClient(new WebViewClient() {
+                @Override public void onPageFinished(WebView view, String url) {
+                    PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                    if (pm != null) {
+                        pm.print("AzmoonYar-OMR-" + total,
+                            view.createPrintDocumentAdapter("AzmoonYar-OMR-" + total),
+                            new PrintAttributes.Builder()
+                                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
+                                .build());
+                    } else {
+                        info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                    }
+                }
+            });
+        } catch (Exception e) {
+            info("ساخت پاسخنامه برای چاپ ناموفق بود؛ دوباره تلاش کن.");
+        }
     }
 
     private void printTeacherAnswerKey() {
