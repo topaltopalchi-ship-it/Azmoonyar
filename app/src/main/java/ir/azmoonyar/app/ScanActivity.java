@@ -57,6 +57,8 @@ import java.util.concurrent.Executors;
 public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
+    private static final int QUESTIONS_PER_PRINT_PAGE = 20;
+    private static final int MAX_PRINT_PAGES = 50;
 
     private PreviewView previewView;
     private TextView statusView;
@@ -361,8 +363,13 @@ public class ScanActivity extends ComponentActivity {
             showStatus("شماره صفحه در QR معتبر نیست.");
             return;
         }
-        if (pageCount < 1 || pageCount > 10 || page < 1 || page > pageCount) {
-            showStatus("اطلاعات صفحه در QR معتبر نیست.");
+        JSONArray variantQuestions = matchedVariant.optJSONArray("questions");
+        int expectedPageCount = variantQuestions == null ? 0
+                : (variantQuestions.length() + QUESTIONS_PER_PRINT_PAGE - 1) / QUESTIONS_PER_PRINT_PAGE;
+        if (pageCount < 1 || pageCount > MAX_PRINT_PAGES || page < 1 || page > pageCount
+                || expectedPageCount < 1 || pageCount != expectedPageCount
+                || !"T1".equals(templateId)) {
+            showStatus("اطلاعات صفحه یا قالب QR با نسخهٔ ذخیره‌شده سازگار نیست.");
             return;
         }
         String setKey = examName + "::" + sheetSetId + "::" + modelId + "::" + templateId;
