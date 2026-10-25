@@ -501,7 +501,7 @@ public class MainActivity extends Activity {
             .setTitle("بانک سؤال (" + bank.length() + ")")
             .setMessage(bank.length() == 0
                 ? "هنوز سؤالی ثبت نشده است. برای ساخت نسخه‌های تصادفی، سؤال و چهار گزینه و پاسخ صحیح را ثبت کن."
-                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
+                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
             .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
             .setNeutralButton("بستن", null)
             .setNegativeButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
@@ -604,24 +604,24 @@ public class MainActivity extends Activity {
                 try {
                     JSONArray variants = RandomExamBuilder.generateVariants(bank, selectedCount[0], System.nanoTime());
                     StringBuilder report = new StringBuilder();
-                    report.append("تعداد نسخه‌های ساخته‌شده: ").append(variants.length()).append("\\n")
-                        .append("ترتیب سؤال‌ها و گزینه‌ها جابه‌جا شده و کلید هر نسخه جداگانه محاسبه شده است.\\n")
-                        .append("توجه: این پیش‌نمایش است؛ چاپ نسخه‌بندی‌شده و اتصال شناسهٔ نسخه به QR و تصحیح هنوز تکمیل نشده است.\\n\\n");
+                    report.append("تعداد نسخه‌های ساخته‌شده: ").append(variants.length()).append("\n")
+                        .append("ترتیب سؤال‌ها و گزینه‌ها جابه‌جا شده و کلید هر نسخه جداگانه محاسبه شده است.\n")
+                        .append("توجه: این پیش‌نمایش است؛ چاپ نسخه‌بندی‌شده و اتصال شناسهٔ نسخه به QR و تصحیح هنوز تکمیل نشده است.\n\n");
                     for (int v = 0; v < variants.length(); v++) {
                         JSONObject variant = variants.optJSONObject(v);
                         if (variant == null) continue;
                         report.append("نسخه ").append(variant.optString("variant_id")).append(" — کلید: ")
-                            .append(variant.optString("answer_key")).append("\\n");
+                            .append(variant.optString("answer_key")).append("\n");
                         JSONArray questions = variant.optJSONArray("questions");
                         if (questions != null) {
                             for (int i = 0; i < questions.length(); i++) {
                                 JSONObject q = questions.optJSONObject(i);
                                 if (q != null) report.append(i + 1).append(". ")
                                     .append(q.optString("text")).append(" [").append(q.optString("correct_letter")).append("]")
-                                    .append("\\n");
+                                    .append("\n");
                             }
                         }
-                        report.append("\\n");
+                        report.append("\n");
                     }
                     new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های آزمون")
                         .setMessage(report.toString()).setPositiveButton("بستن", null).show();
@@ -691,26 +691,26 @@ public class MainActivity extends Activity {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
         StringBuilder message = new StringBuilder();
-        message.append("صندوق گزارش‌های محلی\\n");
-        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\\n\\n");
+        message.append("صندوق گزارش‌های محلی\n");
+        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\n\n");
         if (inbox.length() == 0) {
-            message.append("هنوز گزارشی ثبت نشده است. گزارش واقعی پس از پیاده‌سازی تصحیح و تحلیل خودکار ساخته می‌شود.\\n\\n");
+            message.append("هنوز گزارشی ثبت نشده است. گزارش واقعی پس از پیاده‌سازی تصحیح و تحلیل خودکار ساخته می‌شود.\n\n");
         } else {
             for (int i = inbox.length() - 1; i >= 0; i--) {
                 JSONObject item = inbox.optJSONObject(i);
                 if (item == null) continue;
-                message.append(item.optString("title", "گزارش ارزیابی")).append("\\n")
-                    .append(item.optString("body", "")).append("\\n")
-                    .append(item.optString("created_at", "")).append("\\n")
+                message.append(item.optString("title", "گزارش ارزیابی")).append("\n")
+                    .append(item.optString("body", "")).append("\n")
+                    .append(item.optString("created_at", "")).append("\n")
                     .append(item.optBoolean("read", false) ? "خوانده‌شده" : "خوانده‌نشده")
-                    .append("\\n\\n");
+                    .append("\n\n");
                 reportStore.markRead(item.optString("id", ""));
             }
         }
-        message.append("حریم خصوصی و رضایت\\n")
-            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\\n")
-            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\\n")
-            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\\n")
+        message.append("حریم خصوصی و رضایت\n")
+            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\n")
+            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\n")
+            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\n")
             .append("• تحلیل و تصحیح خودکار هنوز تکمیل نشده؛ هیچ نتیجهٔ ساختگی ارسال نمی‌شود.");
         new AlertDialog.Builder(this).setTitle("گزارش‌ها و حریم خصوصی")
             .setMessage(message.toString())
