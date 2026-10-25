@@ -87,6 +87,7 @@ public class MainActivity extends Activity {
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
+        addButton("تنظیمات ذخیره تصاویر پاسخنامه", v -> showImageRetentionDialog());
         addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
         addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
         addButton("ساخت یک یا چند نسخه تصادفی آزمون", v -> generateRandomVariants());
@@ -452,6 +453,62 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
                 }
+            }).show();
+    }
+
+
+    private void showImageRetentionDialog() {
+        final String[] values = {"never", "all", "suspicious"};
+        final String[] labels = {
+            "۱) هرگز عکس ذخیره نشود",
+            "۲) ذخیره همهٔ تصاویر پاسخنامه‌ها",
+            "۳) ذخیره فقط تصاویر مشکوک"
+        };
+        String saved = prefs.getString("image_retention_policy", "never");
+        int checked = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(saved)) checked = i;
+        }
+        RadioGroup group = new RadioGroup(this);
+        group.setOrientation(RadioGroup.VERTICAL);
+        group.setPadding(dp(8), dp(8), dp(8), dp(8));
+        for (int i = 0; i < labels.length; i++) {
+            RadioButton option = new RadioButton(this);
+            option.setText(labels[i]);
+            option.setTag(values[i]);
+            group.addView(option);
+            if (i == checked) option.setChecked(true);
+        }
+        TextView note = new TextView(this);
+        note.setText("توجه: در نسخهٔ فعلی اسکن QR انجام می‌شود و هیچ تصویری ذخیره نمی‌شود. این انتخاب فقط سیاست دلخواه شما را ثبت می‌کند؛ ذخیرهٔ واقعی تصاویر و تشخیص پاسخنامهٔ مشکوک تا زمان پیاده‌سازی پردازش تصویر فعال نیست.");
+        note.setTextSize(14);
+        note.setPadding(dp(12), dp(8), dp(12), dp(8));
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(group);
+        layout.addView(note);
+        new AlertDialog.Builder(this)
+            .setTitle("حفظ حریم خصوصی تصاویر")
+            .setView(layout)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره انتخاب", (dialog, which) -> {
+                int id = group.getCheckedRadioButtonId();
+                if (id == -1) {
+                    info("یکی از سه گزینه را انتخاب کن.");
+                    return;
+                }
+                RadioButton selected = group.findViewById(id);
+                String policy = String.valueOf(selected.getTag());
+                prefs.edit().putString("image_retention_policy", policy).apply();
+                String confirmation;
+                if ("never".equals(policy)) {
+                    confirmation = "سیاست انتخابی ذخیره‌نکردن تصاویر ثبت شد. در نسخهٔ فعلی نیز تصاویر ذخیره نمی‌شوند.";
+                } else if ("all".equals(policy)) {
+                    confirmation = "ترجیح ذخیرهٔ همهٔ تصاویر ثبت شد؛ اما این قابلیت تا پیاده‌سازی ذخیره‌سازی تصویر هنوز فعال نیست.";
+                } else {
+                    confirmation = "ترجیح ذخیرهٔ تصاویر مشکوک ثبت شد؛ تشخیص موارد مشکوک و ذخیرهٔ آن‌ها تا پیاده‌سازی تحلیل تصویر هنوز فعال نیست.";
+                }
+                info(confirmation);
             }).show();
     }
 
