@@ -152,17 +152,24 @@ public class MainActivity extends Activity {
         root.addView(summary,summaryParams);
         refreshSummary();
 
-        addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
-        addButton("ثبت و مدیریت شرکت‌کنندگان", v -> showStudentsDialog());
-        addButton("چاپ پاسخنامه با QR اختصاصی", v -> showPrintStudentDialog());
-        addButton("ثبت کلید پاسخ", v -> showKeyDialog());
-        addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
-        addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
-        addButton("مدل صوتی فارسی", v -> downloadPersianSpeechModel());
-        addButton("تنظیمات ذخیره تصاویر پاسخنامه", v -> showImageRetentionDialog());
-        addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
-        addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
-        addButton("ساخت یک یا چند نسخه تصادفی آزمون", v -> generateRandomVariants());
+        addButtonGrid(
+                new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
+                new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
+        addButtonGrid(
+                new String[]{"چاپ پاسخنامه با QR اختصاصی", "ثبت کلید پاسخ"},
+                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> showKeyDialog()});
+        addButtonGrid(
+                new String[]{"نمایش کلید و وضعیت تکمیل", "اسکن زنده پاسخنامه"},
+                new View.OnClickListener[]{v -> showKeySummary(), v -> openScanner()});
+        addButtonGrid(
+                new String[]{"مدل صوتی فارسی", "تنظیمات ذخیره تصاویر"},
+                new View.OnClickListener[]{v -> downloadPersianSpeechModel(), v -> showImageRetentionDialog()});
+        addButtonGrid(
+                new String[]{"گزارش‌ها و حریم خصوصی", "بانک سؤال"},
+                new View.OnClickListener[]{v -> showReportsCenter(), v -> showQuestionBank()});
+        addButtonGrid(
+                new String[]{"ساخت نسخه‌های تصادفی آزمون"},
+                new View.OnClickListener[]{v -> generateRandomVariants()});
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
@@ -307,38 +314,60 @@ public class MainActivity extends Activity {
         startActivity(new Intent(this, ScanActivity.class));
     }
 
-    private void addButton(String text, View.OnClickListener listener) {
-        Button b = new Button(this);
-        b.setText(text);
-        b.setAllCaps(false);
-        b.setTextSize(15);
-        b.setTypeface(null, android.graphics.Typeface.BOLD);
-        b.setTextColor(Color.WHITE);
-        b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(14), dp(8), dp(14), dp(8));
-        int[][] palette = {
-            {Color.rgb(37,99,235), Color.rgb(29,78,216)},
-            {Color.rgb(13,148,136), Color.rgb(15,118,110)},
-            {Color.rgb(124,58,237), Color.rgb(91,33,182)},
-            {Color.rgb(219,39,119), Color.rgb(190,24,93)},
-            {Color.rgb(234,88,12), Color.rgb(194,65,12)},
-            {Color.rgb(8,145,178), Color.rgb(14,116,144)},
-            {Color.rgb(79,70,229), Color.rgb(67,56,202)},
-            {Color.rgb(22,163,74), Color.rgb(21,128,61)}
-        };
-        int index = root.getChildCount() % palette.length;
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
-            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-            palette[index]);
-        bg.setCornerRadius(dp(18));
-        b.setBackground(bg);
-        b.setElevation(dp(3));
-        b.setOnClickListener(listener);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(58));
-        p.topMargin = dp(9);
-        p.leftMargin = dp(2);
-        p.rightMargin = dp(2);
-        root.addView(b, p);
+    private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.topMargin = dp(5);
+        rowParams.bottomMargin = dp(5);
+        root.addView(row, rowParams);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            Button b = new Button(this);
+            b.setText(labels[i]);
+            b.setAllCaps(false);
+            b.setTextSize(labels[i].length() > 22 ? 12 : 13);
+            b.setTypeface(null, android.graphics.Typeface.BOLD);
+            b.setTextColor(Color.WHITE);
+            b.setGravity(Gravity.CENTER);
+            b.setMinHeight(dp(66));
+            b.setPadding(dp(7), dp(8), dp(7), dp(8));
+            b.setMaxLines(2);
+            int[][] palette = {
+                {Color.rgb(0, 229, 255), Color.rgb(41, 98, 255)},
+                {Color.rgb(255, 0, 153), Color.rgb(124, 58, 237)},
+                {Color.rgb(255, 145, 0), Color.rgb(255, 23, 68)},
+                {Color.rgb(0, 230, 118), Color.rgb(0, 137, 123)},
+                {Color.rgb(255, 64, 129), Color.rgb(213, 0, 249)},
+                {Color.rgb(255, 202, 40), Color.rgb(245, 81, 95)}
+            };
+            int colorIndex = Math.abs(labels[i].hashCode()) % palette.length;
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR, palette[colorIndex]);
+            bg.setCornerRadius(dp(40));
+            bg.setStroke(dp(1), Color.argb(180, 255, 255, 255));
+            b.setBackground(bg);
+            b.setElevation(dp(8));
+            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                b.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(
+                        this, android.R.animator.button_state_list_anim));
+            }
+            b.setOnTouchListener((view, event) -> {
+                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    view.animate().translationY(dp(3)).setDuration(70).start();
+                } else if (event.getAction() == android.view.MotionEvent.ACTION_UP
+                        || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+                    view.animate().translationY(0).setDuration(100).start();
+                }
+                return false;
+            });
+            b.setOnClickListener(listeners[i]);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(68), 1f);
+            p.leftMargin = dp(4);
+            p.rightMargin = dp(4);
+            row.addView(b, p);
+        }
     }
 
     private void refreshSummary() {
