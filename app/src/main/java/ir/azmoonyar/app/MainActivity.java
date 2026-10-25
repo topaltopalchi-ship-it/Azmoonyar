@@ -207,6 +207,8 @@ public class MainActivity extends Activity {
 
     private void printPairedSheets(String studentName, String studentId) {
         try {
+            // Versioned, delimiter-safe payload. The scanner currently accepts AZY1,
+            // so retain the existing payload contract until scanner migration is implemented.
             String payload = "AZY1|" + examName() + "|" + studentId;
             com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(
                 payload, BarcodeFormat.QR_CODE, 360, 360);
@@ -216,15 +218,41 @@ public class MainActivity extends Activity {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             qr.compress(Bitmap.CompressFormat.PNG, 100, output);
             String encoded = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
-            String safeName = studentName.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-            String safeExam = examName().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-            String html = "<html><meta charset='utf-8'><body style='font-family:sans-serif;text-align:center;color:#111'>"
-                + "<h1>" + safeExam + "</h1><h2>دانش‌آموز: " + safeName + "</h2>"
-                + "<p>شناسه: " + studentId + "</p><hr><h2>برگهٔ سؤال</h2>"
-                + "<p>این QR را روی برگهٔ سؤال قرار بده</p><img style='width:180px;height:180px' src='data:image/png;base64," + encoded + "'/>"
-                + "<hr style='margin:28px 0'><h2>پاسخنامه</h2><p>همین QR باید روی پاسخنامهٔ همین دانش‌آموز باشد</p>"
-                + "<img style='width:180px;height:180px' src='data:image/png;base64," + encoded + "'/>"
-                + "<p style='font-size:10px'>کد داخلی: " + studentId + "</p></body></html>";
+            String safeName = escapeHtml(studentName);
+            String safeExam = escapeHtml(examName());
+            int count = questionCount();
+
+            StringBuilder answerRows = new StringBuilder();
+            for (int q = 1; q <= count; q++) {
+                answerRows.append("<tr><td class='num'>").append(q).append("</td>");
+                for (int option = 0; option < 4; option++) {
+                    answerRows.append("<td><span class='bubble'></span></td>");
+                }
+                answerRows.append("</tr>");
+            }
+
+            String html = "<html><head><meta charset='utf-8'><style>"
+                + "@page{size:A4;margin:12mm}body{font-family:sans-serif;color:#111;margin:0}"
+                + "h1{font-size:20px;margin:0 0 8px}h2{font-size:16px;margin:8px 0}"
+                + ".meta{font-size:12px;margin:5px 0}.qr{width:105px;height:105px;float:left}"
+                + ".clear{clear:both}.instructions{font-size:11px;border:1px solid #333;padding:7px;margin:8px 0}"
+                + "table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #777;text-align:center;padding:2px;height:20px}"
+                + "th{background:#eee}.num{font-weight:bold;width:12%}.bubble{display:inline-block;width:13px;height:13px;border:1.5px solid #111;border-radius:50%}"
+                + ".page{page-break-after:always}.page:last-child{page-break-after:auto}.small{font-size:9px}"
+                + "</style></head><body>"
+                + "<section class='page'><h1>" + safeExam + "</h1><h2>برگهٔ مشخصات شرکت‌کننده</h2>"
+                + "<img class='qr' src='data:image/png;base64," + encoded + "'/>"
+                + "<div class='meta'>نام: " + safeName + "</div><div class='meta'>شناسه: " + escapeHtml(studentId) + "</div>"
+                + "<div class='meta'>تعداد سؤال: " + count + "</div><div class='clear'></div>"
+                + "<div class='instructions'>این صفحه فقط برگهٔ مشخصات و QR است. QR باید با پاسخنامهٔ همین شرکت‌کننده مطابقت داشته باشد.</div>"
+                + "<h2>برگهٔ سؤال</h2><p>برگهٔ سؤال اصلی را جداگانه چاپ یا ضمیمه کنید.</p></section>"
+                + "<section><h1>" + safeExam + "</h1><h2>پاسخنامهٔ چهارگزینه‌ای</h2>"
+                + "<img class='qr' src='data:image/png;base64," + encoded + "'/>"
+                + "<div class='meta'>شرکت‌کننده: " + safeName + "</div><div class='meta'>شناسه: " + escapeHtml(studentId) + "</div>"
+                + "<div class='meta'>برای هر سؤال فقط یک دایره را کاملاً پر کنید؛ علامت ضربدر یا تیک نزنید.</div><div class='clear'></div>"
+                + "<table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>"
+                + answerRows + "</tbody></table><p class='small'>نسخهٔ اولیهٔ پاسخنامه؛ تصحیح خودکار از روی حباب‌ها هنوز فعال نیست.</p></section>"
+                + "</body></html>";
             WebView web = new WebView(this);
             web.getSettings().setDefaultTextEncodingName("UTF-8");
             web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
@@ -240,8 +268,14 @@ public class MainActivity extends Activity {
                 }
             });
         } catch (Exception e) {
-            info("ساخت QR برای چاپ ناموفق بود؛ دوباره تلاش کن.");
+            info("ساخت برگه برای چاپ ناموفق بود؛ دوباره تلاش کن.");
         }
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 
     private void showKeyDialog() {
