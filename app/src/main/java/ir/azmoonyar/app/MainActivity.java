@@ -349,10 +349,6 @@ public class MainActivity extends Activity {
             bg.setStroke(dp(1), Color.argb(180, 255, 255, 255));
             b.setBackground(bg);
             b.setElevation(dp(8));
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
-                b.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(
-                        this, android.R.animator.button_state_list_anim));
-            }
             b.setOnTouchListener((view, event) -> {
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                     view.animate().translationY(dp(3)).setDuration(70).start();
