@@ -37,6 +37,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.text.PDFTextStripper;
 
 /** Offline exam setup and answer-key editor. */
 public class MainActivity extends Activity {
@@ -841,7 +844,7 @@ public class MainActivity extends Activity {
     private void showQuestionBankImportOptions() {
         new AlertDialog.Builder(this)
                 .setTitle("افزودن بانک سؤال")
-                .setItems(new String[]{"دانلود بانک دانشگاهی رایگان", "واردکردن فایل از گوشی", "دانلود از لینک مستقیم JSON/CSV"}, (dialog, which) -> {
+                .setItems(new String[]{"دانلود بانک دانشگاهی رایگان", "واردکردن فایل از گوشی (PDF/JSON/CSV)", "دانلود از لینک مستقیم JSON/CSV"}, (dialog, which) -> {
                     if (which == 0) browseUniversityQuestionBanks();
                     else if (which == 1) chooseQuestionBankFile();
                     else promptQuestionBankUrl();
@@ -1003,7 +1006,7 @@ public class MainActivity extends Activity {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                "application/json", "text/json", "text/csv", "application/csv",
+                "application/pdf", "application/json", "text/json", "text/csv", "application/csv",
                 "application/vnd.ms-excel", "text/plain"
         });
         try {
@@ -1017,49 +1020,156 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_QUESTION_BANK_FILE || resultCode != RESULT_OK
                 || data == null || data.getData() == null) return;
+        String name = data.getData().getLastPathSegment() == null ? "" :
+                data.getData().getLastPathSegment().toLowerCase(Locale.ROOT);
+        boolean isPdf = "application/pdf".equals(getContentResolver().getType(data.getData()))
+                || name.endsWith(".pdf");
         try (InputStream input = getContentResolver().openInputStream(data.getData())) {
             if (input == null) throw new IllegalArgumentException("فایل قابل خواندن نیست.");
+            if (isPdf) {
+                PDFBoxResourceLoader.init(getApplicationContext());
+                JSONArray imported;
+                try (PDDocument document = PDDocument.load(input)) {
+                    if (document.isEncrypted()) throw new IllegalArgumentException("فایل PDF رمزگذاری شده است.");
+                    imported = parseQuestionBankPdfText(new PDFTextStripper().getText(document));
+                }
+                if (imported.length() == 0) {
+                    info("PDF باز شد، اما سؤال چهارگزینه‌ای با چهار گزینه و پاسخ صحیح شناسایی نشد. پاسخنامه باید داخل PDF باشد. فایل‌های اسکن‌شده/عکسی فعلاً OCR ندارند.");
+                    return;
+                }
+                confirmOnlineQuestionBankImport(imported, "PDF: " + name);
+                return;
+            }
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int count;
-            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            while ((count = input.read(buffer)) != -1) {
+                if (output.size() + count > 8 * 1024 * 1024) throw new IllegalArgumentException("حجم فایل بیش از ۸ مگابایت است.");
+                output.write(buffer, 0, count);
+            }
             String content = new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
-            String name = "";
-            if (data.getData().getLastPathSegment() != null) {
-                name = data.getData().getLastPathSegment().toLowerCase(Locale.ROOT);
-            }
-            JSONArray imported;
             String trimmed = content.trim();
-            if (trimmed.startsWith("[") || trimmed.startsWith("{") || name.endsWith(".json")) {
-                imported = parseQuestionBankJson(trimmed);
-            } else {
-                imported = parseQuestionBankCsv(content);
-            }
+            JSONArray imported = (trimmed.startsWith("[") || trimmed.startsWith("{") || name.endsWith(".json"))
+                    ? parseQuestionBankJson(trimmed) : parseQuestionBankCsv(content);
             if (imported.length() == 0) {
                 info("هیچ سؤال معتبری در فایل پیدا نشد؛ بانک فعلی تغییر نکرد.");
                 return;
             }
-            JSONArray existing = readQuestionBank();
-            int added = 0;
-            for (int i = 0; i < imported.length(); i++) {
-                JSONObject item = imported.optJSONObject(i);
-                if (item == null) continue;
-                item.put("id", UUID.randomUUID().toString());
-                existing.put(item);
-                added++;
-            }
-            prefs.edit().putString("question_bank_json", existing.toString()).apply();
-            refreshSummary();
-            new AlertDialog.Builder(this)
-                    .setTitle("واردکردن بانک سؤال انجام شد")
-                    .setMessage(added + " سؤال معتبر اضافه شد.\nتعداد کل سؤال‌های بانک: " + existing.length()
-                            + "\nپاسخ صحیح هر سؤال همراه آن ذخیره شده است. نسخه‌های آزمون را حالا می‌توانی بسازی.")
-                    .setPositiveButton("ساخت نسخه‌ها", (d,w) -> generateRandomVariants())
-                    .setNegativeButton("باشه", null)
-                    .show();
+            confirmOnlineQuestionBankImport(imported, name.isEmpty() ? "فایل گوشی" : name);
         } catch (Exception e) {
             info("فایل وارد نشد: " + (e.getMessage() == null ? "قالب فایل یا داده‌ها معتبر نیست." : e.getMessage())
-                    + "\nقالب مجاز: JSON یا CSV با متن سؤال، چهار گزینه و پاسخ صحیح.");
+                    + "\nقالب مجاز: PDF متنی، JSON یا CSV. PDF اسکن‌شده فعلاً پشتیبانی نمی‌شود.");
+        }
+    }
+
+    /**
+     * Extracts selectable-text multiple-choice questions from a PDF.
+     * A question is imported only when four options and its answer-key entry are found.
+     */
+    private JSONArray parseQuestionBankPdfText(String source) throws Exception {
+        String normalized = (source == null ? "" : source)
+                .replace('\u000c', '\n')
+                .replace('\u064a', '\u06cc')
+                .replace('\u0643', '\u06a9')
+                .replace('\u200c', " ")
+                .replaceAll("(?m)(?<!\\\\S)([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*", "\\n$1) ");
+        String[] lines = normalized.split("\\\\r?\\\\n");
+        java.util.Map<Integer, Integer> answerKey = new java.util.HashMap<>();
+        java.util.List<JSONObject> questions = new java.util.ArrayList<>();
+        JSONObject current = null;
+        StringBuilder questionText = new StringBuilder();
+        java.util.List<String> options = new java.util.ArrayList<>();
+        int questionNumber = -1;
+        boolean inAnswerKey = false;
+        java.util.regex.Pattern qStart = java.util.regex.Pattern.compile(
+                "^\\\\s*(?:(?:سوال|سؤال|پرسش)\\\\s*)?(\\\\d{1,3})\\\\s*[.)،:：-]\\\\s*(.*)$");
+        java.util.regex.Pattern optionStart = java.util.regex.Pattern.compile(
+                "^\\\\s*([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*(.*)$");
+        java.util.regex.Pattern answerLine = java.util.regex.Pattern.compile(
+                "^\\\\s*(?:سوال|سؤال|پرسش)?\\\\s*(\\\\d{1,3})\\\\s*[:.)،-]\\\\s*([الفبجدA-Da-d1-4])\\\\s*$",
+                java.util.regex.Pattern.CASE_INSENSITIVE);
+
+        for (String raw : lines) {
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            if (line.contains("پاسخنامه") || line.contains("پاسخ‌نامه")
+                    || line.contains("کلید پاسخ") || line.contains("پاسخ صحیح")) {
+                inAnswerKey = true;
+                continue;
+            }
+            if (inAnswerKey) {
+                java.util.regex.Matcher am = answerLine.matcher(line);
+                if (am.matches()) {
+                    int idx = pdfAnswerIndex(am.group(2));
+                    if (idx >= 0) answerKey.put(Integer.parseInt(am.group(1)), idx);
+                }
+                continue;
+            }
+            java.util.regex.Matcher qm = qStart.matcher(line);
+            if (qm.matches()) {
+                if (current != null) {
+                    current.put("text", questionText.toString().trim());
+                    current.put("options", new JSONArray(options));
+                    questions.add(current);
+                }
+                questionNumber = Integer.parseInt(qm.group(1));
+                current = new JSONObject();
+                current.put("number", questionNumber);
+                questionText = new StringBuilder(qm.group(2));
+                options = new java.util.ArrayList<>();
+                continue;
+            }
+            if (current == null) continue;
+            java.util.regex.Matcher om = optionStart.matcher(line);
+            if (om.matches()) {
+                int idx = pdfAnswerIndex(om.group(1));
+                if (idx >= 0) {
+                    while (options.size() <= idx) options.add("");
+                    options.set(idx, om.group(2).trim());
+                    continue;
+                }
+            }
+            if (options.isEmpty()) {
+                if (questionText.length() > 0) questionText.append(' ');
+                questionText.append(line);
+            } else {
+                int last = options.size() - 1;
+                options.set(last, (options.get(last) + " " + line).trim());
+            }
+        }
+        if (current != null) {
+            current.put("text", questionText.toString().trim());
+            current.put("options", new JSONArray(options));
+            questions.add(current);
+        }
+        JSONArray imported = new JSONArray();
+        for (JSONObject q : questions) {
+            JSONArray sourceOptions = q.optJSONArray("options");
+            if (sourceOptions == null || sourceOptions.length() < 4) continue;
+            String[] optionValues = new String[4];
+            for (int i = 0; i < 4; i++) optionValues[i] = sourceOptions.optString(i, "").trim();
+            int number = q.optInt("number", -1);
+            int correct = answerKey.containsKey(number) ? answerKey.get(number) : -1;
+            if (!isValidQuestion(q.optString("text", ""), optionValues, correct)) continue;
+            JSONObject item = new JSONObject();
+            item.put("id", UUID.randomUUID().toString());
+            item.put("text", q.optString("text", ""));
+            item.put("topic", "استخراج‌شده از PDF");
+            item.put("options", new JSONArray(optionValues));
+            item.put("correct_index", correct);
+            imported.put(item);
+        }
+        return imported;
+    }
+
+    private int pdfAnswerIndex(String label) {
+        if (label == null) return -1;
+        switch (label.trim().toUpperCase(Locale.ROOT)) {
+            case "الف": case "A": case "1": case "۱": return 0;
+            case "ب": case "B": case "2": case "۲": return 1;
+            case "ج": case "C": case "3": case "۳": return 2;
+            case "د": case "D": case "4": case "۴": return 3;
+            default: return -1;
         }
     }
 
