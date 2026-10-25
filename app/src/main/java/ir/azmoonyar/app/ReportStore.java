@@ -55,7 +55,7 @@ public final class ReportStore {
         for (int i = 0; i < inbox.length(); i++) {
             JSONObject item = inbox.optJSONObject(i);
             if (item != null && reportId.equals(item.optString("id"))) {
-                item.put("read", true);
+                try { item.put("read", true); } catch (Exception ignored) { }
             }
         }
         prefs.edit().putString(KEY_INBOX, inbox.toString()).apply();
