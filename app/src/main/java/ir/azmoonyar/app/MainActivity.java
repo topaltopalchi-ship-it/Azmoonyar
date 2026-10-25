@@ -323,9 +323,11 @@ public class MainActivity extends Activity {
                 .append("</td></tr>");
         }
         if (filled != count) {
+            int missing = count - filled;
             new AlertDialog.Builder(this)
                 .setTitle("کلید پاسخ کامل نیست")
-                .setMessage("پاسخ صحیح ").setPositiveButton("ثبت کلید", (d, w) -> showKeyDialog())
+                .setMessage("برای " + missing + " سؤال هنوز پاسخ صحیح ثبت نشده است. ابتدا کلید را کامل کن؛ سپس می‌توانی آن را چاپ کنی.")
+                .setPositiveButton("ثبت پاسخ", (d, w) -> showKeyDialog())
                 .setNegativeButton("فعلاً نه", null).show();
             return;
         }
