@@ -144,9 +144,8 @@ public class MainActivity extends Activity {
         refreshSummary();
 
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
-        addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
-        addButton("چاپ برگه‌های دانش‌آموز با QR اختصاصی", v -> showPrintStudentDialog());
-        addButton("چاپ پاسخنامه استاندارد چندبرگی", v -> printStandardAnswerSheets());
+        addButton("ثبت و مدیریت شرکت‌کنندگان", v -> showStudentsDialog());
+        addButton("چاپ پاسخنامه با QR اختصاصی", v -> showPrintStudentDialog());
         addButton("چاپ کلید پاسخ معلم", v -> printTeacherAnswerKey());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
@@ -211,7 +210,7 @@ public class MainActivity extends Activity {
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
         int scanned=prefs.getInt("scanned_sheet_count",0);
         int studentCount=readStudents().length();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nدانش‌آموزان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
     }
 
     private void showExamDialog() {
@@ -245,11 +244,11 @@ public class MainActivity extends Activity {
                     .append("  —  شناسه: ").append(student.optString("id", ""))
                     .append("\n");
         }
-        if (list.length() == 0) list.append("هنوز دانش‌آموزی ثبت نشده است.\n");
+        if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
         new AlertDialog.Builder(this)
-                .setTitle("فهرست دانش‌آموزان")
+                .setTitle("فهرست شرکت‌کنندگان")
                 .setMessage(list.toString())
-                .setPositiveButton("افزودن دانش‌آموز", (d, w) -> showAddStudentDialog())
+                .setPositiveButton("افزودن شرکت‌کننده", (d, w) -> showAddStudentDialog())
                 .setNeutralButton("بستن", null)
                 .show();
     }
@@ -259,13 +258,13 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی دانش‌آموز");
         new AlertDialog.Builder(this)
-                .setTitle("ثبت دانش‌آموز")
+                .setTitle("ثبت شرکت‌کننده")
                 .setView(name)
                 .setNegativeButton("انصراف", null)
                 .setPositiveButton("ذخیره", (d, w) -> {
                     String studentName = name.getText().toString().trim();
                     if (studentName.isEmpty()) {
-                        info("نام دانش‌آموز را وارد کن.");
+                        info("نام شرکت‌کننده را وارد کن.");
                         return;
                     }
                     JSONArray students = readStudents();
@@ -276,7 +275,7 @@ public class MainActivity extends Activity {
                         students.put(student);
                         prefs.edit().putString("students_json", students.toString()).apply();
                         refreshSummary();
-                        info("دانش‌آموز ذخیره شد و شناسه یکتای او ایجاد شد. از گزینهٔ چاپ برگه‌های دانش‌آموز، برگهٔ اختصاصی همراه QR را چاپ کن.");
+                        info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد. از گزینهٔ چاپ برگه‌های دانش‌آموز، برگهٔ اختصاصی همراه QR را چاپ کن.");
                     } catch (Exception e) {
                         info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
                     }
@@ -292,7 +291,7 @@ public class MainActivity extends Activity {
             JSONObject s = students.optJSONObject(i);
             labels[i] = (i + 1) + ". " + (s == null ? "بدون نام" : s.optString("name", "بدون نام"));
         }
-        new AlertDialog.Builder(this).setTitle("انتخاب دانش‌آموز برای چاپ")
+        new AlertDialog.Builder(this).setTitle("انتخاب شرکت‌کننده برای چاپ")
             .setItems(labels, (dialog, which) -> {
                 JSONObject s = students.optJSONObject(which);
                 if (s != null) printPairedSheets(s.optString("name", ""), s.optString("id", ""));
