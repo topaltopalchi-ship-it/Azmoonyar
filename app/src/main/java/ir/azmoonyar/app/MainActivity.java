@@ -1068,12 +1068,12 @@ public class MainActivity extends Activity {
      */
     private JSONArray parseQuestionBankPdfText(String source) throws Exception {
         String normalized = (source == null ? "" : source)
-                .replace('\u000c', '\n')
+                .replace('\f', '\n')
                 .replace('\u064a', '\u06cc')
                 .replace('\u0643', '\u06a9')
                 .replace('\u200c', " ")
-                .replaceAll("(?m)(?<!\\\\S)([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*", "\\n$1) ");
-        String[] lines = normalized.split("\\\\r?\\\\n");
+                .replaceAll("(?m)(?<!\\S)([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*", "\\n$1) ");
+        String[] lines = normalized.split("\\r?\\n");
         java.util.Map<Integer, Integer> answerKey = new java.util.HashMap<>();
         java.util.List<JSONObject> questions = new java.util.ArrayList<>();
         JSONObject current = null;
@@ -1082,11 +1082,11 @@ public class MainActivity extends Activity {
         int questionNumber = -1;
         boolean inAnswerKey = false;
         java.util.regex.Pattern qStart = java.util.regex.Pattern.compile(
-                "^\\\\s*(?:(?:سوال|سؤال|پرسش)\\\\s*)?(\\\\d{1,3})\\\\s*[.)،:：-]\\\\s*(.*)$");
+                "^\\s*(?:(?:سوال|سؤال|پرسش)\\s*)?(\\d{1,3})\\s*[.)،:：-]\\s*(.*)$");
         java.util.regex.Pattern optionStart = java.util.regex.Pattern.compile(
-                "^\\\\s*([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*(.*)$");
+                "^\\s*([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*(.*)$");
         java.util.regex.Pattern answerLine = java.util.regex.Pattern.compile(
-                "^\\\\s*(?:سوال|سؤال|پرسش)?\\\\s*(\\\\d{1,3})\\\\s*[:.)،-]\\\\s*([الفبجدA-Da-d1-4])\\\\s*$",
+                "^\\s*(?:سوال|سؤال|پرسش)?\\s*(\\d{1,3})\\s*[:.)،-]\\s*([الفبجدA-Da-d1-4])\\s*$",
                 java.util.regex.Pattern.CASE_INSENSITIVE);
 
         for (String raw : lines) {
