@@ -550,8 +550,7 @@ public class MainActivity extends Activity {
             }
             JSONArray variants = readSavedVariants();
             final int total = questionCount();
-            final int questionsPerPage = 20;
-            final int pageCount = (total + questionsPerPage - 1) / questionsPerPage;
+            final int standardQuestionsPerPage = 20;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
             String safeExam = escapeHtml(examName());
@@ -586,6 +585,17 @@ public class MainActivity extends Activity {
                     info("ساخت مدل آزمون کامل نبود؛ چاپ متوقف شد.");
                     return;
                 }
+                boolean hasFigures = false;
+                for (int qi = 0; qi < total; qi++) {
+                    JSONObject printedQuestion = questions.optJSONObject(qi);
+                    if (printedQuestion != null && !printedQuestion.optString("image_file", "").isEmpty()) {
+                        hasFigures = true;
+                        break;
+                    }
+                }
+                // Reserve more vertical room when any question on the sheet has an image.
+                int questionsPerPage = hasFigures ? 6 : standardQuestionsPerPage;
+                int pageCount = (total + questionsPerPage - 1) / questionsPerPage;
                 for (int page = 1; page <= pageCount; page++) {
                     String payload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|"
                             + modelId + "|T1|" + page + "|" + pageCount;
