@@ -15,6 +15,7 @@ import android.widget.TextView;
 import android.util.Size;
 
 import androidx.annotation.NonNull;
+import androidx.activity.ComponentActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
@@ -49,7 +50,7 @@ import java.util.concurrent.Executors;
  * Accepted QR payload format: AZY1|exact exam name|unique sheet ID.
  * This activity registers sheet IDs only; OMR bubble reading/grading is not implemented yet.
  */
-public class ScanActivity extends Activity {
+public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
 
