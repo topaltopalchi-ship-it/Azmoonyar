@@ -543,7 +543,8 @@ public class MainActivity extends Activity {
             }
             JSONArray variants = readSavedVariants();
             final int total = questionCount();
-            final int pageCount = (total + 99) / 100;
+            final int questionsPerPage = 20;
+            final int pageCount = (total + questionsPerPage - 1) / questionsPerPage;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
             String safeExam = escapeHtml(examName());
@@ -551,16 +552,16 @@ public class MainActivity extends Activity {
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
                 .append("body{font-family:sans-serif;color:#111;margin:0;direction:rtl}")
-                .append(".page{width:210mm;height:297mm;padding:10mm 12mm;position:relative;page-break-after:always;overflow:hidden}")
+                .append(".page{width:210mm;height:297mm;padding:10mm 12mm;position:relative;page-break-after:always;overflow:hidden;break-after:page}")
                 .append(".page:last-child{page-break-after:auto}.head{font-size:17px;font-weight:bold;margin:0 0 3mm}")
                 .append(".meta{font-size:10px;margin:2mm 0}.qr{width:25mm;height:25mm;float:left}.clear{clear:both}")
                 .append(".instructions{font-size:9px;border:1px solid #333;padding:2mm;margin:2mm 0}")
-                .append(".question{font-size:11px;margin:0 0 3mm;page-break-inside:avoid}")
+                .append(".question{font-size:11px;line-height:1.35;margin:0 0 2.5mm;page-break-inside:avoid;break-inside:avoid}")
                 .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1mm;margin:1mm 5mm 0;font-size:10px}")
                 .append(".cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:3mm}")
                 .append(".col{border:0.3mm solid #111;padding:2mm 1.5mm;border-radius:1mm}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
-                .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
+                .append("th,td{border:0.25mm solid #555;text-align:center;height:8mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:4mm;height:4mm;border:0.35mm solid #111;border-radius:50%}")
                 .append(".mark{position:absolute;width:5mm;height:5mm;background:#000}.tl{top:4mm;left:4mm}.tr{top:4mm;right:4mm}.bl{bottom:4mm;left:4mm}.br{bottom:4mm;right:4mm}")
                 .append("</style></head><body>");
@@ -587,8 +588,8 @@ public class MainActivity extends Activity {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     qr.compress(Bitmap.CompressFormat.PNG, 100, output);
                     String qr64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
-                    int first = (page - 1) * 100;
-                    int last = Math.min(page * 100, total);
+                    int first = (page - 1) * questionsPerPage;
+                    int last = Math.min(page * questionsPerPage, total);
                     html.append("<section class='page'><h1 class='head'>").append(safeExam)
                         .append(" — برگه سؤال‌ها (صفحه ").append(page).append(" از ").append(pageCount).append(")</h1>")
                         .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
@@ -614,9 +615,11 @@ public class MainActivity extends Activity {
                         .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
                         .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
                         .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها در صفحه‌ها پیوسته است.</div><div class='cols'>");
+                    int questionsOnPage = last - first;
+                    int questionsPerColumn = (questionsOnPage + 1) / 2;
                     for (int col = 0; col < 2; col++) {
-                        int colFirst = first + col * 50;
-                        int colLast = Math.min(first + (col + 1) * 50, last);
+                        int colFirst = first + col * questionsPerColumn;
+                        int colLast = Math.min(first + (col + 1) * questionsPerColumn, last);
                         if (colFirst >= last) continue;
                         html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                         for (int q = colFirst; q < colLast; q++) {
