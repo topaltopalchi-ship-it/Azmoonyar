@@ -1067,26 +1067,27 @@ public class MainActivity extends Activity {
      * A question is imported only when four options and its answer-key entry are found.
      */
     private JSONArray parseQuestionBankPdfText(String source) throws Exception {
-        String normalized = (source == null ? "" : source)
+        String normalized = normalizePdfDigits((source == null ? "" : source)
                 .replace('\f', '\n')
                 .replace('\u064a', '\u06cc')
                 .replace('\u0643', '\u06a9')
-                .replace("\u200c", " ")
-                .replaceAll("(?m)(?<!\\S)([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*", "\n$1) ");
-        String[] lines = normalized.split("\\r?\\n");
+                .replace("\u200c", " "));
+        // Split options that are printed inline on the same PDF line.
+        normalized = normalized.replaceAll(
+                "(?m)(?<!\\\\S)([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*", "\\n$1) ");
+        String[] lines = normalized.split("\\\\r?\\\\n");
         java.util.Map<Integer, Integer> answerKey = new java.util.HashMap<>();
         java.util.List<JSONObject> questions = new java.util.ArrayList<>();
         JSONObject current = null;
         StringBuilder questionText = new StringBuilder();
         java.util.List<String> options = new java.util.ArrayList<>();
-        int questionNumber = -1;
         boolean inAnswerKey = false;
         java.util.regex.Pattern qStart = java.util.regex.Pattern.compile(
-                "^\\s*(?:(?:سوال|سؤال|پرسش)\\s*)?(\\d{1,3})\\s*[.)،:：-]\\s*(.*)$");
+                "^\\\\s*(?:(?:سوال|سؤال|پرسش)\\\\s*)?(\\\\d{1,3})\\\\s*[.)،:：-]\\\\s*(.*)$");
         java.util.regex.Pattern optionStart = java.util.regex.Pattern.compile(
-                "^\\s*([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*(.*)$");
-        java.util.regex.Pattern answerLine = java.util.regex.Pattern.compile(
-                "^\\s*(?:سوال|سؤال|پرسش)?\\s*(\\d{1,3})\\s*[:.)،-]\\s*([الفبجدA-Da-d1-4])\\s*$",
+                "^\\\\s*([الفبجدA-Da-d1-4])\\\\s*[)\\\\].:ـ-]\\\\s*(.*)$");
+        java.util.regex.Pattern answerPair = java.util.regex.Pattern.compile(
+                "(\\\\d{1,3})\\\\s*[-:.)،]\\\\s*([الفبجدA-Da-d])",
                 java.util.regex.Pattern.CASE_INSENSITIVE);
 
         for (String raw : lines) {
@@ -1095,16 +1096,33 @@ public class MainActivity extends Activity {
             if (line.contains("پاسخنامه") || line.contains("پاسخ‌نامه")
                     || line.contains("کلید پاسخ") || line.contains("پاسخ صحیح")) {
                 inAnswerKey = true;
-                continue;
-            }
-            if (inAnswerKey) {
-                java.util.regex.Matcher am = answerLine.matcher(line);
-                if (am.matches()) {
-                    int idx = pdfAnswerIndex(am.group(2));
-                    if (idx >= 0) answerKey.put(Integer.parseInt(am.group(1)), idx);
+                java.util.regex.Matcher pairs = answerPair.matcher(line);
+                while (pairs.find()) {
+                    int idx = pdfAnswerIndex(pairs.group(2));
+                    if (idx >= 0) answerKey.put(Integer.parseInt(pairs.group(1)), idx);
                 }
                 continue;
             }
+            if (inAnswerKey) {
+                java.util.regex.Matcher pairs = answerPair.matcher(line);
+                while (pairs.find()) {
+                    int idx = pdfAnswerIndex(pairs.group(2));
+                    if (idx >= 0) answerKey.put(Integer.parseInt(pairs.group(1)), idx);
+                }
+                continue;
+            }
+
+            // Inside a question, option markers must be checked before question numbers.
+            java.util.regex.Matcher om = optionStart.matcher(line);
+            if (current != null && options.size() < 4 && om.matches()) {
+                int idx = pdfAnswerIndex(om.group(1));
+                if (idx >= 0) {
+                    while (options.size() <= idx) options.add("");
+                    options.set(idx, om.group(2).trim());
+                    continue;
+                }
+            }
+
             java.util.regex.Matcher qm = qStart.matcher(line);
             if (qm.matches()) {
                 if (current != null) {
@@ -1112,15 +1130,15 @@ public class MainActivity extends Activity {
                     current.put("options", new JSONArray(options));
                     questions.add(current);
                 }
-                questionNumber = Integer.parseInt(qm.group(1));
+                int number = Integer.parseInt(qm.group(1));
                 current = new JSONObject();
-                current.put("number", questionNumber);
+                current.put("number", number);
                 questionText = new StringBuilder(qm.group(2));
                 options = new java.util.ArrayList<>();
                 continue;
             }
+
             if (current == null) continue;
-            java.util.regex.Matcher om = optionStart.matcher(line);
             if (om.matches()) {
                 int idx = pdfAnswerIndex(om.group(1));
                 if (idx >= 0) {
@@ -1142,6 +1160,7 @@ public class MainActivity extends Activity {
             current.put("options", new JSONArray(options));
             questions.add(current);
         }
+
         JSONArray imported = new JSONArray();
         for (JSONObject q : questions) {
             JSONArray sourceOptions = q.optJSONArray("options");
@@ -1162,13 +1181,24 @@ public class MainActivity extends Activity {
         return imported;
     }
 
+    private String normalizePdfDigits(String text) {
+        StringBuilder result = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c >= '\u06f0' && c <= '\u06f9') c = (char) ('0' + c - '\u06f0');
+            else if (c >= '\u0660' && c <= '\u0669') c = (char) ('0' + c - '\u0660');
+            result.append(c);
+        }
+        return result.toString();
+    }
+
     private int pdfAnswerIndex(String label) {
         if (label == null) return -1;
         switch (label.trim().toUpperCase(Locale.ROOT)) {
-            case "الف": case "A": case "1": case "۱": return 0;
-            case "ب": case "B": case "2": case "۲": return 1;
-            case "ج": case "C": case "3": case "۳": return 2;
-            case "د": case "D": case "4": case "۴": return 3;
+            case "الف": case "A": case "1": return 0;
+            case "ب": case "B": case "2": return 1;
+            case "ج": case "C": case "3": return 2;
+            case "د": case "D": case "4": return 3;
             default: return -1;
         }
     }
