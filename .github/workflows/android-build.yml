@@ -10,6 +10,11 @@ permissions:
 jobs:
   android-build:
     runs-on: ubuntu-latest
+    env:
+      AZMOONYAR_KEYSTORE_BASE64: ${{ secrets.AZMOONYAR_KEYSTORE_BASE64 }}
+      AZMOONYAR_KEYSTORE_PASSWORD: ${{ secrets.AZMOONYAR_KEYSTORE_PASSWORD }}
+      AZMOONYAR_KEY_ALIAS: ${{ secrets.AZMOONYAR_KEY_ALIAS }}
+      AZMOONYAR_KEY_PASSWORD: ${{ secrets.AZMOONYAR_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -19,6 +24,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Prepare signing keystore
+        if: env.AZMOONYAR_KEYSTORE_BASE64 != ''
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/azmoonyar-signing"
+          printf '%s' "$AZMOONYAR_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/azmoonyar-signing/release.jks"
+          echo "AZMOONYAR_KEYSTORE_PATH=$RUNNER_TEMP/azmoonyar-signing/release.jks" >> "$GITHUB_ENV"
       - name: Compile debug and release variants
         run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
@@ -27,7 +39,15 @@ jobs:
           name: azmoonyar-debug-apk-testing-only
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      - name: Upload unsigned release APK
+      - name: Upload signed release APK
+        if: env.AZMOONYAR_KEYSTORE_BASE64 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: azmoonyar-release-signed
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+      - name: Upload unsigned release APK (signing secrets not configured)
+        if: env.AZMOONYAR_KEYSTORE_BASE64 == ''
         uses: actions/upload-artifact@v4
         with:
           name: azmoonyar-release-unsigned
