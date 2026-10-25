@@ -146,9 +146,9 @@ public class MainActivity extends Activity {
             if (student != null) list.append(i + 1).append(". ")
                     .append(student.optString("name", "بدون نام"))
                     .append("  —  شناسه: ").append(student.optString("id", ""))
-                    .append("\\n");
+                    .append("\n");
         }
-        if (list.length() == 0) list.append("هنوز دانش‌آموزی ثبت نشده است.\\n");
+        if (list.length() == 0) list.append("هنوز دانش‌آموزی ثبت نشده است.\n");
         new AlertDialog.Builder(this)
                 .setTitle("فهرست دانش‌آموزان")
                 .setMessage(list.toString())
