@@ -924,7 +924,9 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 String content = downloadText(sourceUrl, 8 * 1024 * 1024);
-                JSONArray imported = parseQuestionBankJson(content.trim());
+                String trimmed = content.trim();
+                JSONArray imported = (trimmed.startsWith("[") || trimmed.startsWith("{"))
+                        ? parseQuestionBankJson(trimmed) : parseQuestionBankCsv(content);
                 if (imported.length() == 0) throw new IllegalArgumentException("سؤال چهارگزینه‌ای معتبر با پاسخ صحیح در فایل پیدا نشد.");
                 runOnUiThread(() -> confirmOnlineQuestionBankImport(imported, sourceName));
             } catch (Exception e) {
@@ -1063,7 +1065,8 @@ public class MainActivity extends Activity {
         } else {
             JSONObject rootJson = new JSONObject(source);
             rootObject = rootJson.optJSONArray("questions");
-            if (rootObject == null) throw new IllegalArgumentException("در JSON باید آرایهٔ questions یا آرایهٔ مستقیم سؤال‌ها وجود داشته باشد.");
+            if (rootObject == null) rootObject = rootJson.optJSONArray("sections");
+            if (rootObject == null) throw new IllegalArgumentException("در JSON باید آرایهٔ questions، sections یا آرایهٔ مستقیم سؤال‌ها وجود داشته باشد.");
         }
         JSONArray rows = (JSONArray) rootObject;
         JSONArray expandedRows = new JSONArray();
