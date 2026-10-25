@@ -68,7 +68,8 @@ public class MainActivity extends Activity {
         title.setText("آزمون‌یار");
         title.setTextSize(32); title.setTextColor(Color.rgb(7,40,130));
         title.setGravity(Gravity.CENTER); title.setTypeface(null, android.graphics.Typeface.BOLD);
-        root.addView(title, new LinearLayout.LayoutParams(-1,dp(58)));
+        title.setShadowLayer(dp(1), 0, dp(1), Color.rgb(210,222,250));
+        root.addView(title, new LinearLayout.LayoutParams(-1,dp(62)));
 
         TextView subtitle = new TextView(this);
         subtitle.setText("مدیریت آزمون و کلید پاسخ — آفلاین");
@@ -77,8 +78,17 @@ public class MainActivity extends Activity {
 
         summary = new TextView(this);
         summary.setTextSize(15); summary.setTextColor(Color.rgb(30,45,80)); summary.setGravity(Gravity.CENTER);
-        summary.setPadding(dp(12),dp(14),dp(12),dp(14)); summary.setBackgroundColor(Color.WHITE);
-        root.addView(summary,new LinearLayout.LayoutParams(-1,-2));
+        summary.setTypeface(null, android.graphics.Typeface.BOLD);
+        summary.setPadding(dp(16),dp(18),dp(16),dp(18));
+        android.graphics.drawable.GradientDrawable summaryBg = new android.graphics.drawable.GradientDrawable();
+        summaryBg.setColor(Color.WHITE);
+        summaryBg.setCornerRadius(dp(20));
+        summaryBg.setStroke(dp(1), Color.rgb(218,228,250));
+        summary.setBackground(summaryBg);
+        summary.setElevation(dp(3));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1,-2);
+        summaryParams.bottomMargin = dp(12);
+        root.addView(summary,summaryParams);
         refreshSummary();
 
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
@@ -108,8 +118,37 @@ public class MainActivity extends Activity {
     }
 
     private void addButton(String text, View.OnClickListener listener) {
-        Button b = new Button(this); b.setText(text); b.setAllCaps(false); b.setTextSize(16); b.setOnClickListener(listener);
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(56)); p.topMargin=dp(10); root.addView(b,p);
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setTextSize(15);
+        b.setTypeface(null, android.graphics.Typeface.BOLD);
+        b.setTextColor(Color.WHITE);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(14), dp(8), dp(14), dp(8));
+        int[][] palette = {
+            {Color.rgb(37,99,235), Color.rgb(29,78,216)},
+            {Color.rgb(13,148,136), Color.rgb(15,118,110)},
+            {Color.rgb(124,58,237), Color.rgb(91,33,182)},
+            {Color.rgb(219,39,119), Color.rgb(190,24,93)},
+            {Color.rgb(234,88,12), Color.rgb(194,65,12)},
+            {Color.rgb(8,145,178), Color.rgb(14,116,144)},
+            {Color.rgb(79,70,229), Color.rgb(67,56,202)},
+            {Color.rgb(22,163,74), Color.rgb(21,128,61)}
+        };
+        int index = root.getChildCount() % palette.length;
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            palette[index]);
+        bg.setCornerRadius(dp(18));
+        b.setBackground(bg);
+        b.setElevation(dp(3));
+        b.setOnClickListener(listener);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(58));
+        p.topMargin = dp(9);
+        p.leftMargin = dp(2);
+        p.rightMargin = dp(2);
+        root.addView(b, p);
     }
 
     private void refreshSummary() {
