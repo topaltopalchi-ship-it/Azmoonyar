@@ -55,6 +55,58 @@ public class MainActivity extends Activity {
         if (prefs != null) refreshSummary();
     }
 
+
+    private void styleInput(EditText input) {
+        input.setTextSize(16);
+        input.setTextColor(Color.rgb(30, 41, 59));
+        input.setHintTextColor(Color.rgb(125, 140, 165));
+        input.setPadding(dp(14), dp(12), dp(14), dp(12));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(dp(1), Color.rgb(203, 213, 235));
+        input.setBackground(bg);
+        input.setMinHeight(dp(48));
+    }
+
+    private void styleOption(RadioButton option, int index) {
+        int[] colors = {Color.rgb(37, 99, 235), Color.rgb(13, 148, 136),
+                Color.rgb(124, 58, 237), Color.rgb(219, 39, 119)};
+        option.setTextColor(colors[index % colors.length]);
+        option.setTextSize(16);
+        option.setTypeface(null, android.graphics.Typeface.BOLD);
+        option.setPadding(dp(8), dp(5), dp(12), dp(5));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(Color.rgb(245, 248, 255));
+        bg.setCornerRadius(dp(12));
+        bg.setStroke(dp(1), colors[index % colors.length]);
+        option.setBackground(bg);
+    }
+
+    private void showStyledInfo(String message) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setMessage(message)
+                .setPositiveButton("باشه", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(Color.WHITE);
+            bg.setCornerRadius(dp(20));
+            dialog.getWindow().setBackgroundDrawable(bg);
+            Button ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            if (ok != null) {
+                android.graphics.drawable.GradientDrawable buttonBg = new android.graphics.drawable.GradientDrawable(
+                        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                        new int[]{Color.rgb(37, 99, 235), Color.rgb(79, 70, 229)});
+                buttonBg.setCornerRadius(dp(12));
+                ok.setBackground(buttonBg);
+                ok.setTextColor(Color.WHITE);
+                ok.setTypeface(null, android.graphics.Typeface.BOLD);
+            }
+        });
+        dialog.show();
+    }
+
     private void buildScreen() {
         ScrollView scroll = new ScrollView(this);
         root = new LinearLayout(this);
@@ -163,8 +215,8 @@ public class MainActivity extends Activity {
 
     private void showExamDialog() {
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
-        EditText name=new EditText(this); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
-        EditText count=new EditText(this); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۳۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
+        EditText name=new EditText(this); styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
+        EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۳۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
         new AlertDialog.Builder(this).setTitle("تعریف آزمون").setView(form)
           .setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
             String n=name.getText().toString().trim(); int c;
@@ -202,7 +254,7 @@ public class MainActivity extends Activity {
     }
 
     private void showAddStudentDialog() {
-        EditText name = new EditText(this);
+        EditText name = new EditText(this); styleInput(name);
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی دانش‌آموز");
         new AlertDialog.Builder(this)
@@ -404,10 +456,10 @@ public class MainActivity extends Activity {
     private void showKeyDialog() {
         if(examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
-        EditText q=new EditText(this); q.setSingleLine(true); q.setInputType(2); q.setHint("شماره سؤال"); q.setText("1"); form.addView(q);
+        EditText q=new EditText(this); styleInput(q); q.setSingleLine(true); q.setInputType(2); q.setHint("شماره سؤال"); q.setText("1"); form.addView(q);
         RadioGroup rg=new RadioGroup(this); rg.setOrientation(RadioGroup.HORIZONTAL);
         String[] options={"A","B","C","D"};
-        for(String option:options) { RadioButton rb=new RadioButton(this); rb.setText(option); rb.setTag(option); rg.addView(rb); }
+        for(String option:options) { RadioButton rb=new RadioButton(this); rb.setText(option); rb.setTag(option); styleOption(rb, java.util.Arrays.asList(options).indexOf(option)); rg.addView(rb); }
         form.addView(rg);
         new AlertDialog.Builder(this).setTitle("ثبت یک پاسخ در کلید").setMessage("شماره سؤال را وارد و گزینه صحیح را انتخاب کن.")
           .setView(form).setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
@@ -460,15 +512,15 @@ public class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
-        EditText question = new EditText(this);
+        EditText question = new EditText(this); styleInput(question);
         question.setHint("متن سؤال");
         form.addView(question);
-        EditText topic = new EditText(this);
+        EditText topic = new EditText(this); styleInput(topic);
         topic.setHint("مبحث (اختیاری؛ مثل نوار قلب یا رادیکال)");
         form.addView(topic);
         EditText[] options = new EditText[4];
         for (int i = 0; i < 4; i++) {
-            options[i] = new EditText(this);
+            options[i] = new EditText(this); styleInput(options[i]);
             options[i].setSingleLine(false);
             options[i].setHint("گزینه " + (char)('A' + i));
             form.addView(options[i]);
@@ -480,6 +532,7 @@ public class MainActivity extends Activity {
         correctGroup.setOrientation(RadioGroup.HORIZONTAL);
         for (int i = 0; i < 4; i++) {
             RadioButton rb = new RadioButton(this);
+            styleOption(rb, i);
             rb.setText(String.valueOf((char)('A' + i)));
             rb.setTag(i);
             correctGroup.addView(rb);
@@ -666,6 +719,6 @@ public class MainActivity extends Activity {
     }
 
     private void info(String message) {
-        new AlertDialog.Builder(this).setMessage(message).setPositiveButton("باشه",null).show();
+        showStyledInfo(message);
     }
 }
