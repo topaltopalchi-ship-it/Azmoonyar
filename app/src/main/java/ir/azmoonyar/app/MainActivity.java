@@ -499,13 +499,8 @@ public class MainActivity extends Activity {
                 });
                 PersianSpeechCapture ready = capture;
                 runOnUiThread(() -> {
-                    voiceButton.setText("اکنون نام را بگو… (برای توقف دوباره بزن)");
-                    voiceButton.setEnabled(true);
-                    voiceButton.setOnClickListener(v -> {
-                        voiceButton.setEnabled(false);
-                        voiceButton.setText("در حال پردازش گفتار…");
-                        ready.stop();
-                    });
+                    voiceButton.setText("اکنون نام را بگو…");
+                    voiceButton.setEnabled(false);
                 });
                 capture.start();
             } catch (Exception e) {
