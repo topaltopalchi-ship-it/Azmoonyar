@@ -276,7 +276,7 @@ public class MainActivity extends Activity {
                         refreshSummary();
                         info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد.");
                     } catch (Exception e) {
-                        info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
+                        info("ذخیره شرکت‌کننده انجام نشد؛ دوباره تلاش کن.");
                     }
                 }).show();
     }
@@ -358,7 +358,7 @@ public class MainActivity extends Activity {
                 + ".small{font-size:9px}"
                 + "</style></head><body>"
                 + "<section class='page'><h1>" + safeExam + "</h1><h2>برگهٔ سؤال‌ها</h2>"
-                + "<div class='meta'>نام دانش‌آموز: " + safeName + "</div>"
+                + "<div class='meta'>نام شرکت‌کننده: " + safeName + "</div>"
                 + "<div class='meta'>تعداد سؤال در بانک: " + bank.length() + "</div><hr/>"
                 + questionRows + "</section>"
                 + "<section class='page'><h1>" + safeExam + "</h1><h2>مشخصات شرکت‌کننده</h2>"
@@ -514,7 +514,7 @@ public class MainActivity extends Activity {
             + "th{background:#eee}</style></head><body><h1>کلید پاسخ معلم</h1><p>"
             + escapeHtml(examName()) + " — تعداد سؤال: " + count
             + "</p><table><thead><tr><th>شماره سؤال</th><th>پاسخ صحیح</th></tr></thead><tbody>"
-            + rows + "</tbody></table><p>این برگه مخصوص معلم است؛ همراه پاسخنامه دانش‌آموز چاپ نشود.</p></body></html>";
+            + rows + "</tbody></table><p>این برگه مخصوص معلم است؛ همراه پاسخنامه شرکت‌کننده چاپ نشود.</p></body></html>";
         WebView web = new WebView(this);
         web.getSettings().setDefaultTextEncodingName("UTF-8");
         web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
