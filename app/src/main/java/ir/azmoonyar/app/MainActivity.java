@@ -299,60 +299,29 @@ public class MainActivity extends Activity {
 
     private void printPairedSheets(String participantName, String participantId) {
         try {
+            JSONArray bank = readQuestionBank();
+            if (bank.length() < questionCount()) {
+                info("برای چاپ نسخه‌دار، ابتدا به تعداد سؤال‌های آزمون سؤال در بانک سؤال ثبت کن.");
+                return;
+            }
+            JSONArray variants = RandomExamBuilder.generateVariants(bank, 5, System.nanoTime());
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
-            final String modelId = "A";
-            String encodedExamName = Base64.encodeToString(
-                examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                Base64.URL_SAFE | Base64.NO_WRAP);
+            String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    Base64.URL_SAFE | Base64.NO_WRAP);
             String safeName = escapeHtml(participantName);
             String safeExam = escapeHtml(examName());
             String safeId = escapeHtml(participantId);
-
-            // Each QR identifies the same exam/participant/model and the specific answer-sheet page.
-            String[] pageQr = new String[pageCount];
-            for (int page = 1; page <= pageCount; page++) {
-                String payload = "AZY3|" + encodedExamName + "|" + participantId
-                    + "|" + modelId + "|T1|" + page + "|" + pageCount;
-                com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(
-                    payload, BarcodeFormat.QR_CODE, 360, 360);
-                Bitmap qr = Bitmap.createBitmap(360, 360, Bitmap.Config.ARGB_8888);
-                for (int y = 0; y < 360; y++) for (int x = 0; x < 360; x++)
-                    qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                qr.compress(Bitmap.CompressFormat.PNG, 100, output);
-                pageQr[page - 1] = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
-            }
-
-            JSONArray bank = readQuestionBank();
-            StringBuilder questionRows = new StringBuilder();
-            for (int i = 0; i < bank.length(); i++) {
-                JSONObject question = bank.optJSONObject(i);
-                if (question == null) continue;
-                questionRows.append("<article class='question'><b>")
-                    .append(i + 1).append(". ").append(escapeHtml(question.optString("text", "")))
-                    .append("</b><div class='options'>");
-                JSONArray options = question.optJSONArray("options");
-                if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++) {
-                    questionRows.append("<div>").append((char)('A' + j)).append(") ")
-                        .append(escapeHtml(options.optString(j, ""))).append("</div>");
-                }
-                questionRows.append("</div></article>");
-            }
-            if (questionRows.length() == 0) {
-                questionRows.append("<p class='instructions'>هنوز سؤالی در بانک سؤال ثبت نشده است؛ پاسخنامه چاپ می‌شود، اما برگه سؤال خالی خواهد بود.</p>");
-            }
-
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
                 .append("body{font-family:sans-serif;color:#111;margin:0;direction:rtl}")
                 .append(".page{width:210mm;height:297mm;padding:10mm 12mm;position:relative;page-break-after:always;overflow:hidden}")
-                .append(".page:last-child{page-break-after:auto}.head{font-size:18px;font-weight:bold;margin:0 0 3mm}")
-                .append(".meta{font-size:11px;margin:2mm 0}.qr{width:27mm;height:27mm;float:left}")
-                .append(".clear{clear:both}.instructions{font-size:10px;border:1px solid #333;padding:3mm;margin:3mm 0}")
-                .append(".question{font-size:12px;margin:0 0 4mm;page-break-inside:avoid}")
-                .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin:2mm 5mm 0;font-size:11px}")
+                .append(".page:last-child{page-break-after:auto}.head{font-size:17px;font-weight:bold;margin:0 0 3mm}")
+                .append(".meta{font-size:10px;margin:2mm 0}.qr{width:25mm;height:25mm;float:left}.clear{clear:both}")
+                .append(".instructions{font-size:9px;border:1px solid #333;padding:2mm;margin:2mm 0}")
+                .append(".question{font-size:11px;margin:0 0 3mm;page-break-inside:avoid}")
+                .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1mm;margin:1mm 5mm 0;font-size:10px}")
                 .append(".cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:3mm}")
                 .append(".col{border:0.3mm solid #111;padding:2mm 1.5mm;border-radius:1mm}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
@@ -361,60 +330,91 @@ public class MainActivity extends Activity {
                 .append(".mark{position:absolute;width:5mm;height:5mm;background:#000}.tl{top:4mm;left:4mm}.tr{top:4mm;right:4mm}.bl{bottom:4mm;left:4mm}.br{bottom:4mm;right:4mm}")
                 .append("</style></head><body>");
 
-            // Questionnaire page carries the same model/participant/page identity as the answer sheets.
-            html.append("<section class='page'><h1 class='head'>").append(safeExam)
-                .append(" — برگه سؤال‌ها</h1><img class='qr' src='data:image/png;base64,")
-                .append(pageQr[0]).append("'/><div class='meta'>شرکت‌کننده: ")
-                .append(safeName).append("</div><div class='meta'>شناسه: ").append(safeId)
-                .append("</div><div class='meta'>مدل: ").append(modelId)
-                .append(" | تعداد سؤال آزمون: ").append(total).append("</div><div class='clear'></div><hr/>")
-                .append(questionRows).append("</section>");
-
-            for (int page = 1; page <= pageCount; page++) {
-                int first = (page - 1) * 100 + 1;
-                int last = Math.min(page * 100, total);
-                html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
-                    .append("<span class='mark bl'></span><span class='mark br'></span>")
-                    .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
-                    .append("<img class='qr' src='data:image/png;base64,").append(pageQr[page - 1]).append("'/>")
-                    .append("<div class='meta'>شرکت‌کننده: ").append(safeName).append("</div>")
-                    .append("<div class='meta'>شناسه: ").append(safeId).append(" | مدل: ").append(modelId).append("</div>")
-                    .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
-                    .append(" | سؤال‌های ").append(first).append(" تا ").append(last).append("</div>")
-                    .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها بین صفحه‌ها پیوسته است؛ صفحه‌ها را با هم نگه دارید.</div>")
-                    .append("<div class='cols'>");
-                for (int col = 0; col < 2; col++) {
-                    int colFirst = first + col * 50;
-                    int colLast = Math.min(first + (col + 1) * 50 - 1, last);
-                    if (colFirst > last) continue;
-                    html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
-                    for (int q = colFirst; q <= colLast; q++) {
-                        html.append("<tr><td class='num'>").append(q).append("</td>");
-                        for (int option = 0; option < 4; option++) html.append("<td><span class='bubble'></span></td>");
-                        html.append("</tr>");
-                    }
-                    html.append("</tbody></table></div>");
+            for (int v = 0; v < variants.length(); v++) {
+                JSONObject variant = variants.optJSONObject(v);
+                if (variant == null) continue;
+                String modelId = String.valueOf((char)('A' + v));
+                JSONArray questions = variant.optJSONArray("questions");
+                String answerKey = variant.optString("answer_key", "");
+                if (questions == null || questions.length() < total || answerKey.length() < total) {
+                    info("ساخت مدل آزمون کامل نبود؛ چاپ متوقف شد.");
+                    return;
                 }
-                html.append("</div></section>");
+                for (int page = 1; page <= pageCount; page++) {
+                    String payload = "AZY3|" + encodedExamName + "|" + participantId + "|"
+                            + modelId + "|T1|" + page + "|" + pageCount;
+                    com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, 320, 320);
+                    Bitmap qr = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
+                    for (int y = 0; y < 320; y++) for (int x = 0; x < 320; x++)
+                        qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+                    ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    qr.compress(Bitmap.CompressFormat.PNG, 100, output);
+                    String qr64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+                    int first = (page - 1) * 100;
+                    int last = Math.min(page * 100, total);
+                    if (page == 1) {
+                        html.append("<section class='page'><h1 class='head'>").append(safeExam)
+                            .append(" — برگه سؤال‌ها (مدل ").append(modelId).append(")</h1>")
+                            .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
+                            .append("<div class='meta'>شرکت‌کننده: ").append(safeName).append("</div>")
+                            .append("<div class='meta'>شناسه: ").append(safeId).append(" | مدل: ").append(modelId).append("</div>")
+                            .append("<div class='meta'>تعداد سؤال: ").append(total).append("</div><div class='clear'></div><hr/>");
+                        for (int i = 0; i < total; i++) {
+                            JSONObject q = questions.optJSONObject(i);
+                            if (q == null) continue;
+                            html.append("<article class='question'><b>").append(i + 1).append(". ")
+                                .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
+                            JSONArray options = q.optJSONArray("options");
+                            if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
+                                html.append("<div>").append((char)('A' + j)).append(") ")
+                                    .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                            html.append("</div></article>");
+                        }
+                        html.append("</section>");
+                    }
+                    html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
+                        .append("<span class='mark bl'></span><span class='mark br'></span>")
+                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه (مدل ").append(modelId).append(")</h1>")
+                        .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
+                        .append("<div class='meta'>شرکت‌کننده: ").append(safeName).append("</div>")
+                        .append("<div class='meta'>شناسه: ").append(safeId).append(" | مدل: ").append(modelId).append("</div>")
+                        .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
+                        .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
+                        .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها در صفحه‌ها پیوسته است.</div><div class='cols'>");
+                    for (int col = 0; col < 2; col++) {
+                        int colFirst = first + col * 50;
+                        int colLast = Math.min(first + (col + 1) * 50, last);
+                        if (colFirst >= last) continue;
+                        html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
+                        for (int q = colFirst; q < colLast; q++) {
+                            html.append("<tr><td class='num'>").append(q + 1).append("</td>");
+                            for (int option = 0; option < 4; option++) html.append("<td><span class='bubble'></span></td>");
+                            html.append("</tr>");
+                        }
+                        html.append("</tbody></table></div>");
+                    }
+                    html.append("</div></section>");
+                }
+                // Keep the model key only in local preferences for later grading; never print it.
+                prefs.edit().putString("answer_key_model_" + modelId, answerKey.substring(0, total))
+                    .putString("model_questions_" + modelId, questions.toString()).apply();
             }
             html.append("</body></html>");
-
             WebView web = new WebView(this);
             web.getSettings().setDefaultTextEncodingName("UTF-8");
             web.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
             web.setWebViewClient(new WebViewClient() {
                 @Override public void onPageFinished(WebView view, String url) {
                     PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                    if (pm != null) {
-                        android.print.PrintDocumentAdapter adapter = view.createPrintDocumentAdapter("AzmoonYar-" + participantName);
-                        pm.print("AzmoonYar-" + participantName, adapter,
-                            new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                    if (pm != null) pm.print("AzmoonYar-" + participantName,
+                        view.createPrintDocumentAdapter("AzmoonYar-" + participantName),
+                        new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                             .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
-                    } else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                    else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
                 }
             });
         } catch (Exception e) {
-            info("ساخت برگه برای چاپ ناموفق بود؛ دوباره تلاش کن.");
+            info("ساخت برگه برای چاپ ناموفق بود؛ بانک سؤال و مجوز چاپ را بررسی کن.");
         }
     }
 
