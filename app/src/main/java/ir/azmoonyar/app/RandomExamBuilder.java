@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Builds randomized exam variants while preserving each question's correct answer. */
 public final class RandomExamBuilder {
@@ -16,13 +18,26 @@ public final class RandomExamBuilder {
         if (variantCount < 1 || variantCount > 10) throw new IllegalArgumentException("تعداد نسخه باید بین ۱ تا ۱۰ باشد.");
         JSONArray variants = new JSONArray();
         Random random = new Random(seed);
+        Set<String> usedQuestionOrders = new HashSet<>();
         for (int v = 0; v < variantCount; v++) {
             List<JSONObject> questions = new ArrayList<>();
             for (int i = 0; i < bank.length(); i++) {
                 JSONObject q = bank.optJSONObject(i);
                 if (q != null) questions.add(q);
             }
-            Collections.shuffle(questions, random);
+            if (questions.isEmpty()) throw new IllegalArgumentException("بانک سؤال، سؤال معتبر ندارد.");
+            boolean uniqueOrder = false;
+            for (int attempt = 0; attempt < 1000 && !uniqueOrder; attempt++) {
+                Collections.shuffle(questions, random);
+                StringBuilder signature = new StringBuilder();
+                for (JSONObject q : questions) {
+                    signature.append(q.optString("id", q.optString("text", ""))).append("|");
+                }
+                uniqueOrder = usedQuestionOrders.add(signature.toString());
+            }
+            if (!uniqueOrder) {
+                throw new IllegalArgumentException("برای این تعداد سؤال، مدل‌های بیشتری با ترتیب سؤال متفاوت پیدا نشد. تعداد مدل‌ها را کمتر کن یا سؤال‌های بیشتری اضافه کن.");
+            }
             JSONArray outputQuestions = new JSONArray();
             StringBuilder answerKey = new StringBuilder();
             for (int position = 0; position < questions.size(); position++) {
