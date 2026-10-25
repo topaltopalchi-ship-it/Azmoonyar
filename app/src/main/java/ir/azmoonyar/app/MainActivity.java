@@ -56,7 +56,6 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
-        new android.os.Handler(getMainLooper()).postDelayed(this::downloadPersianSpeechModel, 700);
     }
 
     @Override protected void onResume() {
@@ -133,7 +132,7 @@ public class MainActivity extends Activity {
         root.addView(title, new LinearLayout.LayoutParams(-1,dp(62)));
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("مدیریت آزمون و کلید پاسخ — آفلاین");
+        subtitle.setText("مدیریت بانک سؤال، نسخه‌های آزمون و تصحیح — آفلاین");
         subtitle.setTextSize(16); subtitle.setTextColor(Color.rgb(65,80,115)); subtitle.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1,-2); sp.bottomMargin=dp(22); root.addView(subtitle,sp);
 
@@ -156,14 +155,11 @@ public class MainActivity extends Activity {
                 new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
         addButtonGrid(
-                new String[]{"چاپ پاسخنامه با QR اختصاصی", "ثبت کلید پاسخ"},
-                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> showKeyDialog()});
+                new String[]{"چاپ نسخه‌های ساخته‌شده", "اسکن زنده پاسخنامه"},
+                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> openScanner()});
         addButtonGrid(
-                new String[]{"نمایش کلید و وضعیت تکمیل", "اسکن زنده پاسخنامه"},
-                new View.OnClickListener[]{v -> showKeySummary(), v -> openScanner()});
-        addButtonGrid(
-                new String[]{"مدل صوتی فارسی", "تنظیمات ذخیره تصاویر"},
-                new View.OnClickListener[]{v -> downloadPersianSpeechModel(), v -> showImageRetentionDialog()});
+                new String[]{"تنظیمات ذخیره تصاویر"},
+                new View.OnClickListener[]{v -> showImageRetentionDialog()});
         addButtonGrid(
                 new String[]{"گزارش‌ها و حریم خصوصی", "بانک سؤال"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showQuestionBank()});
@@ -368,12 +364,11 @@ public class MainActivity extends Activity {
 
     private void refreshSummary() {
         if (summary == null || prefs == null) return;
-        int filled=0; String k=key();
-        for(int i=0;i<Math.min(k.length(),questionCount());i++) if(k.charAt(i)>='A' && k.charAt(i)<='D') filled++;
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
         int scanned=prefs.getInt("scanned_sheet_count",0);
         int studentCount=readStudents().length();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
+        int variants=readSavedVariants().length();
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nنسخه‌های ذخیره‌شده: "+variants+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های QR اسکن‌شده: "+scanned);
     }
 
     private void showExamDialog() {
@@ -514,23 +509,31 @@ public class MainActivity extends Activity {
         }, "persian-name-recognition").start();
     }
 
+
     private void showPrintStudentDialog() {
         if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
+        JSONArray saved = readSavedVariants();
+        if (saved.length() == 0) {
+            info("ابتدا از بخش «ساخت نسخه‌های تصادفی آزمون» تعداد نسخه‌ها را انتخاب و ذخیره کن.");
+            return;
+        }
         new AlertDialog.Builder(this)
-            .setTitle("چاپ آزمون‌های نسخه‌دار")
-            .setMessage("پرسشنامه و پاسخنامهٔ جفت‌شده برای مدل‌های مختلف چاپ می‌شوند. نام شرکت‌کننده از قبل لازم نیست؛ نام پس از دریافت پاسخنامه ثبت می‌شود.")
-            .setPositiveButton("چاپ برگه‌ها", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
+            .setTitle("چاپ نسخه‌های ذخیره‌شده")
+            .setMessage("تعداد نسخه‌های آمادهٔ چاپ: " + saved.length()
+                + "\nهر نسخه QR اختصاصی و کلید تصحیح متناظر دارد.")
+            .setPositiveButton("چاپ پرسشنامه و پاسخنامه", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
             .setNegativeButton("انصراف", null).show();
     }
 
-    private void printPairedSheets(String participantName, String participantId) {
+
+        private void printPairedSheets(String participantName, String participantId) {
         try {
             JSONArray bank = readQuestionBank();
             if (bank.length() < questionCount()) {
                 info("برای چاپ نسخه‌دار، ابتدا به تعداد سؤال‌های آزمون سؤال در بانک سؤال ثبت کن.");
                 return;
             }
-            JSONArray variants = getOrCreateExamVariants(bank, 5);
+            JSONArray variants = readSavedVariants();
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
@@ -558,7 +561,8 @@ public class MainActivity extends Activity {
                 JSONObject variant = variants.optJSONObject(v);
                 if (variant == null) continue;
                 String modelId = String.valueOf((char)('A' + v));
-                String sheetSetId = UUID.randomUUID().toString();
+                String sheetSetId = variant.optString("sheet_set_id", "");
+                if (sheetSetId.isEmpty()) { info("شناسه QR نسخه ذخیره نشده است؛ نسخه‌ها را دوباره بساز."); return; }
                 JSONArray questions = variant.optJSONArray("questions");
                 String answerKey = variant.optString("answer_key", "");
                 if (questions == null || questions.length() < total || answerKey.length() < total) {
@@ -620,7 +624,9 @@ public class MainActivity extends Activity {
                 }
                 // Keep the model key only in local preferences for later grading; never print it.
                 prefs.edit().putString("answer_key_model_" + modelId, answerKey.substring(0, total))
-                    .putString("model_questions_" + modelId, questions.toString()).apply();
+                    .putString("model_questions_" + modelId, questions.toString())
+                    .putString("sheet_set_id_model_" + modelId, sheetSetId)
+                    .putString("saved_exam_variants", variants.toString()).apply();
             }
             html.append("</body></html>");
             WebView web = new WebView(this);
@@ -809,44 +815,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void showKeyDialog() {
-        if(examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
-        LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
-        EditText q=new EditText(this); styleInput(q); q.setSingleLine(true); q.setInputType(2); q.setHint("شماره سؤال"); q.setText("1"); form.addView(q);
-        RadioGroup rg=new RadioGroup(this); rg.setOrientation(RadioGroup.HORIZONTAL);
-        String[] options={"A","B","C","D"};
-        for(String option:options) { RadioButton rb=new RadioButton(this); rb.setText(option); rb.setTag(option); styleOption(rb, java.util.Arrays.asList(options).indexOf(option)); rg.addView(rb); }
-        form.addView(rg);
-        new AlertDialog.Builder(this).setTitle("ثبت یک پاسخ در کلید").setMessage("شماره سؤال را وارد و گزینه صحیح را انتخاب کن.")
-          .setView(form).setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
-            int index;
-            try { index=Integer.parseInt(q.getText().toString().trim())-1; } catch(Exception e) { info("شماره سؤال معتبر نیست."); return; }
-            if(index<0 || index>=questionCount()) { info("شماره سؤال باید بین ۱ و "+questionCount()+" باشد."); return; }
-            int checked=rg.getCheckedRadioButtonId();
-            if(checked==-1) { info("یک گزینه از A تا D انتخاب کن."); return; }
-            RadioButton selected=rg.findViewById(checked);
-            StringBuilder k=new StringBuilder(key());
-            while(k.length()<questionCount()) k.append('-');
-            k.setCharAt(index, selected.getTag().toString().charAt(0));
-            prefs.edit().putString("answer_key",k.toString()).apply();
-            refreshSummary(); info("پاسخ سؤال "+(index+1)+" ذخیره شد.");
-          }).show();
-    }
 
-    private void showKeySummary() {
-        if(examName().isEmpty()) { info("هنوز آزمونی تعریف نشده است."); return; }
-        StringBuilder lines=new StringBuilder();
-        String k=key(); int filled=0;
-        for(int i=0;i<questionCount();i++) {
-            char a=i<k.length()?k.charAt(i):'-';
-            if(a>='A'&&a<='D') filled++;
-            lines.append(String.format(Locale.ROOT,"%03d  :  %s%n",i+1,(a=='-'?"ثبت نشده":String.valueOf(a))));
-        }
-        new AlertDialog.Builder(this).setTitle("کلید پاسخ — "+filled+"/"+questionCount())
-          .setMessage(lines.toString()).setPositiveButton("بستن",null).show();
-    }
 
-    private JSONArray readQuestionBank() {
+        private JSONArray readQuestionBank() {
         try { return new JSONArray(prefs.getString("question_bank_json", "[]")); }
         catch (Exception e) { return new JSONArray(); }
     }
@@ -926,119 +897,66 @@ public class MainActivity extends Activity {
             }).show();
     }
 
+
+    private JSONArray readSavedVariants() {
+        try { return new JSONArray(prefs.getString("saved_exam_variants", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
     private void generateRandomVariants() {
         JSONArray bank = readQuestionBank();
-        if (bank.length() < 1) {
-            info("ابتدا حداقل یک سؤال در بانک سؤال ثبت کن.");
+        if (bank.length() < questionCount()) {
+            info("تعداد سؤال‌های بانک باید دست‌کم برابر تعداد سؤال‌های آزمون باشد.");
             return;
         }
-        String[] labels = {"۱ نسخه (یک مدل)", "۲ نسخه", "۳ نسخه", "۵ نسخه", "۱۰ نسخه"};
+        String[] labels = {"۱ نسخه", "۲ نسخه", "۳ نسخه", "۵ نسخه", "۱۰ نسخه"};
         int[] counts = {1, 2, 3, 5, 10};
         RadioGroup group = new RadioGroup(this);
         group.setOrientation(RadioGroup.VERTICAL);
-        final int[] selectedCount = {3};
+        final int[] selectedCount = {2};
         for (int i = 0; i < labels.length; i++) {
             RadioButton option = new RadioButton(this);
             option.setText(labels[i]);
             option.setTag(counts[i]);
             group.addView(option);
-            if (counts[i] == 3) {
-                option.setChecked(true);
-                selectedCount[0] = 3;
-            }
+            if (counts[i] == 2) option.setChecked(true);
         }
         group.setOnCheckedChangeListener((g, checkedId) -> {
             RadioButton selected = g.findViewById(checkedId);
             if (selected != null) selectedCount[0] = (Integer) selected.getTag();
         });
         new AlertDialog.Builder(this)
-            .setTitle("تعداد مدل‌های آزمون")
-            .setMessage("برای هر مدل، کلید تصحیح به‌طور خودکار ساخته می‌شود. کلید در پیش‌نمایش مخصوص مسئول آزمون است و روی برگه شرکت‌کننده چاپ نمی‌شود.")
+            .setTitle("تعداد نسخه‌های تصادفی")
+            .setMessage("برای هر نسخه، ترتیب سؤال‌ها و گزینه‌ها تصادفی می‌شود. کلید صحیح و شناسه QR همان نسخه نیز ذخیره می‌شوند تا بعداً برای تصحیح استفاده شوند.")
             .setView(group)
             .setNegativeButton("انصراف", null)
-            .setPositiveButton("ساخت مدل‌ها و کلیدها", (dialog, which) -> {
+            .setPositiveButton("ساخت و ذخیره نسخه‌ها", (dialog, which) -> {
                 try {
                     JSONArray variants = RandomExamBuilder.generateVariants(bank, selectedCount[0], System.nanoTime());
-                    ScrollView scroll = new ScrollView(this);
-                    LinearLayout content = new LinearLayout(this);
-                    content.setOrientation(LinearLayout.VERTICAL);
-                    content.setPadding(dp(12), dp(8), dp(12), dp(16));
-                    scroll.addView(content);
-                    TextView intro = new TextView(this);
-                    intro.setText("مدل‌ها و کلیدهای اختصاصی ساخته شدند. بیضی رنگی نشان‌دهندهٔ گزینهٔ صحیح هر سؤال است. این صفحه پیش‌نمایش مسئول آزمون است؛ نام مدل نباید روی پرسشنامه یا پاسخنامهٔ شرکت‌کننده چاپ شود.");
-                    intro.setTextSize(14);
-                    intro.setTextColor(Color.rgb(30, 41, 59));
-                    intro.setPadding(dp(4), dp(6), dp(4), dp(12));
-                    content.addView(intro);
-                    for (int v = 0; v < variants.length(); v++) {
-                        JSONObject variant = variants.optJSONObject(v);
-                        if (variant == null) continue;
-                        TextView heading = new TextView(this);
-                        heading.setText("کلید داخلی مدل " + variant.optString("variant_id") +
-                                "   •   " + variant.optString("answer_key").length() + " سؤال");
-                        heading.setTextSize(17);
-                        heading.setTypeface(null, android.graphics.Typeface.BOLD);
-                        heading.setTextColor(Color.rgb(29, 78, 216));
-                        heading.setPadding(dp(4), dp(12), dp(4), dp(8));
-                        content.addView(heading);
-                        JSONArray questions = variant.optJSONArray("questions");
-                        if (questions == null) continue;
-                        for (int i = 0; i < questions.length(); i++) {
-                            JSONObject q = questions.optJSONObject(i);
-                            if (q == null) continue;
-                            LinearLayout row = new LinearLayout(this);
-                            row.setOrientation(LinearLayout.HORIZONTAL);
-                            row.setGravity(Gravity.CENTER_VERTICAL);
-                            row.setPadding(dp(4), dp(5), dp(4), dp(5));
-                            TextView number = new TextView(this);
-                            number.setText(String.valueOf(i + 1) + ".");
-                            number.setTextSize(14);
-                            number.setTextColor(Color.rgb(51, 65, 85));
-                            number.setGravity(Gravity.CENTER);
-                            row.addView(number, new LinearLayout.LayoutParams(dp(34), -2));
-                            char correct = q.optString("correct_letter", "").isEmpty()
-                                    ? '-' : q.optString("correct_letter").charAt(0);
-                            for (int option = 0; option < 4; option++) {
-                                char letter = (char) ('A' + option);
-                                TextView bubble = new TextView(this);
-                                bubble.setText(String.valueOf(letter));
-                                bubble.setTextSize(12);
-                                bubble.setTypeface(null, android.graphics.Typeface.BOLD);
-                                bubble.setGravity(Gravity.CENTER);
-                                int color = letter == correct ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139);
-                                android.graphics.drawable.GradientDrawable bubbleBg = new android.graphics.drawable.GradientDrawable();
-                                bubbleBg.setColor(letter == correct ? Color.rgb(220, 252, 231) : Color.WHITE);
-                                bubbleBg.setCornerRadius(dp(30));
-                                bubbleBg.setStroke(dp(2), color);
-                                bubble.setBackground(bubbleBg);
-                                bubble.setTextColor(color);
-                                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(38), dp(30));
-                                bp.leftMargin = dp(3);
-                                bp.rightMargin = dp(3);
-                                row.addView(bubble, bp);
-                            }
-                            TextView questionText = new TextView(this);
-                            questionText.setText(q.optString("text", ""));
-                            questionText.setTextSize(12);
-                            questionText.setTextColor(Color.rgb(51, 65, 85));
-                            questionText.setMaxLines(2);
-                            questionText.setPadding(dp(6), 0, dp(4), 0);
-                            row.addView(questionText, new LinearLayout.LayoutParams(0, -2, 1f));
-                            content.addView(row);
-                            View separator = new View(this);
-                            separator.setBackgroundColor(Color.rgb(226, 232, 240));
-                            content.addView(separator, new LinearLayout.LayoutParams(-1, dp(1)));
+                    for (int i = 0; i < variants.length(); i++) {
+                        JSONObject variant = variants.optJSONObject(i);
+                        if (variant != null) {
+                            variant.put("sheet_set_id", UUID.randomUUID().toString());
+                            variant.put("exam_name", examName());
+                            variant.put("question_count", questionCount());
                         }
                     }
-                    new AlertDialog.Builder(this).setTitle("پیش‌نمایش مدل‌ها و کلیدهای بیضی")
-                        .setView(scroll).setPositiveButton("بستن", null).show();
+                    prefs.edit().putString("saved_exam_variants", variants.toString()).apply();
+                    refreshSummary();
+                    new AlertDialog.Builder(this)
+                        .setTitle("نسخه‌ها ذخیره شدند")
+                        .setMessage(variants.length() + " نسخه ساخته و در حافظه برنامه ذخیره شد. برای هر نسخه، کلید تصحیح و QR اختصاصی نگهداری می‌شود.")
+                        .setPositiveButton("چاپ نسخه‌ها", (d, w) -> printPairedSheets("", UUID.randomUUID().toString()))
+                        .setNegativeButton("بعداً", null)
+                        .show();
                 } catch (Exception e) {
-                    info("ساخت مدل‌ها ناموفق بود: " + e.getMessage());
+                    info("ساخت نسخه‌ها ناموفق بود: " + e.getMessage());
                 }
             }).show();
     }
 
-    private void showImageRetentionDialog() {
+
+        private void showImageRetentionDialog() {
         final String[] values = {"never", "all", "suspicious"};
         final String[] labels = {
             "۱) هرگز عکس ذخیره نشود",
