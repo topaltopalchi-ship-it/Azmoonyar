@@ -1,0 +1,60 @@
+{
+  "templateId": "AZY-OMR-100-v1",
+  "version": 1,
+  "page": {
+    "widthMm": 210,
+    "heightMm": 297,
+    "orientation": "portrait",
+    "printScale": 1
+  },
+  "questions": 100,
+  "choices": 4,
+  "columns": [
+    {
+      "firstQuestion": 1,
+      "lastQuestion": 50
+    },
+    {
+      "firstQuestion": 51,
+      "lastQuestion": 100
+    }
+  ],
+  "geometry": {
+    "boxTopMm": 36,
+    "boxHeightMm": 244,
+    "boxWidthMm": 92,
+    "rowStartCenterYmm": 46,
+    "rowPitchMm": 4.66,
+    "bubbleCenterXOffsetsMm": [
+      39,
+      50,
+      61,
+      72
+    ],
+    "bubbleRadiusXmm": 2.35,
+    "bubbleRadiusYmm": 1.55
+  },
+  "registrationMarksMm": [
+    [
+      7,
+      7
+    ],
+    [
+      203,
+      7
+    ],
+    [
+      7,
+      290
+    ],
+    [
+      203,
+      290
+    ]
+  ],
+  "notes": [
+    "This is a first printable template specification; validate with physical print and camera tests before production grading.",
+    "Bubble geometry uses millimetres in the SVG viewBox and should be transformed from detected page corners after perspective correction.",
+    "Low-confidence, blank, and multiple-marked answers must be flagged for manual review."
+  ]
+}
