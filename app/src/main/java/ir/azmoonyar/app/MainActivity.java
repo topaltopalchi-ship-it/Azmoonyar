@@ -1072,7 +1072,7 @@ public class MainActivity extends Activity {
                 .replace('\u064a', '\u06cc')
                 .replace('\u0643', '\u06a9')
                 .replace('\u200c', " ")
-                .replaceAll("(?m)(?<!\\S)([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*", "\\n$1) ");
+                .replaceAll("(?m)(?<!\\S)([الفبجدA-Da-d1-4])\\s*[)\\].:ـ-]\\s*", "\n$1) ");
         String[] lines = normalized.split("\\r?\\n");
         java.util.Map<Integer, Integer> answerKey = new java.util.HashMap<>();
         java.util.List<JSONObject> questions = new java.util.ArrayList<>();
