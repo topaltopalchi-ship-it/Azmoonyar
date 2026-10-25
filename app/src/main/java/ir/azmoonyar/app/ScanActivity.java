@@ -120,7 +120,11 @@ public class ScanActivity extends ComponentActivity {
         guide.setTextSize(15);
         guide.setGravity(Gravity.CENTER);
         guide.setPadding(dp(10), dp(10), dp(10), dp(10));
-        guide.setBackgroundColor(0x99071972);
+        android.graphics.drawable.GradientDrawable guideBg = new android.graphics.drawable.GradientDrawable();
+        guideBg.setColor(0xCC173A91);
+        guideBg.setCornerRadius(dp(18));
+        guideBg.setStroke(dp(1), 0x887DB7FF);
+        guide.setBackground(guideBg);
         FrameLayout.LayoutParams guideParams = new FrameLayout.LayoutParams(
                 -1, -2, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         guideParams.setMargins(dp(18), dp(22), dp(18), 0);
@@ -133,6 +137,11 @@ public class ScanActivity extends ComponentActivity {
         statusView.setTextSize(16);
         statusView.setGravity(Gravity.CENTER);
         statusView.setPadding(dp(12), dp(12), dp(12), dp(8));
+        android.graphics.drawable.GradientDrawable statusBg = new android.graphics.drawable.GradientDrawable();
+        statusBg.setColor(Color.rgb(20, 35, 72));
+        statusBg.setCornerRadius(dp(16));
+        statusBg.setStroke(dp(1), Color.rgb(53, 85, 145));
+        statusView.setBackground(statusBg);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         countView = new TextView(this);
@@ -146,6 +155,15 @@ public class ScanActivity extends ComponentActivity {
         Button close = new Button(this);
         close.setText("پایان اسکن");
         close.setAllCaps(false);
+        close.setTextColor(Color.WHITE);
+        close.setTextSize(16);
+        close.setTypeface(null, android.graphics.Typeface.BOLD);
+        android.graphics.drawable.GradientDrawable closeBg = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.rgb(37, 99, 235), Color.rgb(124, 58, 237)});
+        closeBg.setCornerRadius(dp(16));
+        close.setBackground(closeBg);
+        close.setElevation(dp(3));
         close.setOnClickListener(v -> finish());
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-1, dp(52));
         buttonParams.setMargins(dp(16), dp(4), dp(16), dp(14));
