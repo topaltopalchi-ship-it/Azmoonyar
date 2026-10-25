@@ -889,7 +889,8 @@ public class MainActivity extends Activity {
                         String lower = p.toLowerCase(Locale.ROOT);
                         if (lower.endsWith(".json")
                                 && (lower.startsWith("nimcet/") || lower.startsWith("cuet-pg/")
-                                || lower.startsWith("gate/") || lower.startsWith("jam/"))) paths.add(p);
+                                || lower.startsWith("cuetmca/") || lower.startsWith("gate/")
+                                || lower.startsWith("jam/"))) paths.add(p);
                     }
                 }
                 java.util.Collections.sort(paths);
@@ -1108,10 +1109,19 @@ public class MainActivity extends Activity {
                     }
                 }
             } else {
-                optionValues[0] = firstNonEmpty(row.optString("option_a", ""), row.optString("A", ""));
-                optionValues[1] = firstNonEmpty(row.optString("option_b", ""), row.optString("B", ""));
-                optionValues[2] = firstNonEmpty(row.optString("option_c", ""), row.optString("C", ""));
-                optionValues[3] = firstNonEmpty(row.optString("option_d", ""), row.optString("D", ""));
+                JSONObject optionMap = row.optJSONObject("options");
+                if (optionMap != null) {
+                    optionValues[0] = firstNonEmpty(optionMap.optString("a", ""), optionMap.optString("A", ""));
+                    optionValues[1] = firstNonEmpty(optionMap.optString("b", ""), optionMap.optString("B", ""));
+                    optionValues[2] = firstNonEmpty(optionMap.optString("c", ""), optionMap.optString("C", ""));
+                    optionValues[3] = firstNonEmpty(optionMap.optString("d", ""), optionMap.optString("D", ""));
+                    optionIds[0] = "a"; optionIds[1] = "b"; optionIds[2] = "c"; optionIds[3] = "d";
+                } else {
+                    optionValues[0] = firstNonEmpty(row.optString("option_a", ""), row.optString("A", ""));
+                    optionValues[1] = firstNonEmpty(row.optString("option_b", ""), row.optString("B", ""));
+                    optionValues[2] = firstNonEmpty(row.optString("option_c", ""), row.optString("C", ""));
+                    optionValues[3] = firstNonEmpty(row.optString("option_d", ""), row.optString("D", ""));
+                }
             }
             int correctIndex = readCorrectIndex(row);
             if (correctIndex < 0) {
