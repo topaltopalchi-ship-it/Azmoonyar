@@ -149,6 +149,7 @@ public class MainActivity extends Activity {
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
+        addButton("دانلود موتور گفتار فارسی (Vosk)", v -> downloadPersianSpeechModel());
         addButton("تنظیمات ذخیره تصاویر پاسخنامه", v -> showImageRetentionDialog());
         addButton("گزارش‌ها و حریم خصوصی", v -> showReportsCenter());
         addButton("بانک سؤال و افزودن سؤال", v -> showQuestionBank());
