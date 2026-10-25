@@ -332,11 +332,41 @@ public class ScanActivity extends ComponentActivity {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
             return;
         }
-        String uniqueKey = examName + "::" + participantId + "::" + modelId + "::"
-                + templateId + "::page:" + page;
-        registerUniqueId(uniqueKey, "صفحه " + page + " از " + pageCount + " ثبت شد"
-                + " — شرکت‌کننده: " + participantId + "، مدل: " + modelId
-                + ". پاسخ‌ها هنوز خوانده نشده‌اند.");
+        String setKey = examName + "::" + participantId + "::" + modelId + "::" + templateId;
+        String expectedKey = "expected_pages_" + setKey;
+        int priorExpected = prefs.getInt(expectedKey, 0);
+        if (priorExpected != 0 && priorExpected != pageCount) {
+            showStatus("تعداد صفحه‌های این مجموعه با صفحه‌های قبلی ناسازگار است؛ ثبت نشد.");
+            return;
+        }
+        String pagesKey = "received_pages_" + setKey;
+        Set<String> received = new HashSet<>(prefs.getStringSet(pagesKey, Collections.emptySet()));
+        String pageValue = Integer.toString(page);
+        if (received.contains(pageValue)) {
+            showStatus("این صفحه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
+            refreshCount();
+            return;
+        }
+        String uniqueKey = setKey + "::page:" + page;
+        Set<String> allIds = new HashSet<>(prefs.getStringSet("scanned_sheet_ids", Collections.emptySet()));
+        if (allIds.contains(uniqueKey)) {
+            showStatus("این صفحه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
+            return;
+        }
+        received.add(pageValue);
+        allIds.add(uniqueKey);
+        prefs.edit().putInt(expectedKey, pageCount).putStringSet(pagesKey, received)
+                .putStringSet("scanned_sheet_ids", allIds)
+                .putInt("scanned_sheet_count", allIds.size()).apply();
+        if (received.size() == pageCount) {
+            showStatus("همهٔ " + pageCount + " صفحهٔ مجموعه ثبت شد — شرکت‌کننده: "
+                    + participantId + "، مدل: " + modelId + ". حباب‌ها هنوز خوانده نشده‌اند.");
+        } else {
+            showStatus("صفحه " + page + " از " + pageCount + " ثبت شد؛ تا اینجا "
+                    + received.size() + " از " + pageCount + " صفحه دریافت شده — شرکت‌کننده: "
+                    + participantId + "، مدل: " + modelId + ".");
+        }
+        refreshCount();
     }
 
     private void registerUniqueId(String uniqueKey, String successMessage) {
