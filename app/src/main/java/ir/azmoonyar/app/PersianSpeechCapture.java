@@ -19,6 +19,7 @@ public final class PersianSpeechCapture implements RecognitionListener {
     private Model model;
     private SpeechService speechService;
     private volatile boolean delivered;
+    private volatile String latestPartial = "";
 
     public PersianSpeechCapture(String modelPath, Listener listener) {
         this.modelPath = modelPath;
@@ -26,22 +27,36 @@ public final class PersianSpeechCapture implements RecognitionListener {
     }
 
     public void start() throws Exception {
+        listener.onStatus("در حال بارگذاری مدل صوتی فارسی…");
         model = new Model(modelPath);
         Recognizer recognizer = new Recognizer(model, 16000.0f);
         speechService = new SpeechService(recognizer, 16000.0f);
+        listener.onStatus("میکروفن آماده می‌شود؛ پس از پیام، نام را واضح بگو…");
         speechService.startListening(this);
-        listener.onStatus("اکنون نام را بگو…");
+        listener.onStatus("در حال شنیدن… نام و نام خانوادگی را واضح و با مکث کوتاه بگو.");
     }
 
     public void stop() {
-        stopResources();
-        if (!delivered) {
+        if (delivered) return;
+        String partial = latestPartial.trim();
+        if (!partial.isEmpty()) {
             delivered = true;
-            listener.onError("گفتار واضحی دریافت نشد؛ نام را تایپ کن یا دوباره تلاش کن.");
+            stopResources();
+            listener.onText(partial);
+            return;
         }
+        delivered = true;
+        stopResources();
+        listener.onError("صدای قابل‌تشخیصی دریافت نشد. مجوز میکروفن و صدای ورودی را بررسی کن؛ می‌توانی دوباره تلاش کنی یا نام را تایپ کنی.");
     }
 
-    @Override public void onPartialResult(String hypothesis) { }
+    @Override public void onPartialResult(String hypothesis) {
+        String text = extractText(hypothesis);
+        if (!text.isEmpty()) {
+            latestPartial = text;
+            listener.onStatus("در حال تشخیص: " + text);
+        }
+    }
 
     @Override public void onResult(String hypothesis) {
         deliverRecognizedText(hypothesis);
@@ -51,11 +66,18 @@ public final class PersianSpeechCapture implements RecognitionListener {
         deliverRecognizedText(hypothesis);
     }
 
+    private String extractText(String hypothesis) {
+        try {
+            return new JSONObject(hypothesis).optString("text", "").trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private void deliverRecognizedText(String hypothesis) {
         if (delivered) return;
-        String text = "";
-        try { text = new JSONObject(hypothesis).optString("text", "").trim(); }
-        catch (Exception ignored) { }
+        String text = extractText(hypothesis);
+        if (text.isEmpty()) text = latestPartial.trim();
         if (text.isEmpty()) return;
         delivered = true;
         stopResources();
@@ -66,14 +88,25 @@ public final class PersianSpeechCapture implements RecognitionListener {
         if (delivered) return;
         delivered = true;
         stopResources();
-        listener.onError("خطا در تشخیص گفتار؛ می‌توانی نام را تایپ کنی.");
+        String detail = exception == null ? "" : exception.getMessage();
+        if (detail == null || detail.trim().isEmpty()) detail = exception == null ? "" : exception.getClass().getSimpleName();
+        listener.onError("میکروفن یا موتور تشخیص گفتار خطا داد"
+                + (detail.isEmpty() ? "." : " (" + detail + ").")
+                + " مجوز میکروفن و تنظیمات ضبط صدا را بررسی کن.");
     }
 
     @Override public void onTimeout() {
         if (delivered) return;
+        String partial = latestPartial.trim();
+        if (!partial.isEmpty()) {
+            delivered = true;
+            stopResources();
+            listener.onText(partial);
+            return;
+        }
         delivered = true;
         stopResources();
-        listener.onError("زمان شنیدن گفتار تمام شد؛ دوباره تلاش کن.");
+        listener.onError("در مدت شنیدن، گفتار قابل‌تشخیصی ثبت نشد. دکمه را دوباره بزن و نزدیک میکروفن، نام را واضح بگو.");
     }
 
     private void stopResources() {
