@@ -36,7 +36,6 @@ import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.BarcodeFormat;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -261,13 +260,14 @@ public class ScanActivity extends Activity {
             return;
         }
 
+        String uniqueKey = examName + "::" + sheetId;
         Set<String> saved = new HashSet<>(prefs.getStringSet("scanned_sheet_ids", Collections.emptySet()));
-        if (saved.contains(sheetId)) {
+        if (saved.contains(uniqueKey)) {
             showStatus("این پاسخنامه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
             refreshCount();
             return;
         }
-        saved.add(sheetId);
+        saved.add(uniqueKey);
         prefs.edit()
                 .putStringSet("scanned_sheet_ids", saved)
                 .putInt("scanned_sheet_count", saved.size())
