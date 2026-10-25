@@ -209,9 +209,11 @@ public class MainActivity extends Activity {
 
     private void printPairedSheets(String studentName, String studentId) {
         try {
-            // Versioned, delimiter-safe payload. The scanner currently accepts AZY1,
-            // so retain the existing payload contract until scanner migration is implemented.
-            String payload = "AZY1|" + examName() + "|" + studentId;
+            // AZY2 encodes the exam name so delimiters such as "|" cannot corrupt the QR payload.
+            String encodedExamName = Base64.encodeToString(
+                examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                Base64.URL_SAFE | Base64.NO_WRAP);
+            String payload = "AZY2|" + encodedExamName + "|" + studentId;
             com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(
                 payload, BarcodeFormat.QR_CODE, 360, 360);
             Bitmap qr = Bitmap.createBitmap(360, 360, Bitmap.Config.ARGB_8888);
