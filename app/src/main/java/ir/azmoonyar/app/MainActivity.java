@@ -1,6 +1,7 @@
 package ir.azmoonyar.app;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.print.PrintAttributes;
@@ -29,6 +30,13 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.UUID;
 import java.util.Locale;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /** Offline exam setup and answer-key editor. */
 public class MainActivity extends Activity {
@@ -159,6 +167,117 @@ public class MainActivity extends Activity {
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
+    }
+
+    private void downloadPersianSpeechModel() {
+        File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
+        if (new File(modelDir, "am/final.mdl").exists() || new File(modelDir, "conf/model.conf").exists()) {
+            showStyledInfo("مدل گفتار فارسی از قبل روی گوشی آماده است. مرحلهٔ اتصال میکروفون و تبدیل صدا به متن جداگانه انجام می‌شود.");
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("دانلود مدل گفتار فارسی")
+                .setMessage("مدل سبک فارسی Vosk حدود ۵۳ مگابایت است. فقط با تأیید شما دانلود می‌شود و پس از نصب، برای تبدیل صدا به متن به اینترنت نیاز ندارد. بهتر است از Wi‑Fi استفاده کنید.")
+                .setNegativeButton("بعداً", null)
+                .setPositiveButton("شروع دانلود", (dialog, which) -> startPersianModelDownload(modelDir))
+                .show();
+    }
+
+    private void startPersianModelDownload(File modelDir) {
+        ProgressDialog progress = new ProgressDialog(this);
+        progress.setTitle("آماده‌سازی گفتار فارسی");
+        progress.setMessage("در حال دانلود و نصب مدل Vosk…");
+        progress.setIndeterminate(true);
+        progress.setCancelable(false);
+        progress.show();
+        new Thread(() -> {
+            File zipFile = new File(getCacheDir(), "vosk-fa-model.zip");
+            File stagingDir = new File(getFilesDir(), "vosk-model-installing");
+            String error = null;
+            try {
+                HttpURLConnection connection = (HttpURLConnection) new URL(
+                        "https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip").openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(30000);
+                connection.setInstanceFollowRedirects(true);
+                connection.connect();
+                int code = connection.getResponseCode();
+                if (code < 200 || code >= 300) throw new java.io.IOException("HTTP " + code);
+                try (InputStream in = connection.getInputStream();
+                     FileOutputStream out = new FileOutputStream(zipFile)) {
+                    byte[] buffer = new byte[16384];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                } finally {
+                    connection.disconnect();
+                }
+
+                deleteTree(stagingDir);
+                if (!stagingDir.mkdirs() && !stagingDir.isDirectory()) {
+                    throw new java.io.IOException("ساخت پوشهٔ نصب ناموفق بود");
+                }
+                String prefix = "vosk-model-small-fa-0.42/";
+                try (ZipInputStream zip = new ZipInputStream(new java.io.BufferedInputStream(
+                        new java.io.FileInputStream(zipFile)))) {
+                    ZipEntry entry;
+                    byte[] buffer = new byte[16384];
+                    while ((entry = zip.getNextEntry()) != null) {
+                        String name = entry.getName();
+                        if (!name.startsWith(prefix)) continue;
+                        String relative = name.substring(prefix.length());
+                        if (relative.isEmpty()) continue;
+                        File target = new File(stagingDir, relative);
+                        String rootPath = stagingDir.getCanonicalPath() + File.separator;
+                        if (!target.getCanonicalPath().startsWith(rootPath)) {
+                            throw new java.io.IOException("مسیر نامعتبر در فایل مدل");
+                        }
+                        if (entry.isDirectory()) {
+                            if (!target.isDirectory() && !target.mkdirs()) throw new java.io.IOException("ساخت پوشه ناموفق بود");
+                        } else {
+                            File parent = target.getParentFile();
+                            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                                throw new java.io.IOException("ساخت پوشه ناموفق بود");
+                            }
+                            try (FileOutputStream out = new FileOutputStream(target)) {
+                                int count;
+                                while ((count = zip.read(buffer)) != -1) out.write(buffer, 0, count);
+                            }
+                        }
+                        zip.closeEntry();
+                    }
+                }
+                if (!new File(stagingDir, "am/final.mdl").exists()
+                        || !new File(stagingDir, "conf/model.conf").exists()) {
+                    throw new java.io.IOException("فایل‌های مدل کامل نیستند");
+                }
+                deleteTree(modelDir);
+                if (!stagingDir.renameTo(modelDir)) throw new java.io.IOException("انتقال مدل به پوشهٔ نهایی ناموفق بود");
+            } catch (Exception e) {
+                error = e.getMessage() == null ? "خطای ناشناخته" : e.getMessage();
+                deleteTree(stagingDir);
+            } finally {
+                // Keep the downloaded archive only until extraction completes.
+                //noinspection ResultOfMethodCallIgnored
+                zipFile.delete();
+            }
+            final String result = error;
+            runOnUiThread(() -> {
+                progress.dismiss();
+                if (result == null) {
+                    showStyledInfo("مدل فارسی Vosk دانلود و نصب شد. این مرحله فقط مدل را آماده کرده است؛ ضبط صدا و تبدیل واقعی به متن هنوز باید متصل شود.");
+                } else {
+                    showStyledInfo("دانلود/نصب مدل کامل نشد: " + result + "\nاینترنت را بررسی کن و دوباره تلاش کن.");
+                }
+            });
+        }, "vosk-model-download").start();
+    }
+
+    private void deleteTree(File file) {
+        if (file == null || !file.exists()) return;
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) deleteTree(child);
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
     }
 
     private void openScanner() {
