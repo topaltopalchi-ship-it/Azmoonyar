@@ -1,6 +1,12 @@
 package ir.azmoonyar.app;
 
 import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,6 +21,10 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.qrcode.QRCodeWriter;
+import java.io.ByteArrayOutputStream;
+import android.util.Base64;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.UUID;
@@ -73,6 +83,7 @@ public class MainActivity extends Activity {
 
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت و مدیریت دانش‌آموزان", v -> showStudentsDialog());
+        addButton("چاپ برگه‌های دانش‌آموز با QR مشترک", v -> showPrintStudentDialog());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
         addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
@@ -161,13 +172,6 @@ public class MainActivity extends Activity {
                         return;
                     }
                     JSONArray students = readStudents();
-                    for (int i = 0; i < students.length(); i++) {
-                        JSONObject existing = students.optJSONObject(i);
-                        if (existing != null && studentName.equalsIgnoreCase(existing.optString("name", ""))) {
-                            info("دانش‌آموزی با همین نام ثبت شده است. برای جلوگیری از اشتباه، ابتدا فهرست را بررسی کن.");
-                            return;
-                        }
-                    }
                     try {
                         JSONObject student = new JSONObject();
                         student.put("id", UUID.randomUUID().toString());
@@ -180,6 +184,61 @@ public class MainActivity extends Activity {
                         info("ذخیره دانش‌آموز انجام نشد؛ دوباره تلاش کن.");
                     }
                 }).show();
+    }
+
+    private void showPrintStudentDialog() {
+        if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
+        JSONArray students = readStudents();
+        if (students.length() == 0) { info("ابتدا دست‌کم یک دانش‌آموز ثبت کن."); return; }
+        String[] labels = new String[students.length()];
+        for (int i = 0; i < students.length(); i++) {
+            JSONObject s = students.optJSONObject(i);
+            labels[i] = (i + 1) + ". " + (s == null ? "بدون نام" : s.optString("name", "بدون نام"));
+        }
+        new AlertDialog.Builder(this).setTitle("انتخاب دانش‌آموز برای چاپ")
+            .setItems(labels, (dialog, which) -> {
+                JSONObject s = students.optJSONObject(which);
+                if (s != null) printPairedSheets(s.optString("name", ""), s.optString("id", ""));
+            }).setNegativeButton("انصراف", null).show();
+    }
+
+    private void printPairedSheets(String studentName, String studentId) {
+        try {
+            String payload = "AZY1|" + examName() + "|" + studentId;
+            com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(
+                payload, BarcodeFormat.QR_CODE, 360, 360);
+            Bitmap qr = Bitmap.createBitmap(360, 360, Bitmap.Config.ARGB_8888);
+            for (int y = 0; y < 360; y++) for (int x = 0; x < 360; x++)
+                qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            qr.compress(Bitmap.CompressFormat.PNG, 100, output);
+            String encoded = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+            String safeName = studentName.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+            String safeExam = examName().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+            String html = "<html><meta charset='utf-8'><body style='font-family:sans-serif;text-align:center;color:#111'>"
+                + "<h1>" + safeExam + "</h1><h2>دانش‌آموز: " + safeName + "</h2>"
+                + "<p>شناسه: " + studentId + "</p><hr><h2>برگهٔ سؤال</h2>"
+                + "<p>این QR را روی برگهٔ سؤال قرار بده</p><img style='width:180px;height:180px' src='data:image/png;base64," + encoded + "'/>"
+                + "<hr style='margin:28px 0'><h2>پاسخنامه</h2><p>همین QR باید روی پاسخنامهٔ همین دانش‌آموز باشد</p>"
+                + "<img style='width:180px;height:180px' src='data:image/png;base64," + encoded + "'/>"
+                + "<p style='font-size:10px'>کد داخلی: " + studentId + "</p></body></html>";
+            WebView web = new WebView(this);
+            web.getSettings().setDefaultTextEncodingName("UTF-8");
+            web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+            web.setWebViewClient(new WebViewClient() {
+                @Override public void onPageFinished(WebView view, String url) {
+                    PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                    if (pm != null) {
+                        android.print.PrintDocumentAdapter adapter = view.createPrintDocumentAdapter("AzmoonYar-" + studentName);
+                        pm.print("AzmoonYar-" + studentName, adapter,
+                            new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
+                    } else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                }
+            });
+        } catch (Exception e) {
+            info("ساخت QR برای چاپ ناموفق بود؛ دوباره تلاش کن.");
+        }
     }
 
     private void showKeyDialog() {
