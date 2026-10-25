@@ -64,6 +64,7 @@ public class ScanActivity extends Activity {
     private int candidateFrames = 0;
     private String lastStatus = "";
     private long lastStatusAt = 0L;
+    private long lastAnalysisAt = 0L;
     private volatile boolean scannerActive = true;
 
     private int dp(float value) {
@@ -170,7 +171,7 @@ public class ScanActivity extends Activity {
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
         ImageAnalysis analysis = new ImageAnalysis.Builder()
-                .setTargetResolution(new Size(1280, 720))
+                .setTargetResolution(new Size(960, 540))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
         analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
@@ -189,6 +190,9 @@ public class ScanActivity extends Activity {
             if (!scannerActive || image.getFormat() != android.graphics.ImageFormat.YUV_420_888) {
                 return;
             }
+            long frameNow = System.currentTimeMillis();
+            if (frameNow - lastAnalysisAt < 160L) return;
+            lastAnalysisAt = frameNow;
             ImageProxy.PlaneProxy yPlane = image.getPlanes()[0];
             ByteBuffer buffer = yPlane.getBuffer();
             int width = image.getWidth();
