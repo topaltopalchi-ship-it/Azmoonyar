@@ -463,8 +463,9 @@ public class MainActivity extends Activity {
             return;
         }
         File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
-        if (!new File(modelDir, "am/final.mdl").exists()) {
-            info("مدل صوتی فارسی هنوز آماده نیست؛ پس از تکمیل دانلود دوباره تلاش کن.");
+        if (!new File(modelDir, "am/final.mdl").exists()
+                || !new File(modelDir, "conf/model.conf").exists()) {
+            downloadPersianSpeechModel();
             return;
         }
         voiceButton.setEnabled(false);
