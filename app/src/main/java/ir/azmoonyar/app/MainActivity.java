@@ -2,11 +2,12 @@ package ir.azmoonyar.app;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -14,10 +15,9 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.content.SharedPreferences;
 import java.util.Locale;
 
-/** Offline exam setup and answer-key editor. Camera OMR is a future milestone. */
+/** Offline exam setup and answer-key editor. */
 public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root;
@@ -35,6 +35,11 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (prefs != null) refreshSummary();
     }
 
     private void buildScreen() {
@@ -66,12 +71,20 @@ public class MainActivity extends Activity {
         addButton("تعریف / ویرایش آزمون", v -> showExamDialog());
         addButton("ثبت کلید پاسخ", v -> showKeyDialog());
         addButton("نمایش کلید و وضعیت تکمیل", v -> showKeySummary());
-        addButton("اسکن پاسخنامه", v -> info("اسکن دوربین هنوز پیاده‌سازی نشده است. مرحله بعدی پس از آزمون و کلید پاسخ، ساخت قالب استاندارد و الگوریتم OMR است."));
+        addButton("اسکن زنده پاسخنامه (بدون عکس)", v -> openScanner());
         TextView note = new TextView(this);
-        note.setText("اطلاعات آزمون و کلید پاسخ روی همین دستگاه ذخیره می‌شود. این نسخه هنوز پاسخنامه را اسکن یا نمره‌دهی نمی‌کند.");
+        note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
+    }
+
+    private void openScanner() {
+        if (examName().trim().isEmpty()) {
+            info("ابتدا آزمون را تعریف کن؛ کد QR هر پاسخنامه باید نام همان آزمون را داشته باشد.");
+            return;
+        }
+        startActivity(new Intent(this, ScanActivity.class));
     }
 
     private void addButton(String text, View.OnClickListener listener) {
@@ -80,11 +93,12 @@ public class MainActivity extends Activity {
     }
 
     private void refreshSummary() {
-        if (summary == null) return;
+        if (summary == null || prefs == null) return;
         int filled=0; String k=key();
         for(int i=0;i<Math.min(k.length(),questionCount());i++) if(k.charAt(i)>='A' && k.charAt(i)<='D') filled++;
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount());
+        int scanned=prefs.getInt("scanned_sheet_count",0);
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
     }
 
     private void showExamDialog() {
