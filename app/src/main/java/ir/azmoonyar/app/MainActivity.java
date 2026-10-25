@@ -232,27 +232,53 @@ public class MainActivity extends Activity {
                 answerRows.append("</tr>");
             }
 
+            // Print the actual saved question bank, never the answer key.
+            JSONArray bank = readQuestionBank();
+            StringBuilder questionRows = new StringBuilder();
+            for (int i = 0; i < bank.length(); i++) {
+                JSONObject question = bank.optJSONObject(i);
+                if (question == null) continue;
+                questionRows.append("<article class='question'><b>")
+                    .append(i + 1).append(". ").append(escapeHtml(question.optString("text", "")))
+                    .append("</b><div class='options'>");
+                JSONArray options = question.optJSONArray("options");
+                if (options != null) {
+                    for (int j = 0; j < Math.min(4, options.length()); j++) {
+                        questionRows.append("<div>").append((char)('A' + j)).append(") ")
+                            .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                    }
+                }
+                questionRows.append("</div></article>");
+            }
+            if (questionRows.length() == 0) {
+                questionRows.append("<p class='instructions'>هنوز سؤالی در بانک سؤال ثبت نشده است. این فایل فقط پاسخنامه را شامل می‌شود.</p>");
+            }
+
             String html = "<html><head><meta charset='utf-8'><style>"
-                + "@page{size:A4;margin:12mm}body{font-family:sans-serif;color:#111;margin:0}"
+                + "@page{size:A4;margin:12mm}body{font-family:sans-serif;color:#111;margin:0;direction:rtl}"
                 + "h1{font-size:20px;margin:0 0 8px}h2{font-size:16px;margin:8px 0}"
                 + ".meta{font-size:12px;margin:5px 0}.qr{width:105px;height:105px;float:left}"
                 + ".clear{clear:both}.instructions{font-size:11px;border:1px solid #333;padding:7px;margin:8px 0}"
                 + "table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #777;text-align:center;padding:2px;height:20px}"
                 + "th{background:#eee}.num{font-weight:bold;width:12%}.bubble{display:inline-block;width:13px;height:13px;border:1.5px solid #111;border-radius:50%}"
-                + ".page{page-break-after:always}.page:last-child{page-break-after:auto}.small{font-size:9px}"
+                + ".page{page-break-after:always}.question{margin:0 0 12px;page-break-inside:avoid;font-size:13px}.options{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:5px 18px 0;font-size:12px}"
+                + ".small{font-size:9px}"
                 + "</style></head><body>"
-                + "<section class='page'><h1>" + safeExam + "</h1><h2>برگهٔ مشخصات شرکت‌کننده</h2>"
+                + "<section class='page'><h1>" + safeExam + "</h1><h2>برگهٔ سؤال‌ها</h2>"
+                + "<div class='meta'>نام دانش‌آموز: " + safeName + "</div>"
+                + "<div class='meta'>تعداد سؤال در بانک: " + bank.length() + "</div><hr/>"
+                + questionRows + "</section>"
+                + "<section class='page'><h1>" + safeExam + "</h1><h2>مشخصات شرکت‌کننده</h2>"
                 + "<img class='qr' src='data:image/png;base64," + encoded + "'/>"
                 + "<div class='meta'>نام: " + safeName + "</div><div class='meta'>شناسه: " + escapeHtml(studentId) + "</div>"
-                + "<div class='meta'>تعداد سؤال: " + count + "</div><div class='clear'></div>"
-                + "<div class='instructions'>این صفحه فقط برگهٔ مشخصات و QR است. QR باید با پاسخنامهٔ همین شرکت‌کننده مطابقت داشته باشد.</div>"
-                + "<h2>برگهٔ سؤال</h2><p>برگهٔ سؤال اصلی را جداگانه چاپ یا ضمیمه کنید.</p></section>"
+                + "<div class='meta'>تعداد خانه‌های پاسخ: " + count + "</div><div class='clear'></div>"
+                + "<div class='instructions'>QR اختصاصی این برگه را حفظ کنید و پاسخ‌ها را با مداد یا خودکار تیره و واضح علامت بزنید.</div></section>"
                 + "<section><h1>" + safeExam + "</h1><h2>پاسخنامهٔ چهارگزینه‌ای</h2>"
                 + "<img class='qr' src='data:image/png;base64," + encoded + "'/>"
                 + "<div class='meta'>شرکت‌کننده: " + safeName + "</div><div class='meta'>شناسه: " + escapeHtml(studentId) + "</div>"
                 + "<div class='meta'>برای هر سؤال فقط یک دایره را کاملاً پر کنید؛ علامت ضربدر یا تیک نزنید.</div><div class='clear'></div>"
                 + "<table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>"
-                + answerRows + "</tbody></table><p class='small'>نسخهٔ اولیهٔ پاسخنامه؛ تصحیح خودکار از روی حباب‌ها هنوز فعال نیست.</p></section>"
+                + answerRows + "</tbody></table><p class='small'>تصحیح خودکار از روی حباب‌ها هنوز فعال نیست.</p></section>"
                 + "</body></html>";
             WebView web = new WebView(this);
             web.getSettings().setDefaultTextEncodingName("UTF-8");
