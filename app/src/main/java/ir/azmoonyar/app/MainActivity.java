@@ -56,6 +56,9 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+        // Automatically download the Persian speech model on first launch after install.
+        // The method skips downloading when the model is already installed.
+        downloadPersianSpeechModel();
     }
 
     @Override protected void onResume() {
