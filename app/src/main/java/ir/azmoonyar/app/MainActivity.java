@@ -421,15 +421,24 @@ public class MainActivity extends Activity {
                     if (status.startsWith("گوش می‌دهم")) {
                         voiceStatus.setText("🎙 میکروفون فعال است؛ نام را واضح بگو...");
                     } else if (status.startsWith("صدای شما دریافت شد: ")) {
+                        // Partial hypotheses are often incomplete or wrong. Show them only as a preview;
+                        // never overwrite the editable participant name until Vosk emits a final result.
                         String partial = status.substring("صدای شما دریافت شد: ".length()).trim();
-                        if (!partial.isEmpty()) name.setText(partial);
-                        voiceStatus.setText("🎙 صدا دریافت می‌شود؛ ادامه بده...");
+                        voiceStatus.setText(partial.isEmpty()
+                                ? "🎙 صدا دریافت می‌شود؛ ادامه بده..."
+                                : "🎙 شنیده‌شده (موقت): " + partial + "\nپس از پایان گفتار، نام نهایی در کادر قرار می‌گیرد.");
                     } else if (status.startsWith("ضبط بدون دریافت گفتار")) {
                         voiceStatus.setText("صدا دریافت نشد؛ اجازهٔ میکروفون و کلید حریم خصوصی را بررسی کن.");
                         info(status);
-                    } else if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")) {
+                    } else if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                            || status.startsWith("در حال دریافت مدل صوتی")
+                            || status.startsWith("در حال اتصال برای دریافت مدل")
+                            || status.startsWith("ارتباط برقرار شد")
+                            || status.startsWith("دریافت مدل صوتی فارسی شروع شد")
+                            || status.startsWith("مدل آفلاین فارسی آماده است")
+                            || status.startsWith("مدل آفلاین فارسی آماده")
+                            || status.startsWith("تلاش ")) {
                         voiceStatus.setText(status);
-                        info(status);
                     }
                 }
             });
