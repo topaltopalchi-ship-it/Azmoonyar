@@ -69,14 +69,19 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Prepare signing key
+      - name: Prepare and validate signing key
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.AZMOONYAR_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.AZMOONYAR_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AZMOONYAR_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/azmoonyar-release.jks"
-          echo "AZMOONYAR_KEYSTORE_PATH=$RUNNER_TEMP/azmoonyar-release.jks" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/azmoonyar-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          keytool -list -keystore "$KEYSTORE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
         shell: bash
