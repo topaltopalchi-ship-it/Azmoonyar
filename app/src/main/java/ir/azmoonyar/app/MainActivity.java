@@ -1787,6 +1787,25 @@ public class MainActivity extends Activity {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
         StringBuilder message = new StringBuilder();
+        message.append("نتایج تصحیح پاسخنامه‌ها\n");
+        JSONArray gradingResults;
+        try { gradingResults = new JSONArray(prefs.getString("grading_results", "[]")); }
+        catch (Exception e) { gradingResults = new JSONArray(); }
+        if (gradingResults.length() == 0) {
+            message.append("هنوز نتیجهٔ تصحیحی ذخیره نشده است.\n\n");
+        } else {
+            for (int i = gradingResults.length() - 1; i >= 0; i--) {
+                JSONObject result = gradingResults.optJSONObject(i);
+                if (result == null) continue;
+                double score = result.optDouble("score", 0.0);
+                message.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام")).append("\n")
+                    .append("آزمون: ").append(result.optString("examName", "—")).append("\n")
+                    .append("نمره: ").append(String.format(Locale.US, "%.1f", score)).append(" از 100").append("\n")
+                    .append("درست: ").append(result.optInt("correct", 0))
+                    .append(" | غلط: ").append(result.optInt("wrong", 0))
+                    .append(" | سفید: ").append(result.optInt("blank", 0)).append("\n\n");
+            }
+        }
         message.append("صندوق گزارش‌های محلی\n");
         message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\n\n");
         if (inbox.length() == 0) {
