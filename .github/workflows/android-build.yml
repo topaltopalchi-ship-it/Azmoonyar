@@ -31,6 +31,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/azmoonyar-signing"
           printf '%s' "$AZMOONYAR_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/azmoonyar-signing/release.jks"
           echo "AZMOONYAR_KEYSTORE_PATH=$RUNNER_TEMP/azmoonyar-signing/release.jks" >> "$GITHUB_ENV"
+      - name: Run unit tests
+        run: gradle testDebugUnitTest
       - name: Compile debug and release variants
         run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
