@@ -3,6 +3,9 @@ package ir.azmoonyar.app;
 import android.Manifest;
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.content.ActivityNotFoundException;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -39,6 +42,9 @@ import com.google.zxing.BarcodeFormat;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.ArrayList;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,6 +60,7 @@ import java.util.concurrent.Executors;
 public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
+    private static final int VOICE_NAME_REQUEST = 4103;
 
     private PreviewView previewView;
     private TextView statusView;
@@ -67,6 +74,9 @@ public class ScanActivity extends ComponentActivity {
     // Prevent repeated events while the same QR remains in the camera frame.
     private String lockedPayload = "";
     private boolean waitingForQrToLeave = false;
+    private String latestSheetSetId = "";
+    private String latestModelId = "";
+    private String latestTemplateId = "";
     private String lastStatus = "";
     private long lastStatusAt = 0L;
     private long lastAnalysisAt = 0L;
@@ -154,6 +164,12 @@ public class ScanActivity extends ComponentActivity {
         countView.setPadding(dp(8), 0, dp(8), dp(10));
         page.addView(countView, new LinearLayout.LayoutParams(-1, -2));
         refreshCount();
+
+        Button voiceName = new Button(this);
+        voiceName.setText("🎙 ثبت صوتی نام دانش‌آموز");
+        voiceName.setAllCaps(false);
+        voiceName.setOnClickListener(v -> startVoiceNameCapture());
+        page.addView(voiceName, new LinearLayout.LayoutParams(-1, dp(52)));
 
         Button close = new Button(this);
         close.setText("پایان اسکن");
@@ -308,8 +324,10 @@ public class ScanActivity extends ComponentActivity {
             showStatus("شناسهٔ پاسخنامه معتبر نیست.");
             return;
         }
-        registerUniqueId(examName + "::" + sheetId, "شناسهٔ پاسخنامه ثبت شد: " + sheetId
-                + " — حباب‌ها هنوز خوانده نشده‌اند.");
+        latestSheetSetId = sheetId;
+        latestModelId = "";
+        latestTemplateId = "";
+        registerUniqueId(examName + "::" + sheetId, "QR شناسایی شد؛ اکنون نام دانش‌آموز را صوتی ثبت کن.");
     }
 
     private void registerPageQr(String[] parts) {
@@ -344,6 +362,9 @@ public class ScanActivity extends ComponentActivity {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
             return;
         }
+        latestSheetSetId = sheetSetId;
+        latestModelId = modelId;
+        latestTemplateId = templateId;
         // The QR identifies the exam/version group, not a unique physical answer sheet.
         // Do not deduplicate by sheetSetId/page: multiple students' sheets intentionally share it.
         Set<String> events = new HashSet<>(prefs.getStringSet("scanned_qr_events", Collections.emptySet()));
@@ -356,6 +377,37 @@ public class ScanActivity extends ComponentActivity {
         showStatus("نسخهٔ " + modelId + " شناسایی شد (صفحه " + page + " از " + pageCount
                 + "). اسکن جداگانه پذیرفته شد؛ نام دانش‌آموز و خواندن حباب‌ها هنوز ثبت نشده‌اند.");
         refreshCount();
+    }
+
+    private void startVoiceNameCapture() {
+        if (latestSheetSetId.isEmpty()) { showStatus("اول QR پاسخنامه را اسکن کن."); return; }
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "نام دانش‌آموز را بگو");
+        try { startActivityForResult(intent, VOICE_NAME_REQUEST); }
+        catch (ActivityNotFoundException e) { showStatus("تشخیص گفتار روی دستگاه در دسترس نیست."); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != VOICE_NAME_REQUEST) return;
+        if (resultCode != Activity.RESULT_OK || data == null) { showStatus("ثبت صوتی لغو شد."); return; }
+        ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        String name = (matches == null || matches.isEmpty()) ? "" : matches.get(0).trim();
+        if (name.isEmpty()) { showStatus("نام دریافت نشد؛ دوباره تلاش کن."); return; }
+        try {
+            JSONArray rows;
+            try { rows = new JSONArray(prefs.getString("scanned_named_answer_sheets", "[]")); }
+            catch (Exception e) { rows = new JSONArray(); }
+            JSONObject row = new JSONObject();
+            row.put("name", name); row.put("examName", examName);
+            row.put("sheetSetId", latestSheetSetId); row.put("modelId", latestModelId);
+            row.put("templateId", latestTemplateId); row.put("createdAt", System.currentTimeMillis());
+            rows.put(row);
+            prefs.edit().putString("scanned_named_answer_sheets", rows.toString()).apply();
+            showStatus("نام «" + name + "» به نسخهٔ " + (latestModelId.isEmpty() ? "قدیمی" : latestModelId) + " متصل شد.");
+        } catch (Exception e) { showStatus("ذخیرهٔ نام انجام نشد."); }
     }
 
     private void registerUniqueId(String uniqueKey, String successMessage) {
