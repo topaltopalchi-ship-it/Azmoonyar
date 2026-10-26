@@ -272,7 +272,6 @@ public class MainActivity extends Activity {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
                     .append(student.optString("name", "بدون نام"))
-                    .append("  —  شناسه: ").append(student.optString("id", ""))
                     .append("\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
@@ -308,13 +307,12 @@ public class MainActivity extends Activity {
             JSONArray students = readStudents();
             try {
                 JSONObject student = new JSONObject();
-                student.put("id", UUID.randomUUID().toString());
                 student.put("name", studentName);
                 students.put(student);
                 prefs.edit().putString("students_json", students.toString()).apply();
                 refreshSummary();
                 dialog.dismiss();
-                info("شرکت‌کننده ذخیره شد و شناسه یکتای او ایجاد شد.");
+                info("شرکت‌کننده ذخیره شد.");
             } catch (Exception e) {
                 info("ذخیره شرکت‌کننده انجام نشد؛ دوباره تلاش کن.");
             }
