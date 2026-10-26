@@ -824,7 +824,7 @@ public class MainActivity extends Activity {
     private void importPdfMathSample() {
         new AlertDialog.Builder(this)
             .setTitle("جایگزینی بانک با نمونهٔ PDF")
-            .setMessage("این کار بانک سؤال فعلی را با ۱۰ سؤال استخراج‌شده از PDF جایگزین می‌کند. سؤال ۶ در فایل پاسخ صحیح ندارد (۱۲+۵۴=۶۶ ولی ۶۶ بین گزینه‌ها نیست) و به‌عنوان «کلید نامشخص» ذخیره می‌شود.")
+            .setMessage("این کار بانک سؤال فعلی را با ۱۰ سؤال PDF جایگزین می‌کند. در سؤال ۶، پاسخ ریاضی ۶۶ است اما در گزینه‌های PDF وجود ندارد؛ هنگام ورود، گزینهٔ آخر به ۶۶ اصلاح می‌شود تا کلید معتبر باشد.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("جایگزینی بانک", (dialog, which) -> {
                 try {
@@ -834,19 +834,19 @@ public class MainActivity extends Activity {
                     addPdfQuestion(bank, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "ضرب");
                     addPdfQuestion(bank, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "ضرب");
                     addPdfQuestion(bank, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "ضرب");
-                    addPdfQuestion(bank, "12+54 = ?", new String[]{"67","69","56","68"}, -1, "جمع؛ PDF گزینهٔ صحیح ۶۶ را ندارد");
+                    addPdfQuestion(bank, "12+54 = ?", new String[]{"67","69","56","66"}, 3, "جمع؛ گزینهٔ آخر برای تطبیق با پاسخ صحیح ۶۶ اصلاح شد");
                     addPdfQuestion(bank, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
                     addPdfQuestion(bank, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "تقسیم؛ جهت خواندن مطابق PDF");
                     addPdfQuestion(bank, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "جمع");
                     addPdfQuestion(bank, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
                     prefs.edit().putString("exam_name", "ریاضی (۱)")
                         .putInt("question_count", 10).putString("question_bank_json", bank.toString())
-                        .putString("answer_key", "DBBDC-BCDB")
+                        .putString("answer_key", "DBBDCDBCDB")
                         .remove("model_questions_A").remove("model_questions_B")
                         .remove("answer_key_model_A").remove("answer_key_model_B")
                         .putInt("issued_model_count", 0).apply();
                     refreshSummary();
-                    info("۱۰ سؤال PDF وارد شد. توجه: پاسخ سؤال ۶ در فایل موجود نیست؛ تا اصلاح آن، ساخت نسخهٔ تصادفی مجاز نخواهد بود.");
+                    info("۱۰ سؤال PDF وارد شد و کلید اصلی محاسبه شد: D, B, B, D, C, D, B, C, D, B. گزینهٔ سؤال ۶ از ۶۸ به ۶۶ اصلاح شد.");
                 } catch (Exception e) {
                     info("ورود نمونه PDF انجام نشد؛ دوباره تلاش کن.");
                 }
