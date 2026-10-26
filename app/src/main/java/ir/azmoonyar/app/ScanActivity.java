@@ -64,6 +64,9 @@ public class ScanActivity extends ComponentActivity {
     private String examName;
     private String candidateValue = "";
     private int candidateFrames = 0;
+    // Prevent repeated events while the same QR remains in the camera frame.
+    private String lockedPayload = "";
+    private boolean waitingForQrToLeave = false;
     private String lastStatus = "";
     private long lastStatusAt = 0L;
     private long lastAnalysisAt = 0L;
@@ -243,6 +246,8 @@ public class ScanActivity extends ComponentActivity {
             } catch (NotFoundException notFound) {
                 candidateValue = "";
                 candidateFrames = 0;
+                waitingForQrToLeave = false;
+                lockedPayload = "";
                 return;
             } finally {
                 reader.reset();
@@ -258,7 +263,13 @@ public class ScanActivity extends ComponentActivity {
             if (candidateFrames >= STABLE_FRAMES_REQUIRED) {
                 candidateFrames = 0;
                 candidateValue = "";
-                runOnUiThread(() -> registerIfValid(value));
+                // A shared questionnaire/answer-sheet QR is valid on every separate scan.
+                // Debounce only the same QR while it continuously remains in view.
+                if (!waitingForQrToLeave || !value.equals(lockedPayload)) {
+                    waitingForQrToLeave = true;
+                    lockedPayload = value;
+                    runOnUiThread(() -> registerIfValid(value));
+                }
             }
         } catch (Exception ignored) {
             // A single blurry or partially visible frame must not stop continuous scanning.
@@ -333,39 +344,17 @@ public class ScanActivity extends ComponentActivity {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
             return;
         }
-        String setKey = examName + "::" + sheetSetId + "::" + modelId + "::" + templateId;
-        String expectedKey = "expected_pages_" + setKey;
-        int priorExpected = prefs.getInt(expectedKey, 0);
-        if (priorExpected != 0 && priorExpected != pageCount) {
-            showStatus("تعداد صفحه‌های این مجموعه با صفحه‌های قبلی ناسازگار است؛ ثبت نشد.");
-            return;
-        }
-        String pagesKey = "received_pages_" + setKey;
-        Set<String> received = new HashSet<>(prefs.getStringSet(pagesKey, Collections.emptySet()));
-        String pageValue = Integer.toString(page);
-        if (received.contains(pageValue)) {
-            showStatus("این صفحه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
-            refreshCount();
-            return;
-        }
-        String uniqueKey = setKey + "::page:" + page;
-        Set<String> allIds = new HashSet<>(prefs.getStringSet("scanned_sheet_ids", Collections.emptySet()));
-        if (allIds.contains(uniqueKey)) {
-            showStatus("این صفحه قبلاً ثبت شده؛ مورد تکراری نادیده گرفته شد.");
-            return;
-        }
-        received.add(pageValue);
-        allIds.add(uniqueKey);
-        prefs.edit().putInt(expectedKey, pageCount).putStringSet(pagesKey, received)
-                .putStringSet("scanned_sheet_ids", allIds)
-                .putInt("scanned_sheet_count", allIds.size()).apply();
-        if (received.size() == pageCount) {
-            showStatus("همهٔ " + pageCount + " صفحهٔ برگه ثبت شد — نسخه: "
-                    + modelId + ". حباب‌ها هنوز خوانده نشده‌اند.");
-        } else {
-            showStatus("صفحه " + page + " از " + pageCount + " ثبت شد؛ تا اینجا "
-                    + received.size() + " از " + pageCount + " صفحه دریافت شده — نسخه: " + modelId + ".");
-        }
+        // The QR identifies the exam/version group, not a unique physical answer sheet.
+        // Do not deduplicate by sheetSetId/page: multiple students' sheets intentionally share it.
+        Set<String> events = new HashSet<>(prefs.getStringSet("scanned_qr_events", Collections.emptySet()));
+        String eventId = java.util.UUID.randomUUID().toString();
+        events.add(eventId);
+        prefs.edit()
+                .putStringSet("scanned_qr_events", events)
+                .putInt("scanned_sheet_count", events.size())
+                .apply();
+        showStatus("نسخهٔ " + modelId + " شناسایی شد (صفحه " + page + " از " + pageCount
+                + "). اسکن جداگانه پذیرفته شد؛ نام دانش‌آموز و خواندن حباب‌ها هنوز ثبت نشده‌اند.");
         refreshCount();
     }
 
@@ -387,8 +376,8 @@ public class ScanActivity extends ComponentActivity {
 
     private void refreshCount() {
         if (countView == null || prefs == null) return;
-        Set<String> ids = prefs.getStringSet("scanned_sheet_ids", Collections.emptySet());
-        countView.setText("آزمون: " + examName + "  |  شناسه‌های یکتای ثبت‌شده: " + ids.size());
+        Set<String> ids = prefs.getStringSet("scanned_qr_events", Collections.emptySet());
+        countView.setText("آزمون: " + examName + "  |  رویدادهای اسکن QR: " + ids.size());
     }
 
     private void showStatus(String message) {
