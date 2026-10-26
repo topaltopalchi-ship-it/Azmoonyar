@@ -6,7 +6,6 @@ import android.os.Handler;
 import android.os.Looper;
 
 import org.vosk.Model;
-import org.vosk.Recognizer;
 import org.vosk.android.SpeechService;
 import org.vosk.android.RecognitionListener;
 
@@ -70,7 +69,6 @@ public final class PersianVosk {
                         model = new Model(modelDir(activity.getApplicationContext()).getAbsolutePath());
                         MAIN.post(() -> {
                             try {
-                                Recognizer recognizer = new Recognizer(model, 16000.0f);
                                 speechService = new SpeechService(model, 16000.0f);
                                 speechService.startListening(new RecognitionListener() {
                                     @Override public void onPartialResult(String hypothesis) {}
