@@ -210,11 +210,11 @@ public class ScanActivity extends ComponentActivity {
                 .setTargetResolution(new Size(960, 540))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
-        analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
+        // QR is not used in this workflow; keep the camera as a live preview only.
 
         try {
             cameraProvider.unbindAll();
-            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
+            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview);
             showStatus("QR لازم نیست؛ ثبت نام و پاسخ‌ها را از دکمه‌های پایین انجام بده.");
         } catch (Exception e) {
             showStatus("اتصال دوربین ناموفق بود. برنامه را ببند و دوباره امتحان کن.");
@@ -534,7 +534,7 @@ public class ScanActivity extends ComponentActivity {
     private void refreshCount() {
         if (countView == null || prefs == null) return;
         Set<String> ids = prefs.getStringSet("scanned_qr_events", Collections.emptySet());
-        countView.setText("آزمون: " + examName + "  |  رویدادهای اسکن QR: " + ids.size());
+        countView.setText("آزمون: " + examName + "  |  تصحیح بدون QR");
     }
 
     private void showStatus(String message) {
