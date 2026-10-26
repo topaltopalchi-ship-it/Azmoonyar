@@ -66,6 +66,10 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+        // Begin downloading the Persian offline speech model immediately on first app launch.
+        // This runs independently of the microphone permission prompt and never requires a button tap.
+        prepareVoskModel();
+
         // Ask for microphone permission on the first launch, so voice registration can work.
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -74,8 +78,6 @@ public class MainActivity extends Activity {
                     STUDENT_VOICE_REQUEST
             );
         }
-        // Show a visible status immediately, then prepare the model in the background.
-        prepareVoskModel();
     }
 
     private void prepareVoskModel() {
