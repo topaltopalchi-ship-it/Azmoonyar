@@ -342,7 +342,14 @@ public class MainActivity extends Activity {
                     name.setText(text);
                     if (voiceRecognizer != null) voiceRecognizer.stop();
                 }
-                @Override public void onStatus(String status) { info(status); }
+                @Override public void onStatus(String status) {
+                    // Keep routine Vosk status/partial hypotheses out of modal dialogs.
+                    // Only surface actionable failures or recording timeout.
+                    if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                            || status.startsWith("ضبط بدون دریافت گفتار")) {
+                        info(status);
+                    }
+                }
             });
         });
         form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
