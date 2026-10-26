@@ -863,8 +863,8 @@ public class MainActivity extends Activity {
             info("ابتدا حداقل یک سؤال در بانک سؤال ثبت کن.");
             return;
         }
-        String[] labels = {"۱ نسخه (یک مدل)", "۲ نسخه", "۳ نسخه", "۵ نسخه", "۱۰ نسخه"};
-        int[] counts = {1, 2, 3, 5, 10};
+        String[] labels = {"۱ نسخه (یک مدل)", "۲ نسخه", "۳ نسخه", "۴ نسخه", "۵ نسخه", "۱۰ نسخه"};
+        int[] counts = {1, 2, 3, 4, 5, 10};
         RadioGroup group = new RadioGroup(this);
         group.setOrientation(RadioGroup.VERTICAL);
         final int[] selectedCount = {3};
