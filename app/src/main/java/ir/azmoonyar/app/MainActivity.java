@@ -241,18 +241,16 @@ public class MainActivity extends Activity {
         root.addView(summary,summaryParams);
         refreshSummary();
 
+        // Keep one clear entry point per task; participant names are captured by voice during grading.
         addButtonGrid(
-                new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
-                new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
+                new String[]{"تعریف / ویرایش آزمون", "بانک سؤال و ساخت نسخه‌ها"},
+                new View.OnClickListener[]{v -> showExamDialog(), v -> showQuestionBank()});
         addButtonGrid(
-                new String[]{"کلیدهای پاسخ", "اسکن زنده پاسخنامه"},
+                new String[]{"کلید پاسخ", "اسکن و تصحیح پاسخنامه"},
                 new View.OnClickListener[]{v -> showKeyDialog(), v -> openScanner()});
         addButtonGrid(
-                new String[]{"تنظیمات ذخیره تصاویر"},
-                new View.OnClickListener[]{v -> showImageRetentionDialog()});
-        addButtonGrid(
-                new String[]{"گزارش‌ها و حریم خصوصی", "بانک سؤال"},
-                new View.OnClickListener[]{v -> showReportsCenter(), v -> showQuestionBank()});
+                new String[]{"گزارش‌ها و حریم خصوصی", "تنظیمات تصاویر"},
+                new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
@@ -288,21 +286,20 @@ public class MainActivity extends Activity {
             b.setMinHeight(dp(66));
             b.setPadding(dp(7), dp(8), dp(7), dp(8));
             b.setMaxLines(2);
+            // Subtle glass-style buttons: consistent palette avoids visual noise from competing gradients.
             int[][] palette = {
-                {Color.rgb(0, 229, 255), Color.rgb(41, 98, 255)},
-                {Color.rgb(255, 0, 153), Color.rgb(124, 58, 237)},
-                {Color.rgb(255, 145, 0), Color.rgb(255, 23, 68)},
-                {Color.rgb(0, 230, 118), Color.rgb(0, 137, 123)},
-                {Color.rgb(255, 64, 129), Color.rgb(213, 0, 249)},
-                {Color.rgb(255, 202, 40), Color.rgb(245, 81, 95)}
+                {Color.argb(226, 255, 255, 255), Color.argb(238, 235, 243, 255)},
+                {Color.argb(226, 255, 255, 255), Color.argb(238, 229, 245, 255)},
+                {Color.argb(226, 255, 255, 255), Color.argb(238, 225, 247, 245)}
             };
             int colorIndex = Math.abs(labels[i].hashCode()) % palette.length;
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
                     android.graphics.drawable.GradientDrawable.Orientation.TL_BR, palette[colorIndex]);
-            bg.setCornerRadius(dp(40));
-            bg.setStroke(dp(1), Color.argb(180, 255, 255, 255));
+            bg.setCornerRadius(dp(22));
+            bg.setStroke(dp(1), Color.argb(210, 155, 177, 225));
             b.setBackground(bg);
-            b.setElevation(dp(8));
+            b.setTextColor(Color.rgb(30, 64, 130));
+            b.setElevation(dp(5));
             b.setOnTouchListener((view, event) -> {
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                     view.animate().translationY(dp(3)).setDuration(70).start();
