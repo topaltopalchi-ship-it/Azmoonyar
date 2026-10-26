@@ -848,26 +848,6 @@ public class MainActivity extends Activity {
         currentKey.setPadding(0, dp(6), 0, dp(8));
         form.addView(currentKey);
 
-        EditText q = new EditText(this);
-        styleInput(q);
-        q.setSingleLine(true);
-        q.setInputType(2);
-        q.setHint("شماره سؤال");
-        q.setText("1");
-        form.addView(q);
-
-        RadioGroup answerGroup = new RadioGroup(this);
-        answerGroup.setOrientation(RadioGroup.HORIZONTAL);
-        String[] options = {"A", "B", "C", "D"};
-        for (int i = 0; i < options.length; i++) {
-            RadioButton rb = new RadioButton(this);
-            rb.setText(options[i]);
-            rb.setTag(options[i]);
-            styleOption(rb, i);
-            answerGroup.addView(rb);
-        }
-        form.addView(answerGroup);
-
         final String[] selectedTarget = {"main"};
         Runnable updateTargetInfo = () -> {
             String target = selectedTarget[0];
