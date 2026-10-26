@@ -478,6 +478,10 @@ public class ScanActivity extends ComponentActivity {
 
     @Override protected void onDestroy() {
         scannerActive = false;
+        if (voiceRecognizer != null) {
+            voiceRecognizer.stop();
+            voiceRecognizer = null;
+        }
         if (cameraProvider != null) cameraProvider.unbindAll();
         if (cameraExecutor != null) cameraExecutor.shutdown();
         super.onDestroy();
