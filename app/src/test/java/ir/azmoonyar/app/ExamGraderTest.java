@@ -20,7 +20,7 @@ public class ExamGraderTest {
                 variant, new String[]{"A", "D", "", "?"});
         assertEquals(4, result.total);
         assertEquals(1, result.correct);
-        assertEquals(2, result.incorrect);
+        assertEquals(1, result.incorrect);
         assertEquals(1, result.blank);
         assertEquals(1, result.review);
         assertEquals(25.0, result.percentage, 0.001);
