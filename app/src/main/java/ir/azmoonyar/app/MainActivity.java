@@ -326,6 +326,37 @@ public class MainActivity extends Activity {
         startActivity(new Intent(this, ScanActivity.class));
     }
 
+    private android.graphics.drawable.Drawable create3DKeyBackground(int[] colors) {
+        int radius = dp(22);
+        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable();
+        base.setColor(darkenColor(colors[1], 0.48f));
+        base.setCornerRadius(radius);
+
+        android.graphics.drawable.GradientDrawable face = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, colors);
+        face.setCornerRadius(radius);
+        face.setStroke(dp(1), Color.argb(230, 235, 249, 255));
+
+        android.graphics.drawable.GradientDrawable bevel = new android.graphics.drawable.GradientDrawable();
+        bevel.setColor(Color.TRANSPARENT);
+        bevel.setCornerRadius(radius - dp(2));
+        bevel.setStroke(dp(1), Color.argb(105, 255, 255, 255));
+
+        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{base, face, bevel});
+        layers.setLayerInset(0, 0, dp(5), 0, 0);
+        layers.setLayerInset(1, 0, 0, 0, dp(5));
+        layers.setLayerInset(2, dp(3), dp(3), dp(3), dp(8));
+        return layers;
+    }
+
+    private int darkenColor(int color, float factor) {
+        return Color.rgb(
+                Math.max(0, Math.min(255, (int)(Color.red(color) * factor))),
+                Math.max(0, Math.min(255, (int)(Color.green(color) * factor))),
+                Math.max(0, Math.min(255, (int)(Color.blue(color) * factor))));
+    }
+
     private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -355,18 +386,19 @@ public class MainActivity extends Activity {
                 {Color.rgb(255, 202, 40), Color.rgb(245, 81, 95)}
             };
             int colorIndex = Math.abs(labels[i].hashCode()) % palette.length;
-            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
-                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR, palette[colorIndex]);
-            bg.setCornerRadius(dp(40));
-            bg.setStroke(dp(1), Color.argb(180, 255, 255, 255));
-            b.setBackground(bg);
-            b.setElevation(dp(8));
+            b.setBackground(create3DKeyBackground(palette[colorIndex]));
+            b.setElevation(dp(10));
+            b.setStateListAnimator(null);
             b.setOnTouchListener((view, event) -> {
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                    view.animate().translationY(dp(3)).setDuration(70).start();
+                    view.animate().translationY(dp(4)).scaleX(0.985f).scaleY(0.985f)
+                            .setDuration(75).start();
+                    view.setElevation(dp(3));
                 } else if (event.getAction() == android.view.MotionEvent.ACTION_UP
                         || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
-                    view.animate().translationY(0).setDuration(100).start();
+                    view.animate().translationY(0).scaleX(1f).scaleY(1f)
+                            .setDuration(130).start();
+                    view.setElevation(dp(10));
                 }
                 return false;
             });
