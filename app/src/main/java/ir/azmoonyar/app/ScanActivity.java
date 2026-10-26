@@ -1,11 +1,8 @@
 package ir.azmoonyar.app;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.Intent;
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -368,14 +365,22 @@ public class ScanActivity extends ComponentActivity {
         // The QR identifies the exam/version group, not a unique physical answer sheet.
         // Do not deduplicate by sheetSetId/page: multiple students' sheets intentionally share it.
         Set<String> events = new HashSet<>(prefs.getStringSet("scanned_qr_events", Collections.emptySet()));
-        String eventId = java.util.UUID.randomUUID().toString();
+        // The same QR is printed on the question/answer pair for one page. Use a stable
+        // page key so rescanning that same printed page does not inflate the scan count.
+        // Each newly printed batch receives its own sheetSetId.
+        String eventId = sheetSetId + "::" + modelId + "::" + templateId + "::" + page;
+        if (events.contains(eventId)) {
+            showStatus("این صفحه قبلاً ثبت شده است؛ اسکن تکراری شمرده نشد.");
+            refreshCount();
+            return;
+        }
         events.add(eventId);
         prefs.edit()
                 .putStringSet("scanned_qr_events", events)
                 .putInt("scanned_sheet_count", events.size())
                 .apply();
         showStatus("نسخهٔ " + modelId + " شناسایی شد (صفحه " + page + " از " + pageCount
-                + "). اسکن جداگانه پذیرفته شد؛ نام شرکت‌کننده و خواندن حباب‌ها هنوز ثبت نشده‌اند.");
+                + "). شناسه صفحه ثبت شد؛ خواندن حباب‌ها و تصحیح خودکار هنوز فعال نیست.");
         refreshCount();
     }
 
