@@ -628,6 +628,7 @@ public class MainActivity extends Activity {
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
             String safeExam = escapeHtml(examName());
+            String safeInstitution = escapeHtml(prefs.getString("institution_name", "").trim());
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
@@ -684,6 +685,7 @@ public class MainActivity extends Activity {
                     int last = Math.min(page * questionsPerPage, total);
                     html.append("<section class='page'><h1 class='head'>").append(safeExam)
                         .append(" — برگه سؤال‌ها (صفحه ").append(page).append(" از ").append(pageCount).append(")</h1>")
+                        .append(safeInstitution.isEmpty() ? "" : "<div class='meta'>" + safeInstitution + "</div>")
                         .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
                         .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                         .append("<div class='meta'>تعداد کل سؤال‌ها: ").append(total).append("</div><div class='clear'></div><hr/>");
@@ -842,6 +844,7 @@ public class MainActivity extends Activity {
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
                     .append("<h1 class='head'>آزمون‌یار | پاسخنامه چهارگزینه‌ای</h1>")
                     .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page + 1).append(" از ").append(pages).append("</p>")
+                    .append(safeInstitution.isEmpty() ? "" : "<div class='meta'>مؤسسه: " + safeInstitution + "</div>")
                     .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
                     .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
                     .append("<div class='cols'>");
