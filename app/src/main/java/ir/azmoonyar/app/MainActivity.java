@@ -517,21 +517,38 @@ public class MainActivity extends Activity {
 
     private void showPrintStudentDialog() {
         if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
+        EditText countInput = new EditText(this);
+        styleInput(countInput);
+        countInput.setSingleLine(true);
+        countInput.setInputType(2);
+        countInput.setText("2");
+        countInput.setHint("تعداد نسخه‌ها (مثلاً 4)");
         new AlertDialog.Builder(this)
-            .setTitle("چاپ دو نسخهٔ آزمون و پاسخنامه")
-            .setMessage("دو نسخهٔ متفاوت چاپ می‌شوند. هر پرسشنامه و پاسخنامهٔ همان نسخه QR یکسان دارند. نام شرکت‌کننده از قبل لازم نیست؛ نام پس از دریافت پاسخنامه ثبت می‌شود.")
-            .setPositiveButton("چاپ برگه‌ها", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
+            .setTitle("تعداد نسخه‌های آزمون")
+            .setMessage("تعداد نسخه‌های متفاوت را وارد کن. برای هر نسخه، پرسشنامه و پاسخنامهٔ جفت‌شده و کلید اختصاصی ساخته می‌شود.")
+            .setView(countInput)
+            .setPositiveButton("ساخت و چاپ", (dialog, which) -> {
+                int count;
+                try { count = Integer.parseInt(countInput.getText().toString().trim()); }
+                catch (Exception e) { info("تعداد نسخه معتبر نیست."); return; }
+                if (count < 1 || count > 26) { info("تعداد نسخه باید بین ۱ تا ۲۶ باشد."); return; }
+                printPairedSheets("", UUID.randomUUID().toString(), count);
+            })
             .setNegativeButton("انصراف", null).show();
     }
 
     private void printPairedSheets(String participantName, String participantId) {
+        printPairedSheets(participantName, participantId, 2);
+    }
+
+    private void printPairedSheets(String participantName, String participantId, int variantCount) {
         try {
             JSONArray bank = readQuestionBank();
             if (bank.length() < questionCount()) {
                 info("برای چاپ نسخه‌دار، ابتدا به تعداد سؤال‌های آزمون سؤال در بانک سؤال ثبت کن.");
                 return;
             }
-            JSONArray variants = getOrCreateExamVariants(bank, 2);
+            JSONArray variants = getOrCreateExamVariants(bank, variantCount);
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
@@ -636,6 +653,7 @@ public class MainActivity extends Activity {
                     .putString("issued_exam_" + sheetSetId + "_" + modelId, issuedExam.toString())
                     .putString("answer_key_model_" + modelId, answerKey.substring(0, total))
                     .putString("model_questions_" + modelId, questions.toString())
+                    .putInt("issued_model_count", variants.length())
                     .apply();
             }
             html.append("</body></html>");
@@ -831,14 +849,18 @@ public class MainActivity extends Activity {
 
         RadioGroup targetGroup = new RadioGroup(this);
         targetGroup.setOrientation(RadioGroup.VERTICAL);
-        String[] targetLabels = {"کلید اصلی بانک سؤال", "کلید نسخه الف (خودکار از نسخه چاپی)", "کلید نسخه ب (خودکار از نسخه چاپی)"};
-        String[] targets = {"main", "A", "B"};
-        for (int i = 0; i < targets.length; i++) {
+        int availableModels = Math.max(2, Math.min(26, prefs.getInt("issued_model_count", 2)));
+        RadioButton mainTarget = new RadioButton(this);
+        mainTarget.setText("کلید اصلی بانک سؤال");
+        mainTarget.setTag("main");
+        targetGroup.addView(mainTarget);
+        mainTarget.setChecked(true);
+        for (int i = 0; i < availableModels; i++) {
+            String model = String.valueOf((char)('A' + i));
             RadioButton rb = new RadioButton(this);
-            rb.setText(targetLabels[i]);
-            rb.setTag(targets[i]);
+            rb.setText("کلید نسخه " + model);
+            rb.setTag(model);
             targetGroup.addView(rb);
-            if (i == 0) rb.setChecked(true);
         }
         form.addView(targetGroup);
 
@@ -872,8 +894,8 @@ public class MainActivity extends Activity {
         updateTargetInfo.run();
 
         new AlertDialog.Builder(this)
-            .setTitle("کلید اصلی، الف و ب")
-            .setMessage("کلید اصلی از بانک سؤال ساخته می‌شود و کلیدهای الف و ب از نسخه‌های تولیدشده. برای جلوگیری از تغییر ناخواستهٔ کلید نسخه‌های چاپی، این صفحه فقط نمایش و بازیابی کلیدها را انجام می‌دهد.")
+            .setTitle("کلید اصلی و کلید نسخه‌ها")
+            .setMessage("کلید اصلی از بانک سؤال ساخته می‌شود و کلید هر نسخه از ترتیب واقعی سؤال‌ها و گزینه‌های همان نسخه تولید می‌شود. برای جلوگیری از تغییر ناخواستهٔ کلید نسخه‌های چاپی، این صفحه فقط نمایش و بازیابی کلیدها را انجام می‌دهد.")
             .setView(form)
             .setNegativeButton("بستن", null)
             .setPositiveButton("نمایش کلیدها", (d, w) -> showKeySummary())
@@ -921,7 +943,9 @@ public class MainActivity extends Activity {
         String bankKey = buildOriginalBankKey();
         report.append("کلید اصلی بانک سؤال (ترتیب اولیه):\\n");
         report.append(formatAnswerKey(bankKey, questionCount())).append("\\n\\n");
-        for (String model : new String[]{"A", "B"}) {
+        int savedModelCount = Math.max(2, Math.min(26, prefs.getInt("issued_model_count", 2)));
+        for (int modelIndex = 0; modelIndex < savedModelCount; modelIndex++) {
+            String model = String.valueOf((char)('A' + modelIndex));
             report.append("نسخه ").append(model).append(":\\n");
             String modelKey = getGeneratedModelKey(model);
             if (modelKey.isEmpty()) {
