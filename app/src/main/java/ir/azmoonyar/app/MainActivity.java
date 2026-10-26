@@ -73,44 +73,65 @@ public class MainActivity extends Activity {
                     STUDENT_VOICE_REQUEST
             );
         }
-        // Start downloading the Persian Vosk model automatically on the first app launch.
-        // Android does not allow an app to execute code before the user opens it after installation.
+        // Show a visible status immediately, then prepare the model in the background.
+        prepareVoskModel();
+    }
+
+    private void prepareVoskModel() {
+        if (isFinishing() || isDestroyed()) return;
+        if (modelDownloadDialog == null) {
+            modelDownloadDialog = new ProgressDialog(this);
+            modelDownloadDialog.setTitle("آماده‌سازی تشخیص گفتار فارسی");
+            modelDownloadDialog.setMessage("در حال بررسی مدل فارسی Vosk...");
+            modelDownloadDialog.setIndeterminate(true);
+            modelDownloadDialog.setCancelable(false);
+            modelDownloadDialog.setCanceledOnTouchOutside(false);
+            modelDownloadDialog.show();
+        } else if (!modelDownloadDialog.isShowing()) {
+            modelDownloadDialog.setMessage("در حال بررسی مدل فارسی Vosk...");
+            modelDownloadDialog.show();
+        }
+
         PersianVosk.prepareOnFirstLaunch(this, new PersianVosk.Callback() {
             @Override public void onText(String text) {}
+
             @Override public void onStatus(String status) {
                 if (isFinishing() || isDestroyed()) return;
-                if (status.startsWith("در حال دانلود مدل فارسی Vosk")) {
-                    if (modelDownloadDialog == null || !modelDownloadDialog.isShowing()) {
-                        modelDownloadDialog = new ProgressDialog(MainActivity.this);
-                        modelDownloadDialog.setTitle("آماده‌سازی تشخیص گفتار فارسی");
-                        modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
-                        modelDownloadDialog.setIndeterminate(true);
-                        modelDownloadDialog.setCancelable(false);
-                        modelDownloadDialog.setCanceledOnTouchOutside(false);
-                        modelDownloadDialog.show();
-                    } else {
-                        modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
-                    }
-                } else if (status.equals("مدل آفلاین فارسی آماده است.")) {
+
+                if (status.equals("مدل آفلاین فارسی آماده است.")) {
                     if (modelDownloadDialog != null && modelDownloadDialog.isShowing()) {
                         modelDownloadDialog.dismiss();
                     }
                     modelDownloadDialog = null;
-                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                            .edit().putBoolean("vosk_model_ready", true).apply();
-                } else if (status.contains("ناموفق")) {
+                    prefs.edit().putBoolean("vosk_model_ready", true).apply();
+                    showStyledInfo("مدل تشخیص گفتار فارسی آماده است؛ از این پس می‌توانی آفلاین از تشخیص صدا استفاده کنی.");
+                    return;
+                }
+
+                if (status.contains("ناموفق")) {
                     if (modelDownloadDialog != null && modelDownloadDialog.isShowing()) {
                         modelDownloadDialog.dismiss();
                     }
                     modelDownloadDialog = null;
-                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                            .edit().putBoolean("vosk_model_ready", false).apply();
+                    prefs.edit().putBoolean("vosk_model_ready", false).apply();
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("دانلود مدل گفتار فارسی انجام نشد")
-                            .setMessage(status + "\\nبا اتصال اینترنت دوباره برنامه را باز کن تا دانلود خودکار دوباره تلاش شود.")
-                            .setPositiveButton("باشه", null)
+                            .setMessage(status)
+                            .setPositiveButton("تلاش دوباره", (dialog, which) -> prepareVoskModel())
+                            .setNegativeButton("بعداً", null)
                             .show();
+                    return;
                 }
+
+                if (modelDownloadDialog == null) {
+                    modelDownloadDialog = new ProgressDialog(MainActivity.this);
+                    modelDownloadDialog.setTitle("آماده‌سازی تشخیص گفتار فارسی");
+                    modelDownloadDialog.setIndeterminate(true);
+                    modelDownloadDialog.setCancelable(false);
+                    modelDownloadDialog.setCanceledOnTouchOutside(false);
+                    modelDownloadDialog.show();
+                }
+                modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
             }
         });
     }
