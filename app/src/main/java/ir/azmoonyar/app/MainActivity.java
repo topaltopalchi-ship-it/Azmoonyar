@@ -556,6 +556,33 @@ public class MainActivity extends Activity {
                     info("چاپ برای جلوگیری از تولید پاسخنامهٔ ناسازگار متوقف شد: " + validationError);
                     return;
                 }
+                // Print question text on its own pages (25 questions per page). QR codes
+                // belong only on answer sheets, so scanning a question page cannot be counted
+                // as a scanned answer sheet.
+                final int questionsPerPage = 25;
+                final int questionPageCount = (total + questionsPerPage - 1) / questionsPerPage;
+                for (int questionPage = 1; questionPage <= questionPageCount; questionPage++) {
+                    int questionFirst = (questionPage - 1) * questionsPerPage;
+                    int questionLast = Math.min(questionPage * questionsPerPage, total);
+                    html.append("<section class='page'><h1 class='head'>").append(safeExam)
+                        .append(" — برگه سؤال‌ها</h1>")
+                        .append("<div class='meta'>صفحه ").append(questionPage).append(" از ")
+                        .append(questionPageCount).append(" | سؤال‌های ").append(questionFirst + 1)
+                        .append(" تا ").append(questionLast).append("</div><hr/>");
+                    for (int i = questionFirst; i < questionLast; i++) {
+                        JSONObject q = questions.optJSONObject(i);
+                        if (q == null) continue;
+                        html.append("<article class='question'><b>").append(i + 1).append(". ")
+                            .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
+                        JSONArray options = q.optJSONArray("options");
+                        if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
+                            html.append("<div>").append((char)('A' + j)).append(") ")
+                                .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                        html.append("</div></article>");
+                    }
+                    html.append("</section>");
+                }
+
                 for (int page = 1; page <= pageCount; page++) {
                     String payload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|"
                             + modelId + "|T1|" + page + "|" + pageCount;
@@ -568,25 +595,6 @@ public class MainActivity extends Activity {
                     String qr64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
                     int first = (page - 1) * 100;
                     int last = Math.min(page * 100, total);
-                    if (page == 1) {
-                        html.append("<section class='page'><h1 class='head'>").append(safeExam)
-                            .append(" — برگه سؤال‌ها</h1>")
-                            .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
-                            .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
-                            .append("<div class='meta'>تعداد سؤال: ").append(total).append("</div><div class='clear'></div><hr/>");
-                        for (int i = 0; i < total; i++) {
-                            JSONObject q = questions.optJSONObject(i);
-                            if (q == null) continue;
-                            html.append("<article class='question'><b>").append(i + 1).append(". ")
-                                .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
-                            JSONArray options = q.optJSONArray("options");
-                            if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
-                                html.append("<div>").append((char)('A' + j)).append(") ")
-                                    .append(escapeHtml(options.optString(j, ""))).append("</div>");
-                            html.append("</div></article>");
-                        }
-                        html.append("</section>");
-                    }
                     html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
