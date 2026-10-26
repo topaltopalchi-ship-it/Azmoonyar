@@ -215,7 +215,7 @@ public class ScanActivity extends ComponentActivity {
         try {
             cameraProvider.unbindAll();
             cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
-            showStatus("آمادهٔ اسکن پیوسته؛ کد QR را جلوی دوربین بگیر.");
+            showStatus("QR لازم نیست؛ ثبت نام و پاسخ‌ها را از دکمه‌های پایین انجام بده.");
         } catch (Exception e) {
             showStatus("اتصال دوربین ناموفق بود. برنامه را ببند و دوباره امتحان کن.");
         }
@@ -424,7 +424,6 @@ public class ScanActivity extends ComponentActivity {
     }
 
     private void startVoiceNameCapture() {
-        if (latestSheetSetId.isEmpty()) { showStatus("اول QR پاسخنامه را اسکن کن."); return; }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, VOICE_NAME_REQUEST);
             showStatus("درخواست اجازهٔ میکروفون ارسال شد…");
