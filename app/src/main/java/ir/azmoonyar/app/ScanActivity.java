@@ -357,9 +357,32 @@ public class ScanActivity extends ComponentActivity {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
             return;
         }
-        String savedVariant = prefs.getString("issued_exam_" + sheetSetId + "_" + modelId, "");
+        String issuedKey = "issued_exam_" + sheetSetId + "_" + modelId;
+        String savedVariant = prefs.getString(issuedKey, "");
+        // Some imported/older batches only retain their immutable variant snapshot inside
+        // saved_exam_batches_json. Recover it as the scanner's reference before rejecting QR.
         if (savedVariant.isEmpty()) {
-            showStatus("این QR با نسخه‌های A، B، C یا D ثبت‌شده در همین دستگاه تطبیق ندارد؛ نسخه‌ها را از همین دستگاه چاپ کن.");
+            try {
+                JSONArray batches = new JSONArray(prefs.getString("saved_exam_batches_json", "[]"));
+                for (int b = 0; b < batches.length() && savedVariant.isEmpty(); b++) {
+                    JSONObject batch = batches.optJSONObject(b);
+                    JSONArray variants = batch == null ? null : batch.optJSONArray("variants");
+                    if (variants == null) continue;
+                    for (int v = 0; v < variants.length(); v++) {
+                        JSONObject candidate = variants.optJSONObject(v);
+                        if (candidate != null
+                                && sheetSetId.equals(candidate.optString("sheet_set_id", ""))
+                                && modelId.equals(candidate.optString("model_id", ""))) {
+                            savedVariant = candidate.toString();
+                            prefs.edit().putString(issuedKey, savedVariant).apply();
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) { }
+        }
+        if (savedVariant.isEmpty()) {
+            showStatus("QR خوانده شد، اما نسخهٔ متناظر در مجموعه‌های ذخیره‌شده پیدا نشد. PDF باید با QR همین آزمون‌یار ثبت شده باشد.");
             return;
         }
         try {
