@@ -84,8 +84,9 @@ jobs:
           set -euo pipefail
           test -s app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/bundle/release/app-release.aab
-          jarsigner -verify app/build/outputs/apk/release/app-release.apk >/dev/null
-          echo "Release APK and AAB were created."
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab >/dev/null
+          echo "Signed Release APK and AAB were created and verified."
 
       - name: Upload Release APK and AAB
         uses: actions/upload-artifact@v4
