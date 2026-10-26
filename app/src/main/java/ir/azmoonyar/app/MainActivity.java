@@ -1142,9 +1142,11 @@ public class MainActivity extends Activity {
         String title = batch.optString("exam_name", "آزمون");
         new AlertDialog.Builder(this).setTitle(title)
             .setMessage("تعداد نسخه‌ها: " + batch.optInt("variant_count", 0)
-                    + "\nاین مجموعه با سؤال‌ها، ترتیب گزینه‌ها، کلیدها و شناسه‌های QR خودش ذخیره شده است.")
-            .setItems(new String[]{"چاپ دوباره همین مجموعه", "حذف این مجموعه"}, (d, which) -> {
+                    + "\nبرای دیدن سؤال‌ها، ترتیب گزینه‌ها، QR و کلید هر نسخه، «مشاهده محتویات» را بزن.")
+            .setItems(new String[]{"مشاهده محتویات", "چاپ دوباره همین مجموعه", "حذف این مجموعه"}, (d, which) -> {
                 if (which == 0) {
+                    showSavedBatchContents(batch);
+                } else if (which == 1) {
                     String savedHtml = batch.optString("print_html", "");
                     if (savedHtml.isEmpty()) { info("فایل چاپ این مجموعه در دسترس نیست."); return; }
                     printHtmlDocument("AzmoonYar-" + title, savedHtml);
@@ -1156,6 +1158,48 @@ public class MainActivity extends Activity {
                         .show();
                 }
             }).setNegativeButton("بازگشت", (d, w) -> showSavedExamBatches()).show();
+    }
+
+    private void showSavedBatchContents(JSONObject batch) {
+        StringBuilder details = new StringBuilder();
+        JSONArray variants = batch.optJSONArray("variants");
+        if (variants == null || variants.length() == 0) {
+            info("محتویات نسخه‌ها در این مجموعه ذخیره نشده است؛ چاپ دوباره را بررسی کن.");
+            return;
+        }
+        for (int v = 0; v < variants.length(); v++) {
+            JSONObject variant = variants.optJSONObject(v);
+            if (variant == null) continue;
+            String model = variant.optString("model_id", "?");
+            details.append("\\nنسخه ").append(model)
+                .append(" — تعداد سؤال: ").append(variant.optInt("question_count", 0))
+                .append("\\nشناسه QR: ").append(variant.optString("qr_payload", "ثبت نشده"))
+                .append("\\nکلید: ").append(variant.optString("answer_key", "ثبت نشده"))
+                .append("\\n");
+            JSONArray questions = variant.optJSONArray("questions");
+            if (questions != null) for (int q = 0; q < questions.length(); q++) {
+                JSONObject item = questions.optJSONObject(q);
+                if (item == null) continue;
+                details.append(q + 1).append(". ").append(item.optString("text", ""))
+                    .append("\\n");
+                JSONArray options = item.optJSONArray("options");
+                if (options != null) for (int o = 0; o < options.length(); o++) {
+                    details.append((char)('A' + o)).append(") ")
+                        .append(options.optString(o, "")).append("   ");
+                }
+                details.append("\\n");
+            }
+            details.append("\\n--------------------\\n");
+        }
+        ScrollView scroll = new ScrollView(this);
+        TextView content = new TextView(this);
+        content.setText(details.toString());
+        content.setTextSize(16);
+        content.setPadding(dp(16), dp(12), dp(16), dp(12));
+        scroll.addView(content);
+        new AlertDialog.Builder(this).setTitle("محتویات «" + batch.optString("exam_name", "آزمون") + "»")
+            .setView(scroll).setPositiveButton("بستن", null)
+            .setNeutralButton("بازگشت", (d, w) -> showSavedBatchActions(batch)).show();
     }
 
     private void deleteSavedExamBatch(String batchId) {
