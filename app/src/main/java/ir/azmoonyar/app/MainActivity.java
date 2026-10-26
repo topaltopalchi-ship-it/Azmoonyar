@@ -1069,19 +1069,71 @@ public class MainActivity extends Activity {
         info("مجموعه انتخاب‌شده حذف شد؛ سایر مجموعه‌ها باقی ماندند.");
     }
 
+    private WebView activePrintWebView;
+
     private void printHtmlDocument(String title, String htmlContent) {
-        WebView web = new WebView(this);
+        if (htmlContent == null || htmlContent.trim().isEmpty()) {
+            info("محتوای چاپ خالی است؛ چیزی برای چاپ وجود ندارد.");
+            return;
+        }
+        final WebView web = new WebView(this);
+        activePrintWebView = web;
         web.getSettings().setDefaultTextEncodingName("UTF-8");
-        web.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null);
+        web.getSettings().setJavaScriptEnabled(false);
+        web.setBackgroundColor(Color.WHITE);
+
+        LinearLayout preview = new LinearLayout(this);
+        preview.setOrientation(LinearLayout.VERTICAL);
+        preview.setPadding(dp(8), dp(8), dp(8), dp(8));
+        TextView hint = new TextView(this);
+        hint.setText("پیش‌نمایش برگه‌های چاپی؛ پس از بارگذاری، دکمهٔ چاپ را بزن.");
+        hint.setPadding(dp(4), dp(4), dp(4), dp(8));
+        preview.addView(hint);
+        preview.addView(web, new LinearLayout.LayoutParams(-1, dp(420)));
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("آماده‌سازی چاپ")
+                .setView(preview)
+                .setNegativeButton("لغو", (d, w) -> {
+                    if (activePrintWebView == web) activePrintWebView = null;
+                    web.destroy();
+                })
+                .setPositiveButton("چاپ…", null)
+                .create();
         web.setWebViewClient(new WebViewClient() {
+            private boolean pageReady;
             @Override public void onPageFinished(WebView view, String url) {
-                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                if (pm != null) pm.print(title, view.createPrintDocumentAdapter(title),
-                    new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                        .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
-                else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                if (pageReady) return;
+                pageReady = true;
+                hint.setText("پیش‌نمایش بارگذاری شد. برای باز کردن پنجرهٔ چاپ، «چاپ…» را بزن.");
+                Button printButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                if (printButton != null) printButton.setEnabled(true);
             }
         });
+        dialog.setOnShowListener(ignored -> {
+            Button printButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            printButton.setEnabled(false);
+            printButton.setOnClickListener(v -> {
+                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (pm == null) {
+                    hint.setText("قابلیت چاپ در این دستگاه در دسترس نیست.");
+                    return;
+                }
+                try {
+                    pm.print(title, web.createPrintDocumentAdapter(title),
+                            new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
+                    hint.setText("پنجرهٔ چاپ باز شد؛ چاپگر یا «ذخیره به‌صورت PDF» را انتخاب کن.");
+                } catch (Exception e) {
+                    hint.setText("بازکردن پنجرهٔ چاپ ناموفق بود: " + e.getMessage());
+                }
+            });
+        });
+        dialog.setOnDismissListener(ignored -> {
+            if (activePrintWebView == web) activePrintWebView = null;
+            web.destroy();
+        });
+        dialog.show();
+        web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
     }
 
     /** Registers both original PDF variants, preserving their printed question and option order. */
