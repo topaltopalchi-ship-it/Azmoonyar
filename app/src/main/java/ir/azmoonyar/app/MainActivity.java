@@ -881,71 +881,51 @@ public class MainActivity extends Activity {
 
     private void showKeyDialog() {
         if (examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
+        JSONArray bank = readQuestionBank();
+        String value = buildOriginalBankKey();
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(8), dp(6), dp(8), dp(2));
+        form.setPadding(dp(12), dp(8), dp(12), dp(8));
 
-        TextView targetLabel = new TextView(this);
-        targetLabel.setText("کلیدی که می‌خواهی ببینی یا ویرایش کنی:");
-        targetLabel.setTextSize(15);
-        form.addView(targetLabel);
+        TextView heading = new TextView(this);
+        heading.setText("کلید اصلی پاسخ — " + examName());
+        heading.setTextSize(18);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setTextColor(Color.rgb(7, 40, 130));
+        form.addView(heading);
 
-        RadioGroup targetGroup = new RadioGroup(this);
-        targetGroup.setOrientation(RadioGroup.VERTICAL);
-        int availableModels = Math.max(1, Math.min(26, prefs.getInt("issued_model_count", 2)));
-        RadioButton mainTarget = new RadioButton(this);
-        mainTarget.setText("کلید اصلی بانک سؤال");
-        mainTarget.setTag("main");
-        targetGroup.addView(mainTarget);
-        mainTarget.setChecked(true);
-        for (int i = 0; i < availableModels; i++) {
-            String model = String.valueOf((char)('A' + i));
-            RadioButton rb = new RadioButton(this);
-            rb.setText("کلید نسخه " + model);
-            rb.setTag(model);
-            targetGroup.addView(rb);
-        }
-        form.addView(targetGroup);
+        TextView note = new TextView(this);
+        note.setText("این تنها کلید پاسخ برنامه است. کلید به‌ترتیب سؤال‌های بانک ساخته می‌شود و پاسخ صحیحی را نشان می‌دهد که هنگام ثبت هر سؤال انتخاب کرده‌ای.");
+        note.setTextSize(14);
+        note.setPadding(0, dp(8), 0, dp(8));
+        form.addView(note);
 
         TextView currentKey = new TextView(this);
-        currentKey.setTextSize(13);
-        currentKey.setTextColor(Color.rgb(51, 65, 85));
-        currentKey.setPadding(0, dp(6), 0, dp(8));
+        currentKey.setTextSize(15);
+        currentKey.setTextColor(Color.rgb(30, 41, 59));
+        currentKey.setText(formatAnswerKey(value, questionCount()));
         form.addView(currentKey);
 
-        final String[] selectedTarget = {"main"};
-        Runnable updateTargetInfo = () -> {
-            String target = selectedTarget[0];
-            String value;
-            if ("main".equals(target)) {
-                value = buildOriginalBankKey();
-                currentKey.setText("کلید اصلی از پاسخ‌های صحیح بانک سؤال ساخته می‌شود.\n" + formatAnswerKey(value, questionCount()));
-            } else {
-                value = getGeneratedModelKey(target);
-                currentKey.setText(value.isEmpty()
-                    ? "هنوز نسخه " + target + " ساخته یا چاپ نشده است. ابتدا «چاپ پرسشنامه و پاسخنامه» را اجرا کن."
-                    : "کلید نسخه " + target + " به‌صورت خودکار از ترتیب واقعی سؤال‌ها و گزینه‌های نسخه ذخیره‌شده ساخته شده است.\n" + formatAnswerKey(value, questionCount()));
-            }
-        };
-        targetGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            RadioButton selected = group.findViewById(checkedId);
-            if (selected != null) {
-                selectedTarget[0] = String.valueOf(selected.getTag());
-                updateTargetInfo.run();
-            }
-        });
-        updateTargetInfo.run();
+        int filled = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (value.charAt(i) >= 'A' && value.charAt(i) <= 'D') filled++;
+        }
+        TextView completion = new TextView(this);
+        completion.setText("پاسخ‌های ثبت‌شده: " + filled + " از " + questionCount());
+        completion.setTextSize(14);
+        completion.setTypeface(null, android.graphics.Typeface.BOLD);
+        completion.setPadding(0, dp(8), 0, 0);
+        form.addView(completion);
 
         new AlertDialog.Builder(this)
-            .setTitle("کلیدهای پاسخ")
-            .setMessage("کلید بیرونی بدون بارکد قابل ورود است. تصویر ذخیره می‌شود؛ خواندن خودکار حباب‌ها هنوز فعال نیست و باید پاسخ‌ها را دستی وارد و تأیید کنی.")
+            .setTitle("کلید پاسخ اصلی")
             .setView(form)
             .setNegativeButton("بستن", null)
             .setNeutralButton("بارگذاری تصویر کلید", (d, w) -> {
-                pendingKeyTarget = selectedTarget[0];
+                pendingKeyTarget = "main";
                 pickAnswerKeyImage();
             })
-            .setPositiveButton("چاپ / ذخیره کلید", (d, w) -> showKeyOutputChoices(selectedTarget[0]))
+            .setPositiveButton("چاپ / ذخیره کلید", (d, w) -> showKeyOutputChoices("main"))
             .show();
     }
 
