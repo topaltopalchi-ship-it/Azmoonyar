@@ -1305,13 +1305,64 @@ public class MainActivity extends Activity {
                         .putString("answer_key_master", fixedC.optString("answer_key"))
                         .putString("model_questions_master", versionC.toString())
                         .putInt("issued_model_count", 3).apply();
+                    registerImportedQrVariants(new JSONObject[]{fixedA, fixedB, fixedC});
                     refreshSummary();
-                    info("نسخه‌های A و B و پرسشنامه اصلی با کلیدهای تصحیح در حافظه برنامه ثبت شدند. کلید اصلی: "
-                        + fixedC.optString("answer_key") + ". شناسه QR برگه‌های چاپ‌شده باید جداگانه تطبیق داده شود.");
+                    info("نسخه‌های A، B و C با شناسه QR اختصاصی در سیستم ثبت شدند و برگه‌های دارای QR برای چاپ آماده شدند. کلید اصلی: "
+                        + fixedC.optString("answer_key") + ".");
                 } catch (Exception e) {
                     info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
                 }
             }).show();
+    }
+
+    private void registerImportedQrVariants(JSONObject[] variants) throws Exception {
+        String encodedName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
+        String batchId = UUID.randomUUID().toString();
+        JSONArray savedVariants = new JSONArray();
+        StringBuilder html = new StringBuilder("<html><head><meta charset='utf-8'><style>@page{size:A4;margin:10mm}body{font-family:sans-serif;direction:rtl}.page{page-break-after:always}.qr{width:28mm;height:28mm;float:left}.q{padding:3mm;border-bottom:1px solid #aaa}.opts{display:grid;grid-template-columns:1fr 1fr}.bubble{display:inline-block;width:5mm;height:5mm;border:1px solid #111;border-radius:50%}table{width:100%;border-collapse:collapse}td,th{border:1px solid #555;text-align:center;padding:2mm}</style></head><body>");
+        for (JSONObject variant : variants) {
+            String model = variant.optString("variant_id", "");
+            JSONArray questions = variant.optJSONArray("questions");
+            String answerKey = variant.optString("answer_key", "");
+            if (questions == null || questions.length() != 10 || answerKey.length() != 10) throw new IllegalStateException("Invalid variant");
+            String sheetId = UUID.randomUUID().toString();
+            String payload = "AZY3|" + encodedName + "|" + sheetId + "|" + model + "|T1|1|1";
+            com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, 320, 320);
+            Bitmap qr = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
+            for (int y = 0; y < 320; y++) for (int x = 0; x < 320; x++) qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream(); qr.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+            String qr64 = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+            JSONObject issued = new JSONObject();
+            issued.put("schema_version", 1); issued.put("exam_name", examName()); issued.put("sheet_set_id", sheetId);
+            issued.put("model_id", model); issued.put("template_id", "T1"); issued.put("question_count", 10);
+            issued.put("answer_key", answerKey); issued.put("questions", questions); issued.put("qr_payload", payload);
+            issued.put("created_at", System.currentTimeMillis()); issued.put("original_answer_key", answerKey);
+            prefs.edit().putString("issued_exam_" + sheetId + "_" + model, issued.toString())
+                    .putString("saved_variant_" + sheetId, issued.toString()).putString("answer_key_model_" + model, answerKey)
+                    .putString("model_questions_" + model, questions.toString()).putString("pdf_original_version_" + model, variant.toString())
+                    .putString("qr_payload_model_" + model, payload).putInt("issued_model_count", 3).apply();
+            savedVariants.put(issued);
+            html.append("<section class='page'><h1>").append(escapeHtml(examName())).append(" — نسخه ").append(model)
+                    .append("</h1><img class='qr' src='data:image/png;base64,").append(qr64)
+                    .append("'/><p>نام و نام خانوادگی: ................................</p><h2>پرسشنامه</h2>");
+            for (int i = 0; i < questions.length(); i++) {
+                JSONObject q = questions.optJSONObject(i); JSONArray options = q == null ? null : q.optJSONArray("options");
+                html.append("<div class='q'><b>").append(i + 1).append(". ").append(escapeHtml(q == null ? "" : q.optString("text", ""))).append("</b><div class='opts'>");
+                for (int j = 0; options != null && j < Math.min(4, options.length()); j++)
+                    html.append("<div>").append((char)('A' + j)).append(") ").append(escapeHtml(options.optString(j, ""))).append("</div>");
+                html.append("</div></div>");
+            }
+            html.append("<h2>پاسخنامه</h2><table><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr>");
+            for (int i = 1; i <= 10; i++) html.append("<tr><td>").append(i).append("</td><td><span class='bubble'></span></td><td><span class='bubble'></span></td><td><span class='bubble'></span></td><td><span class='bubble'></span></td></tr>");
+            html.append("</table></section>");
+        }
+        html.append("</body></html>");
+        JSONObject batch = new JSONObject(); batch.put("batch_id", batchId); batch.put("exam_name", examName());
+        batch.put("variant_count", variants.length); batch.put("created_at", System.currentTimeMillis());
+        batch.put("print_html", html.toString()); batch.put("variants", savedVariants);
+        JSONArray batches = readSavedExamBatches(); batches.put(batch);
+        prefs.edit().putString("saved_exam_batches_json", batches.toString()).apply();
+        printHtmlDocument("AzmoonYar-" + examName() + "-ABC-QR", html.toString());
     }
 
     private JSONObject makeFixedPdfVariant(String model, JSONArray sourceQuestions) throws Exception {
