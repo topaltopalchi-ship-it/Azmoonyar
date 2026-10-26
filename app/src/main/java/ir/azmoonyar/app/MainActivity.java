@@ -423,6 +423,11 @@ public class MainActivity extends Activity {
                     info("ساخت مدل آزمون کامل نبود؛ چاپ متوقف شد.");
                     return;
                 }
+                String validationError = validateVariantForPrinting(questions, answerKey, total);
+                if (validationError != null) {
+                    info("چاپ برای جلوگیری از تولید پاسخنامهٔ ناسازگار متوقف شد: " + validationError);
+                    return;
+                }
                 for (int page = 1; page <= pageCount; page++) {
                     String payload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|"
                             + modelId + "|T1|" + page + "|" + pageCount;
@@ -518,6 +523,45 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             info("ساخت برگه برای چاپ ناموفق بود؛ بانک سؤال و مجوز چاپ را بررسی کن.");
         }
+    }
+
+    /**
+     * Fail closed before printing: the printed bubbles, question list and answer key must
+     * describe the same complete model. This is especially important for saved/original
+     * variants, where a plausible-looking but mismatched key would silently corrupt grading.
+     */
+    private String validateVariantForPrinting(JSONArray questions, String answerKey, int total) {
+        if (questions == null || total < 1 || questions.length() < total || answerKey == null
+                || answerKey.length() < total) {
+            return "تعداد سؤال‌ها و طول کلید پاسخ برابر نیست.";
+        }
+        for (int i = 0; i < total; i++) {
+            JSONObject question = questions.optJSONObject(i);
+            if (question == null || question.optString("text", "").trim().isEmpty()) {
+                return "متن سؤال " + (i + 1) + " خالی یا نامعتبر است.";
+            }
+            JSONArray options = question.optJSONArray("options");
+            if (options == null || options.length() != 4) {
+                return "سؤال " + (i + 1) + " باید دقیقاً چهار گزینه داشته باشد.";
+            }
+            for (int option = 0; option < 4; option++) {
+                if (options.optString(option, "").trim().isEmpty()) {
+                    return "گزینهٔ " + (char)('A' + option) + " سؤال " + (i + 1) + " خالی است.";
+                }
+            }
+            char keyLetter = Character.toUpperCase(answerKey.charAt(i));
+            if (keyLetter < 'A' || keyLetter > 'D') {
+                return "کلید سؤال " + (i + 1) + " پاسخ معتبر A تا D ندارد.";
+            }
+            if (question.has("correct_index")) {
+                int correctIndex = question.optInt("correct_index", -1);
+                if (correctIndex < 0 || correctIndex > 3
+                        || keyLetter != (char)('A' + correctIndex)) {
+                    return "کلید سؤال " + (i + 1) + " با گزینهٔ صحیح ذخیره‌شده تطبیق ندارد.";
+                }
+            }
+        }
+        return null;
     }
 
     private JSONArray getOrCreateExamVariants(JSONArray bank, int count) throws Exception {
