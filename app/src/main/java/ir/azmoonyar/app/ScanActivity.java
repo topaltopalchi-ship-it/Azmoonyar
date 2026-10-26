@@ -37,6 +37,9 @@ import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.BarcodeFormat;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -54,6 +57,9 @@ import java.util.concurrent.Executors;
 public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
+    private static final int QUESTIONS_PER_PRINT_PAGE = 20;
+    private static final int QUESTIONS_PER_FIGURE_PAGE = 6;
+    private static final int MAX_PRINT_PAGES = 50;
 
     private PreviewView previewView;
     private TextView statusView;
@@ -269,11 +275,16 @@ public class ScanActivity extends ComponentActivity {
 
     private void registerIfValid(String payload) {
         if (isFinishing() || !scannerActive) return;
-        String[] parts = payload.split("\\|", -1);
-        if (parts.length == 7 && "AZY3".equals(parts[0])) {
-            registerPageQr(parts);
+        SheetQrPayload parsedPage = SheetQrPayload.parse(payload);
+        if (parsedPage != null) {
+            registerPageQr(parsedPage.toParts());
             return;
         }
+        if (payload.startsWith("AZY3|")) {
+            showStatus("ساختار QR نسخه‌دار ناقص یا نامعتبر است؛ ثبت نشد.");
+            return;
+        }
+        String[] parts = payload.split("\\|", -1);
         if (parts.length != 3 || !("AZY1".equals(parts[0]) || "AZY2".equals(parts[0]))) {
             showStatus("QR دیده شد، اما قالب آزمون‌یار نیست.");
             return;
@@ -314,9 +325,41 @@ public class ScanActivity extends ComponentActivity {
             showStatus("این پاسخنامه برای آزمون فعلی نیست.");
             return;
         }
-        String participantId = parts[2].trim();
+        // In AZY3, field 3 is the exact saved sheet_set_id, not a participant ID.
+        String sheetSetId = parts[2].trim();
         String modelId = parts[3].trim();
         String templateId = parts[4].trim();
+        if (sheetSetId.isEmpty() || sheetSetId.length() > 100
+                || modelId.isEmpty() || templateId.isEmpty()) {
+            showStatus("شناسه نسخه یا مدل در QR معتبر نیست.");
+            return;
+        }
+        JSONArray savedVariants;
+        try {
+            savedVariants = new JSONArray(prefs.getString("saved_exam_variants", "[]"));
+        } catch (Exception invalidSavedVariants) {
+            showStatus("فهرست نسخه‌های ذخیره‌شده قابل خواندن نیست.");
+            return;
+        }
+        JSONObject matchedVariant = ExamGrader.findVariant(savedVariants, sheetSetId);
+        if (matchedVariant == null) {
+            showStatus("این QR به هیچ نسخهٔ ذخیره‌شده‌ای تعلق ندارد؛ ابتدا نسخه‌ها را در همین دستگاه بساز.");
+            return;
+        }
+        int matchedIndex = -1;
+        for (int i = 0; i < savedVariants.length(); i++) {
+            JSONObject candidate = savedVariants.optJSONObject(i);
+            if (candidate != null && sheetSetId.equals(candidate.optString("sheet_set_id", ""))) {
+                matchedIndex = i;
+                break;
+            }
+        }
+        String expectedModelId = matchedIndex >= 0 ? String.valueOf((char) ('A' + matchedIndex)) : "";
+        if (!modelId.equals(expectedModelId)
+                || !examName.equals(matchedVariant.optString("exam_name", decodedExamName))) {
+            showStatus("مدل یا نام آزمون در QR با نسخهٔ ذخیره‌شده تطبیق ندارد؛ ثبت نشد.");
+            return;
+        }
         int page;
         int pageCount;
         try {
@@ -326,13 +369,39 @@ public class ScanActivity extends ComponentActivity {
             showStatus("شماره صفحه در QR معتبر نیست.");
             return;
         }
-        if (participantId.isEmpty() || participantId.length() > 100
-                || modelId.isEmpty() || templateId.isEmpty()
-                || pageCount < 1 || pageCount > 10 || page < 1 || page > pageCount) {
-            showStatus("اطلاعات صفحه در QR معتبر نیست.");
+        JSONArray variantQuestions = matchedVariant.optJSONArray("questions");
+        int declaredQuestionCount = matchedVariant.optInt(
+                "question_count", variantQuestions == null ? 0 : variantQuestions.length());
+        String savedAnswerKey = matchedVariant.optString("answer_key", "");
+        // Fail closed: the QR page count must be checked against a complete saved variant,
+        // not a silently truncated question list or missing answer key.
+        if (variantQuestions == null || declaredQuestionCount < 1
+                || declaredQuestionCount != variantQuestions.length()
+                || savedAnswerKey.length() < declaredQuestionCount) {
+            showStatus("اطلاعات سؤال‌ها یا کلید پاسخ نسخه ناقص است؛ QR ثبت نشد.");
             return;
         }
-        String setKey = examName + "::" + participantId + "::" + modelId + "::" + templateId;
+        int expectedQuestionCount = declaredQuestionCount;
+        boolean hasFigures = false;
+        if (variantQuestions != null) {
+            for (int qi = 0; qi < expectedQuestionCount; qi++) {
+                JSONObject printedQuestion = variantQuestions.optJSONObject(qi);
+                if (printedQuestion != null && !printedQuestion.optString("image_file", "").isEmpty()) {
+                    hasFigures = true;
+                    break;
+                }
+            }
+        }
+        int questionsPerPage = hasFigures ? QUESTIONS_PER_FIGURE_PAGE : QUESTIONS_PER_PRINT_PAGE;
+        int expectedPageCount = expectedQuestionCount < 1 ? 0
+                : (expectedQuestionCount + questionsPerPage - 1) / questionsPerPage;
+        if (pageCount < 1 || pageCount > MAX_PRINT_PAGES || page < 1 || page > pageCount
+                || expectedPageCount < 1 || pageCount != expectedPageCount
+                || !"T1".equals(templateId)) {
+            showStatus("اطلاعات صفحه یا قالب QR با نسخهٔ ذخیره‌شده سازگار نیست.");
+            return;
+        }
+        String setKey = examName + "::" + sheetSetId + "::" + modelId + "::" + templateId;
         String expectedKey = "expected_pages_" + setKey;
         int priorExpected = prefs.getInt(expectedKey, 0);
         if (priorExpected != 0 && priorExpected != pageCount) {
@@ -358,13 +427,30 @@ public class ScanActivity extends ComponentActivity {
         prefs.edit().putInt(expectedKey, pageCount).putStringSet(pagesKey, received)
                 .putStringSet("scanned_sheet_ids", allIds)
                 .putInt("scanned_sheet_count", allIds.size()).apply();
+        // Keep a local audit record that the QR resolved to this exact saved variant.
+        try {
+            JSONArray records = new JSONArray(prefs.getString("scanned_sheet_records", "[]"));
+            JSONObject record = new JSONObject();
+            record.put("exam_name", examName);
+            record.put("sheet_set_id", sheetSetId);
+            record.put("variant_id", matchedVariant.optString("variant_id", ""));
+            record.put("model_id", modelId);
+            record.put("template_id", templateId);
+            record.put("page", page);
+            record.put("page_count", pageCount);
+            record.put("scanned_at", System.currentTimeMillis());
+            records.put(record);
+            prefs.edit().putString("scanned_sheet_records", records.toString()).apply();
+        } catch (Exception ignored) {
+            // The unique page ID remains registered even if optional audit metadata cannot be saved.
+        }
         if (received.size() == pageCount) {
-            showStatus("همهٔ " + pageCount + " صفحهٔ مجموعه ثبت شد — شرکت‌کننده: "
-                    + participantId + "، مدل: " + modelId + ". حباب‌ها هنوز خوانده نشده‌اند.");
+            showStatus("همهٔ " + pageCount + " صفحهٔ نسخهٔ " + modelId + " ثبت شد. "
+                    + "شناسه نسخه تأیید شد؛ خواندن حباب‌ها هنوز پیاده‌سازی نشده است.");
         } else {
             showStatus("صفحه " + page + " از " + pageCount + " ثبت شد؛ تا اینجا "
-                    + received.size() + " از " + pageCount + " صفحه دریافت شده — شرکت‌کننده: "
-                    + participantId + "، مدل: " + modelId + ".");
+                    + received.size() + " از " + pageCount + " صفحه نسخهٔ " + modelId
+                    + " دریافت شده. شناسه نسخه تأیید شد.");
         }
         refreshCount();
     }

@@ -60,4 +60,21 @@ public class OMRAnswerClassifierTest {
             // Expected.
         }
     }
+    @Test
+    public void rejectsNonFiniteThresholds() {
+        assertInvalidThreshold(Double.NaN, 0.22, 0.12);
+        assertInvalidThreshold(0.42, Double.NaN, 0.12);
+        assertInvalidThreshold(0.42, 0.22, Double.NaN);
+        assertInvalidThreshold(Double.POSITIVE_INFINITY, 0.22, 0.12);
+    }
+
+    private void assertInvalidThreshold(double mark, double blank, double margin) {
+        try {
+            new OMRAnswerClassifier(mark, blank, margin);
+            fail("Expected invalid threshold to be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Expected.
+        }
+    }
+
 }
