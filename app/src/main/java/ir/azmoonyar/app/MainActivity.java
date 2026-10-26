@@ -56,7 +56,8 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
-        new android.os.Handler(getMainLooper()).postDelayed(this::downloadPersianSpeechModel, 700);
+        // Do not download the optional Persian speech model automatically on launch.
+        // The user can start this download explicitly from the “مدل صوتی فارسی” button.
     }
 
     @Override protected void onResume() {
