@@ -326,8 +326,46 @@ public class MainActivity extends Activity {
     }
 
     private void showPrintStudentDialog() {
-        // All new variants go through the preview and explicit save/print confirmation.
-        generateRandomVariants();
+        // Original PDF versions are printed from their immutable stored order when available.
+        if (prefs.contains("pdf_original_version_A") && prefs.contains("pdf_original_version_B")) {
+            new AlertDialog.Builder(this)
+                .setTitle("چاپ پرسشنامه و پاسخنامه")
+                .setItems(new String[]{"چاپ دو نسخهٔ اصلی PDF ثبت‌شده", "ساخت نسخه‌های تصادفی جدید"}, (dialog, which) -> {
+                    if (which == 0) previewAndPrintOriginalPdfVersions();
+                    else generateRandomVariants();
+                })
+                .setNegativeButton("انصراف", null)
+                .show();
+        } else {
+            generateRandomVariants();
+        }
+    }
+
+    private void previewAndPrintOriginalPdfVersions() {
+        try {
+            JSONArray variants = new JSONArray();
+            variants.put(new JSONObject(prefs.getString("pdf_original_version_A", "{}")));
+            variants.put(new JSONObject(prefs.getString("pdf_original_version_B", "{}")));
+            StringBuilder preview = new StringBuilder("نسخه‌ها دقیقاً با ترتیب سؤال‌ها و گزینه‌های فایل اصلی چاپ می‌شوند.\\n");
+            for (int i = 0; i < variants.length(); i++) {
+                JSONObject variant = variants.optJSONObject(i);
+                preview.append("\\nنسخه ").append(i == 0 ? "۱" : "۲").append(" — کلید: ")
+                    .append(variant == null ? "" : variant.optString("answer_key", "")).append("\\n");
+                JSONArray questions = variant == null ? null : variant.optJSONArray("questions");
+                if (questions != null) for (int q = 0; q < questions.length(); q++) {
+                    JSONObject item = questions.optJSONObject(q);
+                    if (item != null) preview.append(q + 1).append(". ").append(item.optString("text", "")).append("\\n");
+                }
+            }
+            new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های اصلی")
+                .setMessage(preview.toString())
+                .setNegativeButton("لغو", null)
+                .setPositiveButton("تأیید، ذخیره و چاپ", (d, w) ->
+                    printPairedSheets("", UUID.randomUUID().toString(), variants.length(), variants))
+                .show();
+        } catch (Exception e) {
+            info("نسخه‌های اصلی ذخیره‌شده خوانده نشدند؛ دوباره از بانک سؤال ثبتشان کن.");
+        }
     }
 
     private void printPairedSheets(String participantName, String participantId) {
