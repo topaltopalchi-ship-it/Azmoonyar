@@ -353,13 +353,6 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != STUDENT_VOICE_REQUEST || resultCode != Activity.RESULT_OK || data == null || activeStudentNameInput == null) return;
-        ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-        if (matches != null && !matches.isEmpty()) activeStudentNameInput.setText(matches.get(0).trim());
-    }
-
     private void showPrintStudentDialog() {
         // Original PDF versions are printed from their immutable stored order when available.
         if (prefs.contains("pdf_original_version_A") && prefs.contains("pdf_original_version_B")) {
@@ -876,6 +869,13 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == STUDENT_VOICE_REQUEST) {
+            if (resultCode == Activity.RESULT_OK && data != null && activeStudentNameInput != null) {
+                ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (matches != null && !matches.isEmpty()) activeStudentNameInput.setText(matches.get(0).trim());
+            }
+            return;
+        }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         if (requestCode == 7315) {
             try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
