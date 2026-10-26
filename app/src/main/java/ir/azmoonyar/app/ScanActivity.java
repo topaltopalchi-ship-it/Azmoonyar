@@ -71,7 +71,7 @@ public class ScanActivity extends ComponentActivity {
     // Prevent repeated events while the same QR remains in the camera frame.
     private String lockedPayload = "";
     private boolean waitingForQrToLeave = false;
-    private String latestSheetSetId = "";
+    private String latestSheetSetId = "";\n    private String pendingStudentName = "";
     private String latestModelId = "";
     private String latestTemplateId = "";
     private String lastStatus = "";
@@ -125,7 +125,7 @@ public class ScanActivity extends ComponentActivity {
         cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
 
         TextView guide = new TextView(this);
-        guide.setText("کد QR پاسخنامه را داخل کادر نگه دار\nعکس گرفته یا ذخیره نمی‌شود");
+        guide.setText("نام شرکت‌کننده را با دکمهٔ میکروفون ثبت کن\nاین نسخه هنوز حباب‌های پاسخنامه را از تصویر نمی‌خواند");
         guide.setTextColor(Color.WHITE);
         guide.setTextSize(15);
         guide.setGravity(Gravity.CENTER);
