@@ -397,8 +397,7 @@ public class MainActivity extends Activity {
         voiceStatus.setTextSize(14);
         voiceStatus.setTextColor(Color.rgb(65, 80, 115));
         voiceStatus.setPadding(dp(4), dp(8), dp(4), dp(8));
-        form.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
-        Button voice = new Button(this);
+        form.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));        Button voice = new Button(this);
         voice.setText("🎙 گفتن نام با صدا");
         voice.setAllCaps(false);
         voice.setOnClickListener(v -> {
@@ -797,8 +796,7 @@ public class MainActivity extends Activity {
                             new PrintAttributes.Builder()
                                 .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                                 .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
-                                .build());
-                    } else {
+                                .build());                    } else {
                         info("قابلیت چاپ در این دستگاه در دسترس نیست.");
                     }
                 }
@@ -1197,8 +1195,7 @@ public class MainActivity extends Activity {
         preview.addView(web, new LinearLayout.LayoutParams(-1, dp(420)));
         final AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("آماده‌سازی چاپ")
-                .setView(preview)
-                .setNegativeButton("لغو", (d, w) -> {
+                .setView(preview)                .setNegativeButton("لغو", (d, w) -> {
                     if (activePrintWebView == web) activePrintWebView = null;
                     web.destroy();
                 })
@@ -1273,42 +1270,28 @@ public class MainActivity extends Activity {
                     addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "نسخه ۲");
                     addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "نسخه ۲");
 
-                    // Rebuild original A/B questionnaires plus the canonical master questionnaire.
-                    JSONArray versionC = new JSONArray();
-                    addPdfQuestion(versionC, "8×6 = ?", new String[]{"45","48","49","76"}, 1, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "4+4 = ?", new String[]{"9","7","8","2"}, 2, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "12+54 = ?", new String[]{"68","66","67","69"}, 1, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "5×5 = ?", new String[]{"32","28","25","85"}, 2, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "12−4 = ?", new String[]{"6","8","7","0"}, 1, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "18÷3 = ?", new String[]{"9","5","6","7"}, 2, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "8÷2 = ?", new String[]{"8","4","5","3"}, 1, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "8×4 = ?", new String[]{"31","32","34","65"}, 1, "پرسشنامه اصلی");
-                    addPdfQuestion(versionC, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "پرسشنامه اصلی");
-
                     JSONObject fixedA = makeFixedPdfVariant("A", versionA);
                     JSONObject fixedB = makeFixedPdfVariant("B", versionB);
-                    JSONObject fixedC = makeFixedPdfVariant("C", versionC);
+                    // Keep only the two supplied forms as printable/scannable variants.
+                    // The master key is based on the original question bank, not a third form.
+                    String masterKey = fixedA.optString("answer_key");
                     prefs.edit().putString("exam_name", "ریاضی (۱)")
                         .putInt("question_count", 10)
                         .putString("question_bank_json", versionA.toString())
-                        .putString("answer_key", fixedA.optString("answer_key"))
+                        .putString("answer_key", masterKey)
                         .putString("pdf_original_version_A", fixedA.toString())
                         .putString("pdf_original_version_B", fixedB.toString())
                         .putString("model_questions_A", versionA.toString())
                         .putString("model_questions_B", versionB.toString())
                         .putString("answer_key_model_A", fixedA.optString("answer_key"))
                         .putString("answer_key_model_B", fixedB.optString("answer_key"))
-                        .putString("pdf_original_version_C", fixedC.toString())
-                        .putString("model_questions_C", versionC.toString())
-                        .putString("answer_key_model_C", fixedC.optString("answer_key"))
-                        .putString("answer_key_master", fixedC.optString("answer_key"))
-                        .putString("model_questions_master", versionC.toString())
-                        .putInt("issued_model_count", 3).apply();
-                    registerImportedQrVariants(new JSONObject[]{fixedA, fixedB, fixedC});
+                        .putString("answer_key_master", masterKey)
+                        .putString("model_questions_master", versionA.toString())
+                        .putInt("issued_model_count", 2).apply();
+                    registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
                     refreshSummary();
-                    info("نسخه‌های A، B و C با شناسه QR اختصاصی در سیستم ثبت شدند و برگه‌های دارای QR برای چاپ آماده شدند. کلید اصلی: "
-                        + fixedC.optString("answer_key") + ".");
+                    info("دو نسخهٔ A و B ثبت شدند؛ کلید اصلی از نسخهٔ مبنا نگهداری می‌شود و نسخهٔ C ساخته نمی‌شود. کلید اصلی: "
+                        + masterKey + ".");
                 } catch (Exception e) {
                     info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
                 }
@@ -1340,7 +1323,7 @@ public class MainActivity extends Activity {
             prefs.edit().putString("issued_exam_" + sheetId + "_" + model, issued.toString())
                     .putString("saved_variant_" + sheetId, issued.toString()).putString("answer_key_model_" + model, answerKey)
                     .putString("model_questions_" + model, questions.toString()).putString("pdf_original_version_" + model, variant.toString())
-                    .putString("qr_payload_model_" + model, payload).putInt("issued_model_count", 3).apply();
+                    .putString("qr_payload_model_" + model, payload).putInt("issued_model_count", variants.length).apply();
             savedVariants.put(issued);
             html.append("<section class='page'><h1>").append(escapeHtml(examName())).append(" — نسخه ").append(model)
                     .append("</h1><img class='qr' src='data:image/png;base64,").append(qr64)
@@ -1362,7 +1345,7 @@ public class MainActivity extends Activity {
         batch.put("print_html", html.toString()); batch.put("variants", savedVariants);
         JSONArray batches = readSavedExamBatches(); batches.put(batch);
         prefs.edit().putString("saved_exam_batches_json", batches.toString()).apply();
-        printHtmlDocument("AzmoonYar-" + examName() + "-ABC-QR", html.toString());
+        printHtmlDocument("AzmoonYar-" + examName() + "-AB-QR", html.toString());
     }
 
     private JSONObject makeFixedPdfVariant(String model, JSONArray sourceQuestions) throws Exception {
@@ -1597,8 +1580,7 @@ public class MainActivity extends Activity {
             if (values[i].equals(saved)) checked = i;
         }
         RadioGroup group = new RadioGroup(this);
-        group.setOrientation(RadioGroup.VERTICAL);
-        group.setPadding(dp(8), dp(8), dp(8), dp(8));
+        group.setOrientation(RadioGroup.VERTICAL);        group.setPadding(dp(8), dp(8), dp(8), dp(8));
         for (int i = 0; i < labels.length; i++) {
             RadioButton option = new RadioButton(this);
             option.setText(labels[i]);
