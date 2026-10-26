@@ -43,6 +43,8 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
+    private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
     private String examName() { return prefs.getString("exam_name", ""); }
@@ -699,15 +701,74 @@ public class MainActivity extends Activity {
         updateTargetInfo.run();
 
         new AlertDialog.Builder(this)
-            .setTitle("کلید اصلی و کلید نسخه‌ها")
-            .setMessage("کلید اصلی از بانک سؤال ساخته می‌شود و کلید هر نسخه از ترتیب واقعی سؤال‌ها و گزینه‌های همان نسخه تولید می‌شود. برای جلوگیری از تغییر ناخواستهٔ کلید نسخه‌های چاپی، این صفحه فقط نمایش و بازیابی کلیدها را انجام می‌دهد.")
+            .setTitle("کلیدهای پاسخ")
+            .setMessage("کلید بیرونی بدون بارکد قابل ورود است. تصویر ذخیره می‌شود؛ خواندن خودکار حباب‌ها هنوز فعال نیست و باید پاسخ‌ها را دستی وارد و تأیید کنی.")
             .setView(form)
             .setNegativeButton("بستن", null)
-            .setPositiveButton("نمایش کلیدها", (d, w) -> showKeySummary())
+            .setNeutralButton("بارگذاری تصویر کلید", (d, w) -> {
+                pendingKeyTarget = selectedTarget[0];
+                pickAnswerKeyImage();
+            })
+            .setPositiveButton("ورود دستی کلید", (d, w) -> showManualAnswerKeyEditor(selectedTarget[0]))
             .show();
     }
 
+    private void pickAnswerKeyImage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try { startActivityForResult(intent, REQUEST_ANSWER_KEY_IMAGE); }
+        catch (Exception e) { info("بازکردن انتخاب‌گر تصویر ممکن نشد."); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_ANSWER_KEY_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        android.net.Uri uri = data.getData();
+        try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+        catch (Exception ignored) { }
+        prefs.edit().putString("answer_key_image_" + pendingKeyTarget, uri.toString()).apply();
+        showManualAnswerKeyEditor(pendingKeyTarget);
+    }
+
+    private void showManualAnswerKeyEditor(String target) {
+        EditText editor = new EditText(this);
+        editor.setSingleLine(false);
+        editor.setMinLines(3);
+        editor.setGravity(Gravity.TOP | Gravity.START);
+        editor.setHint("مثال: ABCDABCD... فقط حروف A تا D");
+        styleInput(editor);
+        String keyName = "main".equals(target) ? "answer_key_manual_main" : "answer_key_manual_" + target;
+        editor.setText(prefs.getString(keyName, ""));
+        TextView hint = new TextView(this);
+        String imageUri = prefs.getString("answer_key_image_" + target, "");
+        hint.setText("مقصد: " + ("main".equals(target) ? "کلید اصلی بیرونی" : "نسخه " + target)
+            + (imageUri.isEmpty() ? "\\nپاسخ‌ها را به ترتیب سؤال‌ها وارد کن." : "\\nتصویر ذخیره شده است؛ برنامه هنوز حباب‌ها را خودکار از تصویر نمی‌خواند."));
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(dp(12), dp(8), dp(12), dp(8));
+        layout.addView(hint);
+        layout.addView(editor);
+        new AlertDialog.Builder(this).setTitle("ورود دستی کلید پاسخ")
+            .setView(layout)
+            .setNegativeButton("لغو", null)
+            .setPositiveButton("بررسی و ذخیره", (dialog, which) -> {
+                String normalized = editor.getText().toString().toUpperCase(Locale.ROOT).replaceAll("[^A-D]", "");
+                if (normalized.length() != questionCount()) {
+                    info("تعداد پاسخ‌های معتبر باید دقیقاً " + questionCount() + " باشد؛ فقط A تا D شمرده می‌شوند.");
+                    showManualAnswerKeyEditor(target);
+                    return;
+                }
+                prefs.edit().putString(keyName, normalized).apply();
+                info("کلید ذخیره شد: " + questionCount() + " پاسخ. اتصال آن به تصحیح اسکن هنوز باید تکمیل شود.");
+                showKeySummary();
+            }).show();
+    }
+
     private String buildOriginalBankKey() {
+        String manual = prefs.getString("answer_key_manual_main", "");
+        if (manual.length() == questionCount()) return manual;
         JSONArray bank = readQuestionBank();
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < questionCount(); i++) {
@@ -719,6 +780,8 @@ public class MainActivity extends Activity {
     }
 
     private String getGeneratedModelKey(String model) {
+        String manual = prefs.getString("answer_key_manual_" + model, "");
+        if (manual.length() == questionCount()) return manual;
         String savedKey = prefs.getString("answer_key_model_" + model, "");
         if (savedKey.length() >= questionCount()) return savedKey.substring(0, questionCount());
         String stored = prefs.getString("model_questions_" + model, "");
