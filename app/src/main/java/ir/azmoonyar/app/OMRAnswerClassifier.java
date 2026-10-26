@@ -42,8 +42,8 @@ public final class OMRAnswerClassifier {
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
-        if (blankThreshold < 0 || markThreshold > 1 || blankThreshold >= markThreshold
-                || minimumMargin < 0 || minimumMargin > 1) {
+        if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
+                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
