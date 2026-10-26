@@ -324,25 +324,8 @@ public class MainActivity extends Activity {
     }
 
     private void showPrintStudentDialog() {
-        if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
-        EditText countInput = new EditText(this);
-        styleInput(countInput);
-        countInput.setSingleLine(true);
-        countInput.setInputType(2);
-        countInput.setText("2");
-        countInput.setHint("تعداد نسخه‌ها (مثلاً 4)");
-        new AlertDialog.Builder(this)
-            .setTitle("تعداد نسخه‌های آزمون")
-            .setMessage("تعداد نسخه‌های متفاوت را وارد کن. برای هر نسخه، پرسشنامه و پاسخنامهٔ جفت‌شده و کلید اختصاصی ساخته می‌شود.")
-            .setView(countInput)
-            .setPositiveButton("ساخت و چاپ", (dialog, which) -> {
-                int count;
-                try { count = Integer.parseInt(countInput.getText().toString().trim()); }
-                catch (Exception e) { info("تعداد نسخه معتبر نیست."); return; }
-                if (count < 1 || count > 26) { info("تعداد نسخه باید بین ۱ تا ۲۶ باشد."); return; }
-                printPairedSheets("", UUID.randomUUID().toString(), count);
-            })
-            .setNegativeButton("انصراف", null).show();
+        // All new variants go through the preview and explicit save/print confirmation.
+        generateRandomVariants();
     }
 
     private void printPairedSheets(String participantName, String participantId) {
