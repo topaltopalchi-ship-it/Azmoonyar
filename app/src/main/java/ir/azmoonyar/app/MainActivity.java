@@ -10,9 +10,9 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.speech.RecognizerIntent;
-import android.content.ActivityNotFoundException;
-import java.util.ArrayList;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.graphics.Color;
@@ -45,6 +45,7 @@ import java.util.zip.ZipInputStream;
 public class MainActivity extends Activity {
     private static final int STUDENT_VOICE_REQUEST = 4201;
     private EditText activeStudentNameInput;
+    private PersianVosk voiceRecognizer;
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
@@ -63,8 +64,12 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
-        // Do not download the optional Persian speech model automatically on launch.
-        // The user can start this download explicitly from the “مدل صوتی فارسی” button.
+        PersianVosk.prepareOnFirstLaunch(this, new PersianVosk.Callback() {
+            @Override public void onText(String text) {}
+            @Override public void onStatus(String status) {
+                if (status.contains("ناموفق")) info(status);
+            }
+        });
     }
 
     @Override protected void onResume() {
@@ -317,12 +322,20 @@ public class MainActivity extends Activity {
         voice.setAllCaps(false);
         voice.setOnClickListener(v -> {
             activeStudentNameInput = name;
-            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR");
-            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "نام شرکت‌کننده را بگو");
-            try { startActivityForResult(intent, STUDENT_VOICE_REQUEST); }
-            catch (ActivityNotFoundException e) { info("تشخیص گفتار در این دستگاه در دسترس نیست؛ نام را تایپ کن."); }
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, STUDENT_VOICE_REQUEST);
+                info("برای ثبت صوتی، اجازهٔ میکروفون را بده و دوباره دکمه را بزن.");
+                return;
+            }
+            if (voiceRecognizer != null) voiceRecognizer.stop();
+            voiceRecognizer = new PersianVosk();
+            voiceRecognizer.start(this, new PersianVosk.Callback() {
+                @Override public void onText(String text) {
+                    name.setText(text);
+                    if (voiceRecognizer != null) voiceRecognizer.stop();
+                }
+                @Override public void onStatus(String status) { info(status); }
+            });
         });
         form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -869,13 +882,6 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == STUDENT_VOICE_REQUEST) {
-            if (resultCode == Activity.RESULT_OK && data != null && activeStudentNameInput != null) {
-                ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                if (matches != null && !matches.isEmpty()) activeStudentNameInput.setText(matches.get(0).trim());
-            }
-            return;
-        }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         if (requestCode == 7315) {
             try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
