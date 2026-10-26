@@ -336,11 +336,9 @@ public class ScanActivity extends ComponentActivity {
             showStatus("نام آزمون در QR معتبر نیست.");
             return;
         }
-        if (!examName.equals(decodedExamName)) {
-            showStatus("این پاسخنامه برای آزمون فعلی نیست.");
-            return;
-        }
-        // QR field 3 is the printed sheet-set ID, not a student ID.
+        // QR identifies a printed variant by batch + model, not by student ID.
+        // Do not reject it solely because the currently selected exam title differs.
+        // Match it against the immutable variant snapshot saved when the forms were printed.
         String sheetSetId = parts[2].trim();
         String modelId = parts[3].trim();
         String templateId = parts[4].trim();
@@ -354,9 +352,26 @@ public class ScanActivity extends ComponentActivity {
             return;
         }
         if (sheetSetId.isEmpty() || sheetSetId.length() > 100
-                || modelId.isEmpty() || templateId.isEmpty()
+                || !modelId.matches("[A-D]") || templateId.isEmpty()
                 || pageCount < 1 || pageCount > 10 || page < 1 || page > pageCount) {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
+            return;
+        }
+        String savedVariant = prefs.getString("issued_exam_" + sheetSetId + "_" + modelId, "");
+        if (savedVariant.isEmpty()) {
+            showStatus("این QR با نسخه‌های A، B، C یا D ثبت‌شده در همین دستگاه تطبیق ندارد؛ نسخه‌ها را از همین دستگاه چاپ کن.");
+            return;
+        }
+        try {
+            JSONObject variant = new JSONObject(savedVariant);
+            if (!sheetSetId.equals(variant.optString("sheet_set_id", ""))
+                    || !modelId.equals(variant.optString("model_id", ""))
+                    || !templateId.equals(variant.optString("template_id", "T1"))) {
+                showStatus("اطلاعات QR با نسخهٔ ذخیره‌شده مطابقت ندارد.");
+                return;
+            }
+        } catch (Exception invalidSnapshot) {
+            showStatus("اطلاعات نسخهٔ ذخیره‌شده قابل خواندن نیست؛ نسخه‌ها را دوباره چاپ کن.");
             return;
         }
         latestSheetSetId = sheetSetId;
