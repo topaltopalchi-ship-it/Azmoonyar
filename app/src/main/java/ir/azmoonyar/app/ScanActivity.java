@@ -168,7 +168,7 @@ public class ScanActivity extends ComponentActivity {
         voiceName.setOnClickListener(v -> startVoiceNameCapture());
         page.addView(voiceName, new LinearLayout.LayoutParams(-1, dp(52)));
 
-        Button close = new Button(this);
+        Button grade = new Button(this);\n        grade.setText("ثبت پاسخ‌ها و تصحیح");\n        grade.setAllCaps(false);\n        grade.setOnClickListener(v -> openManualGrading());\n        page.addView(grade, new LinearLayout.LayoutParams(-1, dp(52)));\n\n        Button close = new Button(this);
         close.setText("پایان اسکن");
         close.setAllCaps(false);
         close.setTextColor(Color.WHITE);
@@ -423,6 +423,61 @@ public class ScanActivity extends ComponentActivity {
         refreshCount();
     }
 
+    private void openManualGrading() {
+        String name = prefs.getString("pending_student_name", "").trim();
+        if (name.isEmpty()) { showStatus("ابتدا نام شرکت‌کننده را با میکروفون ثبت کن."); return; }
+        String key = prefs.getString("answer_key", "").trim().toUpperCase(java.util.Locale.ROOT);
+        int total = Math.min(prefs.getInt("question_count", key.length()), key.length());
+        if (total <= 0) { showStatus("ابتدا آزمون و کلید پاسخ را ثبت کن."); return; }
+        LinearLayout form = new LinearLayout(this);
+        form.setPadding(dp(12), dp(8), dp(12), dp(8));
+        form.setOrientation(LinearLayout.VERTICAL);
+        android.widget.RadioGroup[] groups = new android.widget.RadioGroup[total];
+        for (int i = 0; i < total; i++) {
+            TextView label = new TextView(this);
+            label.setText("سؤال " + (i + 1)); form.addView(label);
+            android.widget.RadioGroup group = new android.widget.RadioGroup(this);
+            group.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+            for (int j = 0; j < 4; j++) {
+                android.widget.RadioButton rb = new android.widget.RadioButton(this);
+                rb.setText(new String[]{"الف","ب","ج","د"}[j]); rb.setTag(j); group.addView(rb);
+            }
+            groups[i] = group; form.addView(group);
+        }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(form);
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("پاسخ‌های " + name).setView(scroll)
+                .setNegativeButton("انصراف", null).setPositiveButton("تصحیح و ذخیره", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(-1).setOnClickListener(btn -> {
+            int correct = 0, wrong = 0, blank = 0;
+            StringBuilder answers = new StringBuilder();
+            for (int i = 0; i < groups.length; i++) {
+                int id = groups[i].getCheckedRadioButtonId();
+                if (id == -1) { answers.append('-'); blank++; }
+                else {
+                    android.widget.RadioButton rb = groups[i].findViewById(id);
+                    char answer = "ABCD".charAt((Integer) rb.getTag());
+                    answers.append(answer);
+                    if (answer == key.charAt(i)) correct++; else wrong++;
+                }
+            }
+            try {
+                JSONArray all = new JSONArray(prefs.getString("grading_results", "[]"));
+                JSONObject row = new JSONObject();
+                row.put("name", name); row.put("examName", examName);
+                row.put("answerKey", key.substring(0, total)); row.put("responses", answers.toString());
+                row.put("total", total); row.put("correct", correct); row.put("wrong", wrong);
+                row.put("blank", blank); row.put("score", 100.0 * correct / total);
+                row.put("createdAt", System.currentTimeMillis()); all.put(row);
+                prefs.edit().putString("grading_results", all.toString()).remove("pending_student_name").apply();
+                dialog.dismiss();
+                showStatus("نتیجه ذخیره شد: " + correct + " درست، " + wrong + " غلط، " + blank + " سفید.");
+            } catch (Exception e) { showStatus("ذخیرهٔ نتیجه ناموفق بود."); }
+        }));
+        dialog.show();
+    }
+
     private void startVoiceNameCapture() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, VOICE_NAME_REQUEST);
@@ -448,10 +503,10 @@ public class ScanActivity extends ComponentActivity {
             catch (Exception e) { rows = new JSONArray(); }
             JSONObject row = new JSONObject();
             row.put("name", name.trim()); row.put("examName", examName);
-            row.put("sheetSetId", latestSheetSetId); row.put("modelId", latestModelId);
+            row.put("sheetSetId", ""); row.put("modelId", "");
             row.put("templateId", latestTemplateId); row.put("createdAt", System.currentTimeMillis());
             rows.put(row);
-            prefs.edit().putString("scanned_named_answer_sheets", rows.toString()).apply();
+            prefs.edit().putString("scanned_named_answer_sheets", rows.toString()).putString("pending_student_name", name.trim()).apply();
             showStatus("نام «" + name.trim() + "» به نسخهٔ " + (latestModelId.isEmpty() ? "قدیمی" : latestModelId) + " متصل شد.");
         } catch (Exception e) { showStatus("ذخیرهٔ نام انجام نشد."); }
     }
