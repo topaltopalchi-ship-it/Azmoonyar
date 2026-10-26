@@ -707,6 +707,30 @@ public class MainActivity extends Activity {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
+        JSONArray savedVariants = readSavedVariants();
+        if (savedVariants.length() > 0) {
+            new AlertDialog.Builder(this)
+                .setTitle("انتخاب نوع پاسخنامه")
+                .setMessage("قالب خام ۱۰۰ سؤالی QR اختصاصی ندارد و اسکنر نمی‌تواند آن را به کلید یک نسخه وصل کند. برای ثبت QR و اعتبارسنجی نسخه، چاپ نسخه‌دار را انتخاب کن.")
+                .setPositiveButton("چاپ نسخه‌دار با QR", (dialog, which) -> printPairedSheets())
+                .setNegativeButton("قالب خام بدون QR", (dialog, which) -> printUnlinkedStandardAnswerSheets())
+                .setNeutralButton("انصراف", null)
+                .show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("قالب خام بدون QR")
+            .setMessage("این قالب فقط برای پاسخ‌نویسی دستی است؛ چون QR و شناسهٔ نسخه ندارد، اسکنر نمی‌تواند آن را به کلید تصحیح وصل کند. پس از ساخت نسخه‌ها، چاپ نسخه‌دار را انتخاب کن.")
+            .setPositiveButton("ادامه چاپ قالب خام", (dialog, which) -> printUnlinkedStandardAnswerSheets())
+            .setNegativeButton("انصراف", null)
+            .show();
+    }
+
+    private void printUnlinkedStandardAnswerSheets() {
+        if (examName().trim().isEmpty()) {
+            info("ابتدا آزمون را تعریف کن.");
+            return;
+        }
         final int total = questionCount();
         if (total < 1 || total > 1000) {
             info("تعداد سؤال باید بین ۱ تا ۱۰۰۰ باشد.");
