@@ -1121,19 +1121,52 @@ public class MainActivity extends Activity {
             info("هنوز مجموعه‌آزمونی ذخیره نشده است. از بانک سؤال تعداد نسخه‌ها را انتخاب و «تأیید، ذخیره و چاپ» را بزن.");
             return;
         }
-        String[] labels = new String[batches.length()];
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(8), dp(8), dp(8), dp(8));
+        scroll.addView(list);
+        java.text.DateFormat df = java.text.DateFormat.getDateTimeInstance(
+                java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, new Locale("fa"));
         for (int i = 0; i < batches.length(); i++) {
             JSONObject batch = batches.optJSONObject(i);
-            if (batch == null) { labels[i] = (i + 1) + ". مجموعه نامعتبر"; continue; }
-            java.text.DateFormat df = java.text.DateFormat.getDateTimeInstance(
-                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, new Locale("fa"));
-            labels[i] = (i + 1) + ". " + batch.optString("exam_name", "آزمون")
+            if (batch == null) continue;
+            final JSONObject selectedBatch = batch;
+            final String batchId = batch.optString("batch_id", "");
+            String label = (i + 1) + ". " + batch.optString("exam_name", "آزمون")
                     + " — " + batch.optInt("variant_count", 0) + " نسخه — "
                     + df.format(new java.util.Date(batch.optLong("created_at", 0)));
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            TextView name = new TextView(this);
+            name.setText(label);
+            name.setTextSize(14);
+            name.setTextColor(Color.rgb(30, 41, 59));
+            name.setPadding(dp(10), dp(12), dp(10), dp(12));
+            name.setOnClickListener(v -> showSavedBatchActions(selectedBatch));
+            row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
+            Button delete = new Button(this);
+            delete.setText("حذف");
+            delete.setAllCaps(false);
+            delete.setTextColor(Color.WHITE);
+            delete.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(185, 28, 28)));
+            delete.setOnClickListener(v -> new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("حذف مجموعه")
+                    .setMessage("«" + selectedBatch.optString("exam_name", "آزمون") + "» حذف شود؟ این کار مجموعه‌های دیگر را تغییر نمی‌دهد.")
+                    .setNegativeButton("انصراف", null)
+                    .setPositiveButton("حذف", (dialog, which) -> {
+                        deleteSavedExamBatch(batchId);
+                        showSavedExamBatches();
+                    }).show());
+            row.addView(delete, new LinearLayout.LayoutParams(dp(84), dp(48)));
+            list.addView(row);
+            View divider = new View(this);
+            divider.setBackgroundColor(Color.rgb(226, 232, 240));
+            list.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
         }
         new AlertDialog.Builder(this).setTitle("مجموعه‌های ذخیره‌شده")
-            .setItems(labels, (dialog, which) -> showSavedBatchActions(batches.optJSONObject(which)))
-            .setPositiveButton("بستن", null).show();
+            .setView(scroll).setPositiveButton("بستن", null).show();
     }
 
     private void showSavedBatchActions(JSONObject batch) {
