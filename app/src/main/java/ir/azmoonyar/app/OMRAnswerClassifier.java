@@ -42,13 +42,17 @@ public final class OMRAnswerClassifier {
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
-        if (blankThreshold < 0 || markThreshold > 1 || blankThreshold >= markThreshold
-                || minimumMargin < 0 || minimumMargin > 1) {
+        if (!isFiniteScore(markThreshold) || !isFiniteScore(blankThreshold)
+                || !isFiniteScore(minimumMargin) || blankThreshold >= markThreshold) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
         this.blankThreshold = blankThreshold;
         this.minimumMargin = minimumMargin;
+    }
+
+    private static boolean isFiniteScore(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0 && value <= 1;
     }
 
     public Result classify(double[] darkness) {
