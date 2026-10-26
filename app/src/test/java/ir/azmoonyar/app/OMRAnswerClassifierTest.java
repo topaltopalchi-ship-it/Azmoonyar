@@ -42,6 +42,22 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void rejectsThresholdsOutsideNormalizedRange() {
+        try {
+            new OMRAnswerClassifier(-0.1, 0.0, 0.1);
+            fail("Expected invalid thresholds to be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Expected.
+        }
+        try {
+            new OMRAnswerClassifier(0.5, 0.6, 0.1);
+            fail("Expected blank threshold above mark threshold to be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Expected.
+        }
+    }
+
+    @Test
     public void rejectsWrongNumberOfBubbles() {
         try {
             classifier.classify(new double[]{0.1, 0.2, 0.3});
