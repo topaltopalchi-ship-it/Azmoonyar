@@ -1238,37 +1238,39 @@ public class MainActivity extends Activity {
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
     }
 
-    /** Registers both original PDF variants, preserving their printed question and option order. */
+    /** Imports the two photographed original forms, preserving printed order and options exactly. */
     private void importPdfMathSample() {
         new AlertDialog.Builder(this)
-            .setTitle("ثبت دو نسخهٔ اصلی PDF ریاضی")
-            .setMessage("هر دو نسخهٔ PDF با ترتیب سؤال‌ها و گزینه‌های اصلی ذخیره می‌شوند. گزینهٔ آخر سؤال ۶ نسخهٔ اول و سؤال ۳ نسخهٔ دوم به ۶۶ اصلاح می‌شود تا پاسخ صحیح در هر دو نسخه ثبت شود.")
+            .setTitle("ثبت دو فرم اصلی A و B")
+            .setMessage("سؤال‌ها و گزینه‌ها مطابق دو عکس وارد می‌شوند. در سؤال جمع ۵۴+۱۲، پاسخ ۶۶ در گزینه‌های چاپ‌شده نیست؛ پاسخ این سؤال در کلید با «-» مشخص می‌شود و باید بررسی شود.")
             .setNegativeButton("انصراف", null)
-            .setPositiveButton("ثبت هر دو نسخه", (dialog, which) -> {
+            .setPositiveButton("ثبت فرم‌های A و B", (dialog, which) -> {
                 try {
+                    // Form A: second photo, preserving printed option order A/B/C/D.
                     JSONArray versionA = new JSONArray();
-                    addPdfQuestion(versionA, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "نسخه ۱");
-                    addPdfQuestion(versionA, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "نسخه ۱");
-                    addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "نسخه ۱");
-                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","34","32"}, 3, "نسخه ۱");
-                    addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "نسخه ۱");
-                    addPdfQuestion(versionA, "12+54 = ?", new String[]{"67","69","56","66"}, 3, "نسخه ۱؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
-                    addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "نسخه ۱");
-                    addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "نسخه ۱");
-                    addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "نسخه ۱");
-                    addPdfQuestion(versionA, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "نسخه ۱");
+                    addPdfQuestion(versionA, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "فرم A");
+                    addPdfQuestion(versionA, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "فرم A");
+                    addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
+                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
+                    addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
+                    addPdfQuestion(versionA, "54+12 = ?", new String[]{"67","56","68","69"}, -1, "فرم A؛ پاسخ ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
+                    addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
+                    addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
+                    addPdfQuestion(versionA, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "فرم A");
 
+                    // Form B: first photo, preserving printed option order A/B/C/D.
                     JSONArray versionB = new JSONArray();
-                    addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "نسخه ۲");
-                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","34","65","32"}, 3, "نسخه ۲");
-                    addPdfQuestion(versionB, "12+54 = ?", new String[]{"67","56","68","66"}, 3, "نسخه ۲؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
-                    addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "نسخه ۲");
-                    addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "نسخه ۲");
-                    addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "نسخه ۲");
-                    addPdfQuestion(versionB, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "نسخه ۲");
-                    addPdfQuestion(versionB, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "نسخه ۲");
-                    addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "نسخه ۲");
-                    addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "نسخه ۲");
+                    addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
+                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
+                    addPdfQuestion(versionB, "54+12 = ?", new String[]{"67","56","68","69"}, -1, "فرم B؛ پاسخ ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
+                    addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
+                    addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
+                    addPdfQuestion(versionB, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "فرم B");
+                    addPdfQuestion(versionB, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "فرم B");
+                    addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "فرم B");
+                    addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "فرم B");
 
                     JSONObject fixedA = makeFixedPdfVariant("A", versionA);
                     JSONObject fixedB = makeFixedPdfVariant("B", versionB);
