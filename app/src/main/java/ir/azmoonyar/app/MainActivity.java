@@ -159,11 +159,8 @@ public class MainActivity extends Activity {
                 new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
         addButtonGrid(
-                new String[]{"چاپ پرسشنامه و پاسخنامه", "کلیدهای پاسخ"},
-                new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> showKeyDialog()});
-        addButtonGrid(
-                new String[]{"نمایش کلید و وضعیت تکمیل", "اسکن زنده پاسخنامه"},
-                new View.OnClickListener[]{v -> showKeySummary(), v -> openScanner()});
+                new String[]{"کلیدهای پاسخ", "اسکن زنده پاسخنامه"},
+                new View.OnClickListener[]{v -> showKeyDialog(), v -> openScanner()});
         addButtonGrid(
                 new String[]{"تنظیمات ذخیره تصاویر"},
                 new View.OnClickListener[]{v -> showImageRetentionDialog()});
