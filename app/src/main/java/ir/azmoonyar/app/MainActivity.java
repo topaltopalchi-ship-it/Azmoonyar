@@ -862,7 +862,7 @@ public class MainActivity extends Activity {
     private void importPdfMathSample() {
         new AlertDialog.Builder(this)
             .setTitle("ثبت دو نسخهٔ اصلی PDF ریاضی")
-            .setMessage("هر دو نسخهٔ PDF با ترتیب سؤال‌ها و گزینه‌های اصلی ذخیره می‌شوند. سؤال ۶ نسخهٔ اول و سؤال ۳ نسخهٔ دوم در فایل گزینهٔ صحیح ۶۶ ندارند؛ این سؤال‌ها با کلید «ثبت نشده» حفظ می‌شوند و گزینه‌ها تغییر نمی‌کنند.")
+            .setMessage("هر دو نسخهٔ PDF با ترتیب سؤال‌ها و گزینه‌های اصلی ذخیره می‌شوند. گزینهٔ آخر سؤال ۶ نسخهٔ اول و سؤال ۳ نسخهٔ دوم به ۶۶ اصلاح می‌شود تا پاسخ صحیح در هر دو نسخه ثبت شود.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ثبت هر دو نسخه", (dialog, which) -> {
                 try {
@@ -872,7 +872,7 @@ public class MainActivity extends Activity {
                     addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "نسخه ۱");
                     addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "نسخه ۱");
                     addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "نسخه ۱");
-                    addPdfQuestion(versionA, "12+54 = ?", new String[]{"67","69","56","68"}, -1, "نسخه ۱؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionA, "12+54 = ?", new String[]{"67","69","56","66"}, 3, "نسخه ۱؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
                     addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "نسخه ۱");
                     addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "نسخه ۱");
                     addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "نسخه ۱");
@@ -881,7 +881,7 @@ public class MainActivity extends Activity {
                     JSONArray versionB = new JSONArray();
                     addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "نسخه ۲");
                     addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "نسخه ۲");
-                    addPdfQuestion(versionB, "12+54 = ?", new String[]{"67","56","68","69"}, -1, "نسخه ۲؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionB, "12+54 = ?", new String[]{"67","56","68","66"}, 3, "نسخه ۲؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
                     addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "نسخه ۲");
                     addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "نسخه ۲");
                     addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "نسخه ۲");
