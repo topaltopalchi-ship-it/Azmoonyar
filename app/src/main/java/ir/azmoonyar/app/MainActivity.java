@@ -820,37 +820,87 @@ public class MainActivity extends Activity {
             .show();
     }
 
-    /** Imports the readable base question set from AzmoonYar-ریاضی(1).PDF. */
+    /** Registers both original PDF variants, preserving their printed question and option order. */
     private void importPdfMathSample() {
         new AlertDialog.Builder(this)
-            .setTitle("جایگزینی بانک با نمونهٔ PDF")
-            .setMessage("این کار بانک سؤال فعلی را با ۱۰ سؤال PDF جایگزین می‌کند. در سؤال ۶، پاسخ ریاضی ۶۶ است اما در گزینه‌های PDF وجود ندارد؛ هنگام ورود، گزینهٔ آخر به ۶۶ اصلاح می‌شود تا کلید معتبر باشد.")
+            .setTitle("ثبت دو نسخهٔ اصلی PDF ریاضی")
+            .setMessage("هر دو نسخهٔ PDF با ترتیب سؤال‌ها و گزینه‌های اصلی ذخیره می‌شوند. سؤال ۶ نسخهٔ اول و سؤال ۳ نسخهٔ دوم در فایل گزینهٔ صحیح ۶۶ ندارند؛ این سؤال‌ها با کلید «ثبت نشده» حفظ می‌شوند و گزینه‌ها تغییر نمی‌کنند.")
             .setNegativeButton("انصراف", null)
-            .setPositiveButton("جایگزینی بانک", (dialog, which) -> {
+            .setPositiveButton("ثبت هر دو نسخه", (dialog, which) -> {
                 try {
-                    JSONArray bank = new JSONArray();
-                    addPdfQuestion(bank, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "ضرب");
-                    addPdfQuestion(bank, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "تفریق");
-                    addPdfQuestion(bank, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "ضرب");
-                    addPdfQuestion(bank, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "ضرب");
-                    addPdfQuestion(bank, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "ضرب");
-                    addPdfQuestion(bank, "12+54 = ?", new String[]{"67","69","56","66"}, 3, "جمع؛ گزینهٔ آخر برای تطبیق با پاسخ صحیح ۶۶ اصلاح شد");
-                    addPdfQuestion(bank, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
-                    addPdfQuestion(bank, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "تقسیم؛ جهت خواندن مطابق PDF");
-                    addPdfQuestion(bank, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "جمع");
-                    addPdfQuestion(bank, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
+                    JSONArray versionA = new JSONArray();
+                    addPdfQuestion(versionA, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "نسخه ۱");
+                    addPdfQuestion(versionA, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "نسخه ۱");
+                    addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "نسخه ۱");
+                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "نسخه ۱");
+                    addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "نسخه ۱");
+                    addPdfQuestion(versionA, "12+54 = ?", new String[]{"67","69","56","68"}, -1, "نسخه ۱؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "نسخه ۱");
+                    addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "نسخه ۱");
+                    addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "نسخه ۱");
+                    addPdfQuestion(versionA, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "نسخه ۱");
+
+                    JSONArray versionB = new JSONArray();
+                    addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "نسخه ۲");
+                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "نسخه ۲");
+                    addPdfQuestion(versionB, "12+54 = ?", new String[]{"67","56","68","69"}, -1, "نسخه ۲؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "نسخه ۲");
+                    addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "نسخه ۲");
+                    addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "نسخه ۲");
+                    addPdfQuestion(versionB, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "نسخه ۲");
+                    addPdfQuestion(versionB, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "نسخه ۲");
+                    addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "نسخه ۲");
+                    addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "نسخه ۲");
+
+                    JSONObject fixedA = makeFixedPdfVariant("A", versionA);
+                    JSONObject fixedB = makeFixedPdfVariant("B", versionB);
                     prefs.edit().putString("exam_name", "ریاضی (۱)")
-                        .putInt("question_count", 10).putString("question_bank_json", bank.toString())
-                        .putString("answer_key", "DBBDCDBCDB")
-                        .remove("model_questions_A").remove("model_questions_B")
-                        .remove("answer_key_model_A").remove("answer_key_model_B")
-                        .putInt("issued_model_count", 0).apply();
+                        .putInt("question_count", 10)
+                        .putString("question_bank_json", versionA.toString())
+                        .putString("answer_key", fixedA.optString("answer_key"))
+                        .putString("pdf_original_version_A", fixedA.toString())
+                        .putString("pdf_original_version_B", fixedB.toString())
+                        .putString("model_questions_A", versionA.toString())
+                        .putString("model_questions_B", versionB.toString())
+                        .putString("answer_key_model_A", fixedA.optString("answer_key"))
+                        .putString("answer_key_model_B", fixedB.optString("answer_key"))
+                        .putInt("issued_model_count", 2).apply();
                     refreshSummary();
-                    info("۱۰ سؤال PDF وارد شد و کلید اصلی محاسبه شد: D, B, B, D, C, D, B, C, D, B. گزینهٔ سؤال ۶ از ۶۸ به ۶۶ اصلاح شد.");
+                    info("هر دو نسخهٔ اصلی ثبت شدند. کلید نسخه ۱: " + fixedA.optString("answer_key")
+                        + "؛ کلید نسخه ۲: " + fixedB.optString("answer_key")
+                        + "؛ خط تیره یعنی پاسخ صحیح در گزینه‌های PDF موجود نیست.");
                 } catch (Exception e) {
-                    info("ورود نمونه PDF انجام نشد؛ دوباره تلاش کن.");
+                    info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
                 }
             }).show();
+    }
+
+    private JSONObject makeFixedPdfVariant(String model, JSONArray sourceQuestions) throws Exception {
+        JSONArray questions = new JSONArray();
+        StringBuilder answerKey = new StringBuilder();
+        for (int i = 0; i < sourceQuestions.length(); i++) {
+            JSONObject source = sourceQuestions.optJSONObject(i);
+            JSONArray options = source.optJSONArray("options");
+            int correct = source.optInt("correct_index", -1);
+            JSONObject q = new JSONObject();
+            q.put("source_id", source.optString("id", ""));
+            q.put("position", i + 1);
+            q.put("text", source.optString("text", ""));
+            q.put("topic", source.optString("topic", ""));
+            q.put("options", options == null ? new JSONArray() : options);
+            q.put("correct_index", correct);
+            String letter = correct >= 0 && correct <= 3 ? String.valueOf((char)('A' + correct)) : "-";
+            q.put("correct_letter", letter);
+            questions.put(q);
+            answerKey.append(letter);
+        }
+        JSONObject variant = new JSONObject();
+        variant.put("variant_id", model);
+        variant.put("questions", questions);
+        variant.put("answer_key", answerKey.toString());
+        variant.put("source", "AzmoonYar-ریاضی(1).PDF");
+        variant.put("fixed_original_order", true);
+        return variant;
     }
 
     private void addPdfQuestion(JSONArray bank, String text, String[] options, int correctIndex, String topic) throws Exception {
