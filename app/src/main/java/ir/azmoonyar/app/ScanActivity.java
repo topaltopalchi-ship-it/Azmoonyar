@@ -48,7 +48,7 @@ import java.util.concurrent.Executors;
 
 /**
  * Continuous offline QR scanner. Frames are analyzed in memory and are never saved.
- * Accepted QR payloads: legacy AZY1/AZY2 and AZY3|Base64 exam|participant ID|model|template|page|page count.
+ * Accepted QR payloads: legacy AZY1/AZY2 and AZY3|Base64 exam|sheet-set ID|model|template|page|page count.
  * This activity registers sheet IDs only; OMR bubble reading/grading is not implemented yet.
  */
 public class ScanActivity extends ComponentActivity {
@@ -314,7 +314,8 @@ public class ScanActivity extends ComponentActivity {
             showStatus("این پاسخنامه برای آزمون فعلی نیست.");
             return;
         }
-        String participantId = parts[2].trim();
+        // QR field 3 is the printed sheet-set ID, not a student ID.
+        String sheetSetId = parts[2].trim();
         String modelId = parts[3].trim();
         String templateId = parts[4].trim();
         int page;
@@ -326,13 +327,13 @@ public class ScanActivity extends ComponentActivity {
             showStatus("شماره صفحه در QR معتبر نیست.");
             return;
         }
-        if (participantId.isEmpty() || participantId.length() > 100
+        if (sheetSetId.isEmpty() || sheetSetId.length() > 100
                 || modelId.isEmpty() || templateId.isEmpty()
                 || pageCount < 1 || pageCount > 10 || page < 1 || page > pageCount) {
             showStatus("اطلاعات صفحه در QR معتبر نیست.");
             return;
         }
-        String setKey = examName + "::" + participantId + "::" + modelId + "::" + templateId;
+        String setKey = examName + "::" + sheetSetId + "::" + modelId + "::" + templateId;
         String expectedKey = "expected_pages_" + setKey;
         int priorExpected = prefs.getInt(expectedKey, 0);
         if (priorExpected != 0 && priorExpected != pageCount) {
@@ -359,12 +360,11 @@ public class ScanActivity extends ComponentActivity {
                 .putStringSet("scanned_sheet_ids", allIds)
                 .putInt("scanned_sheet_count", allIds.size()).apply();
         if (received.size() == pageCount) {
-            showStatus("همهٔ " + pageCount + " صفحهٔ مجموعه ثبت شد — شرکت‌کننده: "
-                    + participantId + "، مدل: " + modelId + ". حباب‌ها هنوز خوانده نشده‌اند.");
+            showStatus("همهٔ " + pageCount + " صفحهٔ برگه ثبت شد — نسخه: "
+                    + modelId + ". حباب‌ها هنوز خوانده نشده‌اند.");
         } else {
             showStatus("صفحه " + page + " از " + pageCount + " ثبت شد؛ تا اینجا "
-                    + received.size() + " از " + pageCount + " صفحه دریافت شده — شرکت‌کننده: "
-                    + participantId + "، مدل: " + modelId + ".");
+                    + received.size() + " از " + pageCount + " صفحه دریافت شده — نسخه: " + modelId + ".");
         }
         refreshCount();
     }
