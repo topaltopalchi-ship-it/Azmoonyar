@@ -709,7 +709,7 @@ public class MainActivity extends Activity {
                 pendingKeyTarget = selectedTarget[0];
                 pickAnswerKeyImage();
             })
-            .setPositiveButton("ورود دستی کلید", (d, w) -> showManualAnswerKeyEditor(selectedTarget[0]))
+            .setPositiveButton("نمایش کلیدها", (d, w) -> showKeySummary())
             .show();
     }
 
@@ -729,46 +729,10 @@ public class MainActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { }
         prefs.edit().putString("answer_key_image_" + pendingKeyTarget, uri.toString()).apply();
-        showManualAnswerKeyEditor(pendingKeyTarget);
-    }
-
-    private void showManualAnswerKeyEditor(String target) {
-        EditText editor = new EditText(this);
-        editor.setSingleLine(false);
-        editor.setMinLines(3);
-        editor.setGravity(Gravity.TOP | Gravity.START);
-        editor.setHint("مثال: ABCDABCD... فقط حروف A تا D");
-        styleInput(editor);
-        String keyName = "main".equals(target) ? "answer_key_manual_main" : "answer_key_manual_" + target;
-        editor.setText(prefs.getString(keyName, ""));
-        TextView hint = new TextView(this);
-        String imageUri = prefs.getString("answer_key_image_" + target, "");
-        hint.setText("مقصد: " + ("main".equals(target) ? "کلید اصلی بیرونی" : "نسخه " + target)
-            + (imageUri.isEmpty() ? "\\nپاسخ‌ها را به ترتیب سؤال‌ها وارد کن." : "\\nتصویر ذخیره شده است؛ برنامه هنوز حباب‌ها را خودکار از تصویر نمی‌خواند."));
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(dp(12), dp(8), dp(12), dp(8));
-        layout.addView(hint);
-        layout.addView(editor);
-        new AlertDialog.Builder(this).setTitle("ورود دستی کلید پاسخ")
-            .setView(layout)
-            .setNegativeButton("لغو", null)
-            .setPositiveButton("بررسی و ذخیره", (dialog, which) -> {
-                String normalized = editor.getText().toString().toUpperCase(Locale.ROOT).replaceAll("[^A-D]", "");
-                if (normalized.length() != questionCount()) {
-                    info("تعداد پاسخ‌های معتبر باید دقیقاً " + questionCount() + " باشد؛ فقط A تا D شمرده می‌شوند.");
-                    showManualAnswerKeyEditor(target);
-                    return;
-                }
-                prefs.edit().putString(keyName, normalized).apply();
-                info("کلید ذخیره شد: " + questionCount() + " پاسخ. اتصال آن به تصحیح اسکن هنوز باید تکمیل شود.");
-                showKeySummary();
-            }).show();
+        info("تصویر کلید ذخیره شد. تشخیص خودکار حباب‌ها هنوز فعال نیست.");
     }
 
     private String buildOriginalBankKey() {
-        String manual = prefs.getString("answer_key_manual_main", "");
-        if (manual.length() == questionCount()) return manual;
         JSONArray bank = readQuestionBank();
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < questionCount(); i++) {
@@ -780,8 +744,6 @@ public class MainActivity extends Activity {
     }
 
     private String getGeneratedModelKey(String model) {
-        String manual = prefs.getString("answer_key_manual_" + model, "");
-        if (manual.length() == questionCount()) return manual;
         String savedKey = prefs.getString("answer_key_model_" + model, "");
         if (savedKey.length() >= questionCount()) return savedKey.substring(0, questionCount());
         String stored = prefs.getString("model_questions_" + model, "");
