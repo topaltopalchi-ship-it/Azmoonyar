@@ -619,9 +619,24 @@ public class MainActivity extends Activity {
                     }
                     html.append("</div></section>");
                 }
-                // Keep the model key only in local preferences for later grading; never print it.
-                prefs.edit().putString("answer_key_model_" + modelId, answerKey.substring(0, total))
-                    .putString("model_questions_" + modelId, questions.toString()).apply();
+                // Save an immutable grading snapshot for this exact printed batch and model.
+                // The QR contains sheetSetId + modelId, so grading can retrieve this exact key
+                // even after another batch is generated with a different question/option order.
+                JSONObject issuedExam = new JSONObject();
+                issuedExam.put("schema_version", 1);
+                issuedExam.put("exam_name", examName());
+                issuedExam.put("sheet_set_id", sheetSetId);
+                issuedExam.put("model_id", modelId);
+                issuedExam.put("template_id", "T1");
+                issuedExam.put("question_count", total);
+                issuedExam.put("answer_key", answerKey.substring(0, total));
+                issuedExam.put("questions", questions);
+                issuedExam.put("created_at", System.currentTimeMillis());
+                prefs.edit()
+                    .putString("issued_exam_" + sheetSetId + "_" + modelId, issuedExam.toString())
+                    .putString("answer_key_model_" + modelId, answerKey.substring(0, total))
+                    .putString("model_questions_" + modelId, questions.toString())
+                    .apply();
             }
             html.append("</body></html>");
             WebView web = new WebView(this);
@@ -643,17 +658,10 @@ public class MainActivity extends Activity {
     }
 
     private JSONArray getOrCreateExamVariants(JSONArray bank, int count) throws Exception {
-        String cacheKey = "exam_variants_" + Integer.toHexString((examName() + "|" + bank.toString()).hashCode()) + "_" + count;
-        String saved = prefs.getString(cacheKey, "");
-        if (!saved.isEmpty()) {
-            try {
-                JSONArray cached = new JSONArray(saved);
-                if (cached.length() == count) return cached;
-            } catch (Exception ignored) { }
-        }
-        JSONArray variants = RandomExamBuilder.generateVariants(bank, count, System.nanoTime());
-        prefs.edit().putString(cacheKey, variants.toString()).apply();
-        return variants;
+        // Every explicit print/build action creates a fresh randomized set.
+        // Immutable keys are saved per sheetSetId inside printPairedSheets.
+        long seed = System.nanoTime() ^ UUID.randomUUID().getMostSignificantBits();
+        return RandomExamBuilder.generateVariants(bank, count, seed);
     }
 
     private String escapeHtml(String value) {
