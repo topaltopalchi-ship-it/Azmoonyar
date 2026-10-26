@@ -71,7 +71,8 @@ public class ScanActivity extends ComponentActivity {
     // Prevent repeated events while the same QR remains in the camera frame.
     private String lockedPayload = "";
     private boolean waitingForQrToLeave = false;
-    private String latestSheetSetId = "";\n    private String pendingStudentName = "";
+    private String latestSheetSetId = "";
+    private String pendingStudentName = "";
     private String latestModelId = "";
     private String latestTemplateId = "";
     private String lastStatus = "";
@@ -168,7 +169,13 @@ public class ScanActivity extends ComponentActivity {
         voiceName.setOnClickListener(v -> startVoiceNameCapture());
         page.addView(voiceName, new LinearLayout.LayoutParams(-1, dp(52)));
 
-        Button grade = new Button(this);\n        grade.setText("ثبت پاسخ‌ها و تصحیح");\n        grade.setAllCaps(false);\n        grade.setOnClickListener(v -> openManualGrading());\n        page.addView(grade, new LinearLayout.LayoutParams(-1, dp(52)));\n\n        Button close = new Button(this);
+        Button grade = new Button(this);
+        grade.setText("ثبت پاسخ‌ها و تصحیح");
+        grade.setAllCaps(false);
+        grade.setOnClickListener(v -> openManualGrading());
+        page.addView(grade, new LinearLayout.LayoutParams(-1, dp(52)));
+
+        Button close = new Button(this);
         close.setText("پایان اسکن");
         close.setAllCaps(false);
         close.setTextColor(Color.WHITE);
