@@ -36,7 +36,7 @@ public final class PersianVosk {
     private SpeechService speechService;
     private boolean delivered;
 
-    private PersianVosk() {}
+    public PersianVosk() {}
 
     public static void ensureModel(Context context, Callback callback) {
         Context app = context.getApplicationContext();
