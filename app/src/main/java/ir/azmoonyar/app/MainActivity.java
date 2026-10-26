@@ -944,8 +944,8 @@ public class MainActivity extends Activity {
         panel.addView(message);
         Button add = new Button(this); add.setText("افزودن سؤال"); add.setAllCaps(false);
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
-        Button import = new Button(this); import.setText("ورود نمونه PDF ریاضی"); import.setAllCaps(false);
-        import.setOnClickListener(v -> importPdfMathSample()); panel.addView(import);
+        Button importButton = new Button(this); importButton.setText("ورود نمونه PDF ریاضی"); importButton.setAllCaps(false);
+        importButton.setOnClickListener(v -> importPdfMathSample()); panel.addView(importButton);
         Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
         Button generate = new Button(this); generate.setText("انتخاب تعداد نسخه و آماده‌سازی چاپ"); generate.setAllCaps(false);
