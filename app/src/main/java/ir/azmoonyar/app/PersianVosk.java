@@ -74,11 +74,25 @@ public final class PersianVosk {
                                 recognizer = new Recognizer(model, 16000.0f);
                                 speechService = new SpeechService(recognizer, 16000.0f);
                                 speechService.startListening(new RecognitionListener() {
-                                    @Override public void onPartialResult(String hypothesis) {}
+                                    @Override public void onPartialResult(String hypothesis) {
+                                        try {
+                                            org.json.JSONObject obj = new org.json.JSONObject(hypothesis);
+                                            String partial = obj.optString("partial", "").trim();
+                                            if (!partial.isEmpty() && !delivered) {
+                                                callback.onStatus("صدای شما دریافت شد: " + partial);
+                                            }
+                                        } catch (Exception ignored) {}
+                                    }
                                     @Override public void onResult(String hypothesis) { deliver(hypothesis, callback); }
                                     @Override public void onFinalResult(String hypothesis) { deliver(hypothesis, callback); }
-                                    @Override public void onError(Exception e) { callback.onStatus("خطا در تشخیص صوت آفلاین؛ دوباره تلاش کن."); }
-                                    @Override public void onTimeout() { callback.onStatus("زمان ضبط تمام شد؛ دوباره تلاش کن."); }
+                                    @Override public void onError(Exception e) {
+                                        String detail = e == null ? "" : e.getClass().getSimpleName()
+                                                + (e.getMessage() == null ? "" : ": " + e.getMessage());
+                                        callback.onStatus("خطای میکروفون/تشخیص صوت: " + detail);
+                                    }
+                                    @Override public void onTimeout() {
+                                        callback.onStatus("ضبط بدون دریافت گفتار پایان یافت؛ اجازه میکروفون و کلید حریم خصوصی میکروفون را بررسی کن و دوباره بزن.");
+                                    }
                                     private void deliver(String json, Callback cb) {
                                         if (delivered) return;
                                         try {
