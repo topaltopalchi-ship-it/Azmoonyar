@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import org.vosk.Model;
+import org.vosk.Recognizer;
 import org.vosk.android.SpeechService;
 import org.vosk.android.RecognitionListener;
 
@@ -32,6 +33,7 @@ public final class PersianVosk {
     }
 
     private Model model;
+    private Recognizer recognizer;
     private SpeechService speechService;
     private boolean delivered;
 
@@ -69,7 +71,8 @@ public final class PersianVosk {
                         model = new Model(modelDir(activity.getApplicationContext()).getAbsolutePath());
                         MAIN.post(() -> {
                             try {
-                                speechService = new SpeechService(model, 16000.0f);
+                                recognizer = new Recognizer(model, 16000.0f);
+                                speechService = new SpeechService(recognizer, 16000.0f);
                                 speechService.startListening(new RecognitionListener() {
                                     @Override public void onPartialResult(String hypothesis) {}
                                     @Override public void onResult(String hypothesis) { deliver(hypothesis, callback); }
@@ -100,6 +103,8 @@ public final class PersianVosk {
         try { if (speechService != null) speechService.stop(); } catch (Exception ignored) {}
         try { if (speechService != null) speechService.shutdown(); } catch (Exception ignored) {}
         speechService = null;
+        try { if (recognizer != null) recognizer.close(); } catch (Exception ignored) {}
+        recognizer = null;
         try { if (model != null) model.close(); } catch (Exception ignored) {}
         model = null;
     }
