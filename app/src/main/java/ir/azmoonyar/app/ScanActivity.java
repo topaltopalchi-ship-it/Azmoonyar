@@ -275,11 +275,16 @@ public class ScanActivity extends ComponentActivity {
 
     private void registerIfValid(String payload) {
         if (isFinishing() || !scannerActive) return;
-        String[] parts = payload.split("\\|", -1);
-        if (parts.length == 7 && "AZY3".equals(parts[0])) {
-            registerPageQr(parts);
+        SheetQrPayload parsedPage = SheetQrPayload.parse(payload);
+        if (parsedPage != null) {
+            registerPageQr(parsedPage.toParts());
             return;
         }
+        if (payload.startsWith("AZY3|")) {
+            showStatus("ساختار QR نسخه‌دار ناقص یا نامعتبر است؛ ثبت نشد.");
+            return;
+        }
+        String[] parts = payload.split("\\|", -1);
         if (parts.length != 3 || !("AZY1".equals(parts[0]) || "AZY2".equals(parts[0]))) {
             showStatus("QR دیده شد، اما قالب آزمون‌یار نیست.");
             return;
