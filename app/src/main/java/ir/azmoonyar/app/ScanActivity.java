@@ -166,7 +166,7 @@ public class ScanActivity extends ComponentActivity {
         refreshCount();
 
         Button voiceName = new Button(this);
-        voiceName.setText("🎙 ثبت صوتی نام دانش‌آموز");
+        voiceName.setText("🎙 ثبت صوتی نام شرکت‌کننده");
         voiceName.setAllCaps(false);
         voiceName.setOnClickListener(v -> startVoiceNameCapture());
         page.addView(voiceName, new LinearLayout.LayoutParams(-1, dp(52)));
@@ -327,7 +327,7 @@ public class ScanActivity extends ComponentActivity {
         latestSheetSetId = sheetId;
         latestModelId = "";
         latestTemplateId = "";
-        registerUniqueId(examName + "::" + sheetId, "QR شناسایی شد؛ اکنون نام دانش‌آموز را صوتی ثبت کن.");
+        registerUniqueId(examName + "::" + sheetId, "QR شناسایی شد؛ اکنون نام شرکت‌کننده را صوتی ثبت کن.");
     }
 
     private void registerPageQr(String[] parts) {
@@ -375,7 +375,7 @@ public class ScanActivity extends ComponentActivity {
                 .putInt("scanned_sheet_count", events.size())
                 .apply();
         showStatus("نسخهٔ " + modelId + " شناسایی شد (صفحه " + page + " از " + pageCount
-                + "). اسکن جداگانه پذیرفته شد؛ نام دانش‌آموز و خواندن حباب‌ها هنوز ثبت نشده‌اند.");
+                + "). اسکن جداگانه پذیرفته شد؛ نام شرکت‌کننده و خواندن حباب‌ها هنوز ثبت نشده‌اند.");
         refreshCount();
     }
 
@@ -383,7 +383,7 @@ public class ScanActivity extends ComponentActivity {
         if (latestSheetSetId.isEmpty()) { showStatus("اول QR پاسخنامه را اسکن کن."); return; }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, VOICE_NAME_REQUEST);
-            showStatus("برای ثبت صوتی، اجازهٔ میکروفون را بده و دوباره دکمه را بزن.");
+            showStatus("درخواست اجازهٔ میکروفون ارسال شد…");
             return;
         }
         if (voiceRecognizer != null) voiceRecognizer.stop();
@@ -453,6 +453,14 @@ public class ScanActivity extends ComponentActivity {
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                                       @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == VOICE_NAME_REQUEST) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startVoiceNameCapture();
+            } else {
+                showStatus("برای ثبت صوتی نام شرکت‌کننده، مجوز میکروفون لازم است.");
+            }
+            return;
+        }
         if (requestCode == CAMERA_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
