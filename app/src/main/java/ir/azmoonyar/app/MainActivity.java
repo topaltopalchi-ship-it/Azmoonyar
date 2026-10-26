@@ -844,15 +844,60 @@ public class MainActivity extends Activity {
 
     private void showKeySummary() {
         if(examName().isEmpty()) { info("هنوز آزمونی تعریف نشده است."); return; }
-        StringBuilder lines=new StringBuilder();
-        String k=key(); int filled=0;
-        for(int i=0;i<questionCount();i++) {
-            char a=i<k.length()?k.charAt(i):'-';
-            if(a>='A'&&a<='D') filled++;
-            lines.append(String.format(Locale.ROOT,"%03d  :  %s%n",i+1,(a=='-'?"ثبت نشده":String.valueOf(a))));
+        StringBuilder report = new StringBuilder();
+        JSONArray bank = readQuestionBank();
+        String bankKey = key();
+        if (bankKey.length() < questionCount() || bankKey.indexOf("-") >= 0) {
+            StringBuilder fromBank = new StringBuilder();
+            for (int i = 0; i < Math.min(questionCount(), bank.length()); i++) {
+                JSONObject q = bank.optJSONObject(i);
+                int correct = q == null ? -1 : q.optInt("correct_index", -1);
+                fromBank.append(correct >= 0 && correct <= 3 ? (char)('A' + correct) : '-');
+            }
+            if (fromBank.length() > 0) bankKey = fromBank.toString();
         }
-        new AlertDialog.Builder(this).setTitle("کلید پاسخ — "+filled+"/"+questionCount())
-          .setMessage(lines.toString()).setPositiveButton("بستن",null).show();
+        report.append("کلید اصلی بانک سؤال (ترتیب اولیه):\\n");
+        report.append(formatAnswerKey(bankKey, questionCount())).append("\\n\\n");
+        for (String model : new String[]{"A", "B"}) {
+            String stored = prefs.getString("model_questions_" + model, "");
+            report.append("نسخه ").append(model).append(":\\n");
+            if (stored.isEmpty()) {
+                report.append("کلید نسخه در حافظهٔ برنامه پیدا نشد.\\n\\n");
+                continue;
+            }
+            try {
+                JSONArray questions = new JSONArray(stored);
+                StringBuilder modelKey = new StringBuilder();
+                for (int i = 0; i < Math.min(questionCount(), questions.length()); i++) {
+                    JSONObject q = questions.optJSONObject(i);
+                    String letter = q == null ? "" : q.optString("correct_letter", "");
+                    if (!letter.matches("[A-D]")) {
+                        int idx = q == null ? -1 : q.optInt("correct_index", -1);
+                        letter = idx >= 0 && idx <= 3 ? String.valueOf((char)('A' + idx)) : "-";
+                    }
+                    modelKey.append(letter);
+                }
+                report.append(formatAnswerKey(modelKey.toString(), questionCount())).append("\\n\\n");
+            } catch (Exception e) {
+                report.append("اطلاعات کلید نسخه قابل خواندن نیست.\\n\\n");
+            }
+        }
+        report.append("توجه: کلید نسخه‌ها از آخرین اطلاعات ذخیره‌شدهٔ برنامه خوانده می‌شود؛ اگر چاپ قبلی با نسخه‌ای انجام شده که ترتیب نسخه‌ها را ذخیره نمی‌کرد، کلید دقیق همان چاپ از این اطلاعات قابل تضمین نیست.");
+        new AlertDialog.Builder(this).setTitle("کلید اصلی و کلید نسخه‌ها")
+          .setMessage(report.toString()).setPositiveButton("بستن",null).show();
+    }
+
+    private String formatAnswerKey(String answerKey, int count) {
+        StringBuilder out = new StringBuilder();
+        int filled = 0;
+        for (int i = 0; i < count; i++) {
+            char a = answerKey != null && i < answerKey.length() ? answerKey.charAt(i) : '-';
+            if (a >= 'A' && a <= 'D') filled++;
+            out.append(String.format(Locale.ROOT, "%02d: %s%n", i + 1,
+                    (a >= 'A' && a <= 'D') ? String.valueOf(a) : "ثبت نشده"));
+        }
+        out.insert(0, "تکمیل: " + filled + "/" + count + "\\n");
+        return out.toString();
     }
 
     private JSONArray readQuestionBank() {
