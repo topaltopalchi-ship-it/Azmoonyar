@@ -1253,7 +1253,7 @@ public class MainActivity extends Activity {
                     addPdfQuestion(versionA, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "نسخه ۱");
                     addPdfQuestion(versionA, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "نسخه ۱");
                     addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "نسخه ۱");
-                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "نسخه ۱");
+                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","34","32"}, 3, "نسخه ۱");
                     addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "نسخه ۱");
                     addPdfQuestion(versionA, "12+54 = ?", new String[]{"67","69","56","66"}, 3, "نسخه ۱؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
                     addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "نسخه ۱");
@@ -1263,7 +1263,7 @@ public class MainActivity extends Activity {
 
                     JSONArray versionB = new JSONArray();
                     addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "نسخه ۲");
-                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "نسخه ۲");
+                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","34","65","32"}, 3, "نسخه ۲");
                     addPdfQuestion(versionB, "12+54 = ?", new String[]{"67","56","68","66"}, 3, "نسخه ۲؛ گزینهٔ آخر برای درج پاسخ صحیح اصلاح شد");
                     addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "نسخه ۲");
                     addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "نسخه ۲");
