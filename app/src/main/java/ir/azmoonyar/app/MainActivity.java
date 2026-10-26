@@ -788,10 +788,44 @@ public class MainActivity extends Activity {
                 pendingKeyTarget = selectedTarget[0];
                 pickAnswerKeyImage();
             })
-            .setPositiveButton("نمایش کلیدها", (d, w) -> showKeySummary())
+            .setPositiveButton("چاپ / ذخیره کلید", (d, w) -> showKeyOutputChoices(selectedTarget[0]))
             .show();
     }
 
+    private void showKeyOutputChoices(String target) {
+        new AlertDialog.Builder(this).setTitle("خروجی کلید پاسخ")
+            .setItems(new String[]{"چاپ کلید", "ذخیره به‌صورت HTML"}, (dialog, which) -> {
+                if (which == 0) printKeyHtml(target);
+                else {
+                    pendingKeyTarget = target;
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("text/html");
+                    intent.putExtra(Intent.EXTRA_TITLE, "azmoonyar-answer-key-" + target + ".html");
+                    try { startActivityForResult(intent, 7315); } catch (Exception e) { info("ذخیرهٔ فایل ممکن نشد."); }
+                }
+            }).show();
+    }
+
+    private String keyHtml(String target) {
+        String value = "main".equals(target) ? buildOriginalBankKey() : getGeneratedModelKey(target);
+        String title = "main".equals(target) ? "کلید اصلی بانک سؤال" : "کلید نسخه " + target;
+        StringBuilder html = new StringBuilder("<html><head><meta charset=\"utf-8\"><style>body{font-family:sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}td,th{border:1px solid #333;padding:8px;text-align:center}</style></head><body>");
+        html.append("<h1>").append(escapeHtml(examName())).append("</h1><h2>").append(escapeHtml(title)).append("</h2><table><tr><th>شماره سؤال</th><th>گزینه صحیح</th></tr>");
+        for (int i=0;i<value.length();i++) { int a=value.charAt(i); html.append("<tr><td>").append(i+1).append("</td><td>").append(a >= 65 && a <= 68 ? (char)a : "ثبت نشده").append("</td></tr>"); }
+        return html.append("</table></body></html>").toString();
+    }
+
+    private void printKeyHtml(String target) {
+        WebView web = new WebView(this);
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                PrintManager manager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (manager != null) manager.print("کلید پاسخ آزمون‌یار", view.createPrintDocumentAdapter("کلید پاسخ"), new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
+            }
+        });
+        web.loadDataWithBaseURL(null, keyHtml(target), "text/html", "UTF-8", null);
+    }
     private void pickAnswerKeyImage() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -803,7 +837,16 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_ANSWER_KEY_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == 7315) {
+            try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
+                if (output == null) throw new java.io.IOException("output stream unavailable");
+                output.write(keyHtml(pendingKeyTarget).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                info("فایل کلید پاسخ ذخیره شد.");
+            } catch (Exception e) { info("ذخیرهٔ فایل کلید ناموفق بود."); }
+            return;
+        }
+        if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
         android.net.Uri uri = data.getData();
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { }
