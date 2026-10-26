@@ -107,7 +107,7 @@ public final class PersianVosk {
                             } catch (Exception e) { callback.onStatus("شروع میکروفون ناموفق بود."); }
                         });
                     } catch (Exception e) {
-                        callbackStatus(callback, "بارگذاری مدل فارسی Vosk ناموفق بود.");
+                        callbackStatus(callback, "بارگذاری مدل صوتی فارسی ناموفق بود.");
                     }
                 });
             }
