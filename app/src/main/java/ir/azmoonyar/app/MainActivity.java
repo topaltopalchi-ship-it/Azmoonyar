@@ -44,6 +44,7 @@ import java.util.zip.ZipInputStream;
 /** Offline exam setup and answer-key editor. */
 public class MainActivity extends Activity {
     private static final int STUDENT_VOICE_REQUEST = 4201;
+    private ProgressDialog modelDownloadDialog;
     private EditText activeStudentNameInput;
     private PersianVosk voiceRecognizer;
     private SharedPreferences prefs;
@@ -72,10 +73,44 @@ public class MainActivity extends Activity {
                     STUDENT_VOICE_REQUEST
             );
         }
+        // Start downloading the Persian Vosk model automatically on the first app launch.
+        // Android does not allow an app to execute code before the user opens it after installation.
         PersianVosk.prepareOnFirstLaunch(this, new PersianVosk.Callback() {
             @Override public void onText(String text) {}
             @Override public void onStatus(String status) {
-                if (status.contains("ناموفق")) info(status);
+                if (isFinishing() || isDestroyed()) return;
+                if (status.startsWith("در حال دانلود مدل فارسی Vosk")) {
+                    if (modelDownloadDialog == null || !modelDownloadDialog.isShowing()) {
+                        modelDownloadDialog = new ProgressDialog(MainActivity.this);
+                        modelDownloadDialog.setTitle("آماده‌سازی تشخیص گفتار فارسی");
+                        modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
+                        modelDownloadDialog.setIndeterminate(true);
+                        modelDownloadDialog.setCancelable(false);
+                        modelDownloadDialog.setCanceledOnTouchOutside(false);
+                        modelDownloadDialog.show();
+                    } else {
+                        modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
+                    }
+                } else if (status.equals("مدل آفلاین فارسی آماده است.")) {
+                    if (modelDownloadDialog != null && modelDownloadDialog.isShowing()) {
+                        modelDownloadDialog.dismiss();
+                    }
+                    modelDownloadDialog = null;
+                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                            .edit().putBoolean("vosk_model_ready", true).apply();
+                } else if (status.contains("ناموفق")) {
+                    if (modelDownloadDialog != null && modelDownloadDialog.isShowing()) {
+                        modelDownloadDialog.dismiss();
+                    }
+                    modelDownloadDialog = null;
+                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                            .edit().putBoolean("vosk_model_ready", false).apply();
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("دانلود مدل گفتار فارسی انجام نشد")
+                            .setMessage(status + "\\nبا اتصال اینترنت دوباره برنامه را باز کن تا دانلود خودکار دوباره تلاش شود.")
+                            .setPositiveButton("باشه", null)
+                            .show();
+                }
             }
         });
     }
