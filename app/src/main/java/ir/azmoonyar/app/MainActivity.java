@@ -245,7 +245,7 @@ public class MainActivity extends Activity {
 
         // Keep one clear entry point per task; participant names are captured by voice during grading.
         addButtonGrid(
-                new String[]{"تعریف / ویرایش آزمون", "بانک سؤال و ساخت نسخه‌ها"},
+                new String[]{"تعریف / ویرایش آزمون", "فرم سؤال‌ها"},
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showQuestionBank()});
         addButtonGrid(
                 new String[]{"کلید پاسخ", "اسکن و تصحیح پاسخنامه"},
@@ -1064,7 +1064,7 @@ public class MainActivity extends Activity {
             }
         }
         report.append("توجه: کلید نسخه‌ها از آخرین اطلاعات ذخیره‌شدهٔ برنامه خوانده می‌شود؛ اگر چاپ قبلی با نسخه‌ای انجام شده که ترتیب نسخه‌ها را ذخیره نمی‌کرد، کلید دقیق همان چاپ از این اطلاعات قابل تضمین نیست.");
-        new AlertDialog.Builder(this).setTitle("کلید اصلی و کلید نسخه‌ها")
+        new AlertDialog.Builder(this).setTitle("کلید پاسخ فرم واحد")
           .setMessage(report.toString()).setPositiveButton("بستن",null).show();
     }
 
@@ -1104,8 +1104,8 @@ public class MainActivity extends Activity {
         importButton.setOnClickListener(v -> importPdfMathSample()); panel.addView(importButton);
         Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
-        Button generate = new Button(this); generate.setText("انتخاب تعداد نسخه و آماده‌سازی چاپ"); generate.setAllCaps(false);
-        generate.setOnClickListener(v -> generateRandomVariants()); panel.addView(generate);
+        Button generate = new Button(this); generate.setText("آماده‌سازی فرم واحد و کلید پاسخ"); generate.setAllCaps(false);
+        generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
     }
