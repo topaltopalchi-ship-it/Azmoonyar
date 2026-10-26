@@ -433,9 +433,19 @@ public class ScanActivity extends ComponentActivity {
     private void openManualGrading() {
         String name = prefs.getString("pending_student_name", "").trim();
         if (name.isEmpty()) { showStatus("ابتدا نام شرکت‌کننده را با میکروفون ثبت کن."); return; }
-        String key = prefs.getString("answer_key", "").trim().toUpperCase(java.util.Locale.ROOT);
-        int total = Math.min(prefs.getInt("question_count", key.length()), key.length());
-        if (total <= 0) { showStatus("ابتدا آزمون و کلید پاسخ را ثبت کن."); return; }
+        StringBuilder generatedKey = new StringBuilder();
+        JSONArray bank;
+        try { bank = new JSONArray(prefs.getString("question_bank_json", "[]")); }
+        catch (Exception e) { bank = new JSONArray(); }
+        for (int i = 0; i < bank.length(); i++) {
+            JSONObject question = bank.optJSONObject(i);
+            int correctIndex = question == null ? -1 : question.optInt("correct_index", -1);
+            generatedKey.append(correctIndex >= 0 && correctIndex <= 3 ? (char) ('A' + correctIndex) : '-');
+        }
+        String key = generatedKey.toString();
+        int total = bank.length();
+        if (total <= 0) { showStatus("ابتدا از بخش افزودن سؤال، سؤال‌ها و پاسخ صحیح را ثبت کن."); return; }
+        if (key.indexOf('-') >= 0) { showStatus("برای همهٔ سؤال‌های بانک باید پاسخ صحیح انتخاب شده باشد."); return; }
         LinearLayout form = new LinearLayout(this);
         form.setPadding(dp(12), dp(8), dp(12), dp(8));
         form.setOrientation(LinearLayout.VERTICAL);
