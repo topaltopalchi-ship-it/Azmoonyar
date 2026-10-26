@@ -111,6 +111,9 @@ public class ScanActivity extends ComponentActivity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(Color.rgb(8, 18, 42));
+        // Keep footer controls clear of Android's bottom navigation/gesture area.
+        page.setFitsSystemWindows(true);
+        page.setPadding(0, 0, 0, dp(8));
 
         TextView title = new TextView(this);
         title.setText("اسکن زنده پاسخنامه");
@@ -188,11 +191,25 @@ public class ScanActivity extends ComponentActivity {
         close.setBackground(closeBg);
         close.setElevation(dp(3));
         close.setOnClickListener(v -> finish());
-        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-1, dp(52));
-        buttonParams.setMargins(dp(16), dp(4), dp(16), dp(14));
+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-1, dp(48));
+        buttonParams.setMargins(dp(16), dp(2), dp(16), dp(8));
         page.addView(close, buttonParams);
 
         setContentView(page);
+        // Apply bottom system-bar inset explicitly on gesture-navigation devices.
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            page.setOnApplyWindowInsetsListener((view, insets) -> {
+                int bottomInset = 0;
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    bottomInset = insets.getSystemWindowInsetBottom();
+                } else {
+                    bottomInset = insets.getSystemWindowInsetBottom();
+                }
+                view.setPadding(0, 0, 0, Math.max(dp(8), bottomInset + dp(8)));
+                return insets;
+            });
+            page.requestApplyInsets();
+        }
     }
 
     private void startCamera() {
