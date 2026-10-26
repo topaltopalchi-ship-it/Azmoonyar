@@ -261,8 +261,23 @@ public class MainActivity extends Activity {
     }
 
     private JSONArray readStudents() {
-        try { return new JSONArray(prefs.getString("students_json", "[]")); }
-        catch (Exception e) { return new JSONArray(); }
+        try {
+            JSONArray students = new JSONArray(prefs.getString("students_json", "[]"));
+            boolean removedIdentifiers = false;
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student != null && student.has("id")) {
+                    student.remove("id");
+                    removedIdentifiers = true;
+                }
+            }
+            if (removedIdentifiers) {
+                prefs.edit().putString("students_json", students.toString()).apply();
+            }
+            return students;
+        } catch (Exception e) {
+            return new JSONArray();
+        }
     }
 
     private void showStudentsDialog() {
