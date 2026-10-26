@@ -841,7 +841,7 @@ public class MainActivity extends Activity {
                     addPdfQuestion(bank, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
                     prefs.edit().putString("exam_name", "ریاضی (۱)")
                         .putInt("question_count", 10).putString("question_bank_json", bank.toString())
-                        .putString("answer_key", "DBBDD-B-CB".replace("-", ""))
+                        .putString("answer_key", "DBBDC-BCDB")
                         .remove("model_questions_A").remove("model_questions_B")
                         .remove("answer_key_model_A").remove("answer_key_model_B")
                         .putInt("issued_model_count", 0).apply();
