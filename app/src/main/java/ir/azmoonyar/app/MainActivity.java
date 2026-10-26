@@ -104,7 +104,6 @@ public class MainActivity extends Activity {
                     }
                     modelDownloadDialog = null;
                     prefs.edit().putBoolean("vosk_model_ready", true).apply();
-                    showStyledInfo("مدل تشخیص گفتار فارسی آماده است؛ از این پس می‌توانی آفلاین از تشخیص صدا استفاده کنی.");
                     return;
                 }
 
