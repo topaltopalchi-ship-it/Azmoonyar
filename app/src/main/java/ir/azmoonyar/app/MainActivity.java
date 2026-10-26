@@ -66,6 +66,7 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+        root.post(() -> { if (prefs.getString("institution_name", "").trim().isEmpty()) showInstitutionNameDialog(true); });
         // Automatically download the Persian speech model on first launch after install.
         // The method skips downloading when the model is already installed.
         downloadPersianSpeechModel();
@@ -174,8 +175,8 @@ public class MainActivity extends Activity {
                 new String[]{"تصحیح پاسخنامه", "تحلیل نمرات"},
                 new View.OnClickListener[]{v -> showManualGradingDialog(), v -> showGradeAnalysis()});
         addButtonGrid(
-                new String[]{"تنظیمات ذخیره تصاویر"},
-                new View.OnClickListener[]{v -> showImageRetentionDialog()});
+                new String[]{"نام آموزشگاه / مؤسسه / دانشگاه", "تنظیمات ذخیره تصاویر"},
+                new View.OnClickListener[]{v -> showInstitutionNameDialog(false), v -> showImageRetentionDialog()});
         addButtonGrid(
                 new String[]{"گزارش‌ها و حریم خصوصی", "بانک سؤال"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showQuestionBank()});
@@ -187,6 +188,45 @@ public class MainActivity extends Activity {
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
+    }
+
+    private void showInstitutionNameDialog(boolean firstRun) {
+        EditText nameInput = new EditText(this);
+        nameInput.setSingleLine(true);
+        nameInput.setHint("مثلاً آموزشگاه دانش، مؤسسه یا دانشگاه");
+        nameInput.setText(prefs.getString("institution_name", ""));
+        styleInput(nameInput);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(12), dp(20), dp(4));
+        TextView description = new TextView(this);
+        description.setText("نام محل آموزشی خود را وارد کن تا در برنامه ذخیره شود. هر زمان خواستی می‌توانی آن را تغییر بدهی.");
+        description.setTextSize(14);
+        description.setTextColor(Color.rgb(65, 80, 115));
+        panel.addView(description);
+        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(-1, -2);
+        inputParams.topMargin = dp(12);
+        panel.addView(nameInput, inputParams);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(firstRun ? "به آزمون‌یار خوش آمدی" : "نام آموزشگاه یا دانشگاه")
+                .setView(panel)
+                .setPositiveButton("ذخیره", null)
+                .setNegativeButton(firstRun ? "بعداً" : "انصراف", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setOnClickListener(v -> {
+                String name = nameInput.getText().toString().trim();
+                if (name.isEmpty()) {
+                    nameInput.setError("نام را وارد کن");
+                    return;
+                }
+                prefs.edit().putString("institution_name", name).apply();
+                dialog.dismiss();
+                refreshSummary();
+            });
+        });
+        dialog.show();
     }
 
     private void downloadPersianSpeechModel() {
@@ -412,7 +452,9 @@ public class MainActivity extends Activity {
 
     private void refreshSummary() {
         if (summary == null || prefs == null) return;
+        String institution = prefs.getString("institution_name", "").trim();
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
+        if (!institution.isEmpty()) name = institution + "\\n" + name;
         int variants=readSavedVariants().length();
         int graded=readGradeResults().length();
         summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nنسخه‌های ذخیره‌شده: "+variants+"\nپاسخنامه‌های تصحیح‌شده: "+graded);
