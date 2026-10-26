@@ -468,15 +468,40 @@ public class ScanActivity extends ComponentActivity {
         form.setOrientation(LinearLayout.VERTICAL);
         android.widget.RadioGroup[] groups = new android.widget.RadioGroup[total];
         for (int i = 0; i < total; i++) {
+            JSONObject question = bank.optJSONObject(i);
             TextView label = new TextView(this);
-            label.setText("سؤال " + (i + 1)); form.addView(label);
+            label.setText((i + 1) + ". " + (question == null ? "" : question.optString("text", "").trim()));
+            label.setTextSize(16);
+            label.setTextColor(Color.rgb(20, 35, 72));
+            label.setTypeface(null, android.graphics.Typeface.BOLD);
+            label.setPadding(dp(4), dp(10), dp(4), dp(4));
+            form.addView(label);
+            JSONArray options = question == null ? null : question.optJSONArray("options");
+            if (options != null) {
+                for (int j = 0; j < Math.min(4, options.length()); j++) {
+                    TextView optionText = new TextView(this);
+                    optionText.setText(new String[]{"الف) ", "ب) ", "ج) ", "د) "}[j] + options.optString(j, ""));
+                    optionText.setTextSize(14);
+                    optionText.setTextColor(Color.rgb(55, 65, 81));
+                    optionText.setPadding(dp(12), dp(2), dp(12), dp(2));
+                    form.addView(optionText);
+                }
+            }
             android.widget.RadioGroup group = new android.widget.RadioGroup(this);
             group.setOrientation(android.widget.RadioGroup.HORIZONTAL);
             for (int j = 0; j < 4; j++) {
                 android.widget.RadioButton rb = new android.widget.RadioButton(this);
-                rb.setText(new String[]{"الف","ب","ج","د"}[j]); rb.setTag(j); group.addView(rb);
+                rb.setText(new String[]{"الف","ب","ج","د"}[j]);
+                rb.setTag(j);
+                group.addView(rb);
             }
-            groups[i] = group; form.addView(group);
+            groups[i] = group;
+            form.addView(group);
+            View separator = new View(this);
+            separator.setBackgroundColor(Color.rgb(220, 226, 238));
+            LinearLayout.LayoutParams separatorParams = new LinearLayout.LayoutParams(-1, dp(1));
+            separatorParams.topMargin = dp(5);
+            form.addView(separator, separatorParams);
         }
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(form);
