@@ -517,8 +517,8 @@ public class MainActivity extends Activity {
     private void showPrintStudentDialog() {
         if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
         new AlertDialog.Builder(this)
-            .setTitle("چاپ آزمون‌های نسخه‌دار")
-            .setMessage("پرسشنامه و پاسخنامهٔ جفت‌شده برای مدل‌های مختلف چاپ می‌شوند. نام شرکت‌کننده از قبل لازم نیست؛ نام پس از دریافت پاسخنامه ثبت می‌شود.")
+            .setTitle("چاپ دو نسخهٔ آزمون و پاسخنامه")
+            .setMessage("دو نسخهٔ متفاوت چاپ می‌شوند. هر پرسشنامه و پاسخنامهٔ همان نسخه QR یکسان دارند. نام شرکت‌کننده از قبل لازم نیست؛ نام پس از دریافت پاسخنامه ثبت می‌شود.")
             .setPositiveButton("چاپ برگه‌ها", (dialog, which) -> printPairedSheets("", UUID.randomUUID().toString()))
             .setNegativeButton("انصراف", null).show();
     }
