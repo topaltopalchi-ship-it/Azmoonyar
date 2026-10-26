@@ -391,6 +391,8 @@ public class MainActivity extends Activity {
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
             String safeExam = escapeHtml(examName());
+            String batchId = UUID.randomUUID().toString();
+            JSONArray batchVariants = new JSONArray();
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
@@ -494,6 +496,7 @@ public class MainActivity extends Activity {
                 // Persist the original bank key alongside this immutable printed variant.
                 String originalKey = buildOriginalBankKey();
                 issuedExam.put("original_answer_key", originalKey);
+                batchVariants.put(issuedExam);
                 prefs.edit()
                     .putString("issued_exam_" + sheetSetId + "_" + modelId, issuedExam.toString())
                     .putString("saved_variant_" + sheetSetId, issuedExam.toString())
@@ -504,19 +507,17 @@ public class MainActivity extends Activity {
                     .apply();
             }
             html.append("</body></html>");
-            WebView web = new WebView(this);
-            web.getSettings().setDefaultTextEncodingName("UTF-8");
-            web.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
-            web.setWebViewClient(new WebViewClient() {
-                @Override public void onPageFinished(WebView view, String url) {
-                    PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                    if (pm != null) pm.print("AzmoonYar-" + examName(),
-                        view.createPrintDocumentAdapter("AzmoonYar-" + examName()),
-                        new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
-                    else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
-                }
-            });
+            JSONObject savedBatch = new JSONObject();
+            savedBatch.put("batch_id", batchId);
+            savedBatch.put("exam_name", examName());
+            savedBatch.put("variant_count", variants.length());
+            savedBatch.put("created_at", System.currentTimeMillis());
+            savedBatch.put("print_html", html.toString());
+            savedBatch.put("variants", batchVariants);
+            JSONArray savedBatches = readSavedExamBatches();
+            savedBatches.put(savedBatch);
+            prefs.edit().putString("saved_exam_batches_json", savedBatches.toString()).apply();
+            printHtmlDocument("AzmoonYar-" + examName(), html.toString());
         } catch (Exception e) {
             info("ساخت برگه برای چاپ ناموفق بود؛ بانک سؤال و مجوز چاپ را بررسی کن.");
         }
@@ -931,15 +932,112 @@ public class MainActivity extends Activity {
 
     private void showQuestionBank() {
         JSONArray bank = readQuestionBank();
-        new AlertDialog.Builder(this)
-            .setTitle("بانک سؤال (" + bank.length() + ")")
-            .setMessage(bank.length() == 0
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        TextView message = new TextView(this);
+        message.setText(bank.length() == 0
                 ? "هنوز سؤالی ثبت نشده است. می‌توانی نمونهٔ ۱۰ سؤالی را از PDF ریاضی وارد کنی."
-                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
-            .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
-            .setNeutralButton("ورود نمونه PDF ریاضی", (d,w) -> importPdfMathSample())
-            .setNegativeButton("انتخاب تعداد نسخه و آماده‌سازی چاپ", (d,w) -> generateRandomVariants())
-            .show();
+                : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.");
+        message.setTextSize(15);
+        message.setPadding(0, 0, 0, dp(12));
+        panel.addView(message);
+        Button add = new Button(this); add.setText("افزودن سؤال"); add.setAllCaps(false);
+        add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
+        Button import = new Button(this); import.setText("ورود نمونه PDF ریاضی"); import.setAllCaps(false);
+        import.setOnClickListener(v -> importPdfMathSample()); panel.addView(import);
+        Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
+        saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
+        Button generate = new Button(this); generate.setText("انتخاب تعداد نسخه و آماده‌سازی چاپ"); generate.setAllCaps(false);
+        generate.setOnClickListener(v -> generateRandomVariants()); panel.addView(generate);
+        new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
+            .setView(panel).setPositiveButton("بستن", null).show();
+    }
+
+    private JSONArray readSavedExamBatches() {
+        try { return new JSONArray(prefs.getString("saved_exam_batches_json", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showSavedExamBatches() {
+        JSONArray batches = readSavedExamBatches();
+        if (batches.length() == 0) {
+            info("هنوز مجموعه‌آزمونی ذخیره نشده است. از بانک سؤال تعداد نسخه‌ها را انتخاب و «تأیید، ذخیره و چاپ» را بزن.");
+            return;
+        }
+        String[] labels = new String[batches.length()];
+        for (int i = 0; i < batches.length(); i++) {
+            JSONObject batch = batches.optJSONObject(i);
+            if (batch == null) { labels[i] = (i + 1) + ". مجموعه نامعتبر"; continue; }
+            java.text.DateFormat df = java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, new Locale("fa"));
+            labels[i] = (i + 1) + ". " + batch.optString("exam_name", "آزمون")
+                    + " — " + batch.optInt("variant_count", 0) + " نسخه — "
+                    + df.format(new java.util.Date(batch.optLong("created_at", 0)));
+        }
+        new AlertDialog.Builder(this).setTitle("مجموعه‌های ذخیره‌شده")
+            .setItems(labels, (dialog, which) -> showSavedBatchActions(batches.optJSONObject(which)))
+            .setPositiveButton("بستن", null).show();
+    }
+
+    private void showSavedBatchActions(JSONObject batch) {
+        if (batch == null) { info("اطلاعات این مجموعه خوانده نشد."); return; }
+        String id = batch.optString("batch_id", "");
+        String title = batch.optString("exam_name", "آزمون");
+        new AlertDialog.Builder(this).setTitle(title)
+            .setMessage("تعداد نسخه‌ها: " + batch.optInt("variant_count", 0)
+                    + "\nاین مجموعه با سؤال‌ها، ترتیب گزینه‌ها، کلیدها و شناسه‌های QR خودش ذخیره شده است.")
+            .setItems(new String[]{"چاپ دوباره همین مجموعه", "حذف این مجموعه"}, (d, which) -> {
+                if (which == 0) {
+                    String savedHtml = batch.optString("print_html", "");
+                    if (savedHtml.isEmpty()) { info("فایل چاپ این مجموعه در دسترس نیست."); return; }
+                    printHtmlDocument("AzmoonYar-" + title, savedHtml);
+                } else {
+                    new AlertDialog.Builder(this).setTitle("حذف مجموعه")
+                        .setMessage("«" + title + "» حذف شود؟ این کار مجموعه‌های دیگر را تغییر نمی‌دهد.")
+                        .setNegativeButton("انصراف", null)
+                        .setPositiveButton("حذف", (confirm, w) -> deleteSavedExamBatch(id))
+                        .show();
+                }
+            }).setNegativeButton("بازگشت", (d, w) -> showSavedExamBatches()).show();
+    }
+
+    private void deleteSavedExamBatch(String batchId) {
+        JSONArray current = readSavedExamBatches();
+        JSONArray kept = new JSONArray();
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject batch = current.optJSONObject(i);
+            if (batch == null || !batchId.equals(batch.optString("batch_id", ""))) {
+                if (batch != null) kept.put(batch);
+            } else {
+                JSONArray variants = batch.optJSONArray("variants");
+                if (variants != null) for (int v = 0; v < variants.length(); v++) {
+                    JSONObject variant = variants.optJSONObject(v);
+                    if (variant == null) continue;
+                    String sheetId = variant.optString("sheet_set_id", "");
+                    String model = variant.optString("model_id", "");
+                    prefs.edit().remove("issued_exam_" + sheetId + "_" + model)
+                        .remove("saved_variant_" + sheetId).apply();
+                }
+            }
+        }
+        prefs.edit().putString("saved_exam_batches_json", kept.toString()).apply();
+        info("مجموعه انتخاب‌شده حذف شد؛ سایر مجموعه‌ها باقی ماندند.");
+    }
+
+    private void printHtmlDocument(String title, String htmlContent) {
+        WebView web = new WebView(this);
+        web.getSettings().setDefaultTextEncodingName("UTF-8");
+        web.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null);
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (pm != null) pm.print(title, view.createPrintDocumentAdapter(title),
+                    new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                        .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build());
+                else info("قابلیت چاپ در این دستگاه در دسترس نیست.");
+            }
+        });
     }
 
     /** Registers both original PDF variants, preserving their printed question and option order. */
