@@ -366,35 +366,116 @@ public class MainActivity extends Activity {
         startActivity(new Intent(this, ScanActivity.class));
     }
 
-    private android.graphics.drawable.Drawable create3DKeyBackground(int[] colors) {
-        int radius = dp(22);
-        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable();
-        base.setColor(darkenColor(colors[1], 0.48f));
-        base.setCornerRadius(radius);
-
-        android.graphics.drawable.GradientDrawable face = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, colors);
-        face.setCornerRadius(radius);
-        face.setStroke(dp(1), Color.argb(230, 235, 249, 255));
-
-        android.graphics.drawable.GradientDrawable bevel = new android.graphics.drawable.GradientDrawable();
-        bevel.setColor(Color.TRANSPARENT);
-        bevel.setCornerRadius(radius - dp(2));
-        bevel.setStroke(dp(1), Color.argb(105, 255, 255, 255));
-
-        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
-                new android.graphics.drawable.Drawable[]{base, face, bevel});
-        layers.setLayerInset(0, 0, dp(5), 0, 0);
-        layers.setLayerInset(1, 0, 0, 0, dp(5));
-        layers.setLayerInset(2, dp(3), dp(3), dp(3), dp(8));
-        return layers;
+    private android.graphics.drawable.Drawable create3DKeyBackground(int[] colors, int shapeType) {
+        return new GlassKeyDrawable(colors, shapeType);
     }
 
-    private int darkenColor(int color, float factor) {
-        return Color.rgb(
-                Math.max(0, Math.min(255, (int)(Color.red(color) * factor))),
-                Math.max(0, Math.min(255, (int)(Color.green(color) * factor))),
-                Math.max(0, Math.min(255, (int)(Color.blue(color) * factor))));
+    /** Glossy glass-like key with a sculpted silhouette and a visible 3D lower edge. */
+    private final class GlassKeyDrawable extends android.graphics.drawable.Drawable {
+        private final int[] colors;
+        private final int shapeType;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+
+        GlassKeyDrawable(int[] colors, int shapeType) {
+            this.colors = colors.clone();
+            this.shapeType = shapeType % 5;
+        }
+
+        private Path makeShape(RectF r, float inset) {
+            float l = r.left + inset, t = r.top + inset;
+            float right = r.right - inset, bottom = r.bottom - inset;
+            float w = right - l, h = bottom - t;
+            Path p = new Path();
+            switch (shapeType) {
+                case 1: // soft capsule
+                    p.addRoundRect(new RectF(l, t, right, bottom), h * 0.48f, h * 0.48f, Path.Direction.CW);
+                    break;
+                case 2: // crystal / hexagon
+                    p.moveTo(l + w * .18f, t); p.lineTo(right - w * .18f, t);
+                    p.lineTo(right, t + h * .5f); p.lineTo(right - w * .18f, bottom);
+                    p.lineTo(l + w * .18f, bottom); p.lineTo(l, t + h * .5f);
+                    p.close();
+                    break;
+                case 3: // jewel shield
+                    p.moveTo(l + w * .15f, t); p.lineTo(right - w * .15f, t);
+                    p.quadTo(right, t, right, t + h * .18f);
+                    p.lineTo(right - w * .05f, t + h * .68f);
+                    p.quadTo((l + right) / 2, bottom + h * .06f, l + w * .05f, t + h * .68f);
+                    p.lineTo(l, t + h * .18f); p.quadTo(l, t, l + w * .15f, t); p.close();
+                    break;
+                case 4: // rounded diamond
+                    p.moveTo(l + w * .12f, t + h * .08f);
+                    p.quadTo(l, t + h * .08f, l + w * .04f, t + h * .28f);
+                    p.lineTo(l + w * .28f, bottom - h * .04f);
+                    p.quadTo((l + right) / 2, bottom + h * .08f, right - w * .28f, bottom - h * .04f);
+                    p.lineTo(right - w * .04f, t + h * .28f);
+                    p.quadTo(right, t + h * .08f, right - w * .12f, t + h * .08f);
+                    p.close();
+                    break;
+                default: // puffy squircle, not a plain rectangle
+                    p.addRoundRect(new RectF(l, t, right, bottom), h * .32f, h * .32f, Path.Direction.CW);
+                    break;
+            }
+            return p;
+        }
+
+        @Override public void draw(Canvas canvas) {
+            Rect b = getBounds();
+            if (b.width() <= 0 || b.height() <= 0) return;
+            float w = b.width(), h = b.height();
+            canvas.save();
+            canvas.translate(b.left, b.top);
+
+            // Deep colored underside creates a chunky, raised 3D key.
+            Path shadow = makeShape(new RectF(0, 0, w, h), dp(1));
+            canvas.save();
+            canvas.translate(0, dp(5));
+            paint.setShader(null);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(darkenColor(colors[1], .38f));
+            canvas.drawPath(shadow, paint);
+            canvas.restore();
+
+            // Translucent jewel face with saturated color beneath the glass sheen.
+            Path face = makeShape(new RectF(0, 0, w, h - dp(5)), dp(1));
+            paint.setShader(new android.graphics.LinearGradient(0, 0, w * .25f, h,
+                    new int[]{withAlpha(colors[0], 238), withAlpha(colors[1], 224), withAlpha(colors[1], 245)},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawPath(face, paint);
+            paint.setShader(null);
+
+            // Broad translucent highlight across the upper portion.
+            Path shine = makeShape(new RectF(dp(2), dp(2), w - dp(2), h * .53f), dp(2));
+            paint.setShader(new android.graphics.LinearGradient(0, dp(2), 0, h * .55f,
+                    new int[]{Color.argb(150, 255, 255, 255), Color.argb(34, 255, 255, 255), Color.argb(0, 255, 255, 255)},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawPath(shine, paint);
+            paint.setShader(null);
+
+            // Crisp glass rim and a fine inner reflection.
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1.4f));
+            paint.setColor(Color.argb(235, 255, 255, 255));
+            canvas.drawPath(face, paint);
+            paint.setStrokeWidth(dp(1));
+            paint.setColor(Color.argb(95, 255, 255, 255));
+            canvas.drawPath(makeShape(new RectF(dp(3), dp(2), w - dp(3), h - dp(8)), dp(1)), paint);
+            paint.setStyle(Paint.Style.FILL);
+
+            // Tiny specular glint for a glassy finish.
+            paint.setColor(Color.argb(165, 255, 255, 255));
+            canvas.drawRoundRect(new RectF(w * .22f, dp(5), w * .46f, dp(7)), dp(2), dp(2), paint);
+            canvas.restore();
+        }
+
+        private int withAlpha(int color, int alpha) {
+            return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
+        }
+
+        @Override public void setAlpha(int alpha) { }
+        @Override public void setColorFilter(android.graphics.ColorFilter colorFilter) { }
+        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
     }
 
     private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
@@ -426,7 +507,7 @@ public class MainActivity extends Activity {
                 {Color.rgb(255, 202, 40), Color.rgb(245, 81, 95)}
             };
             int colorIndex = Math.abs(labels[i].hashCode()) % palette.length;
-            b.setBackground(create3DKeyBackground(palette[colorIndex]));
+            b.setBackground(create3DKeyBackground(palette[colorIndex], Math.abs(labels[i].hashCode() + i) % 5));
             b.setElevation(dp(10));
             b.setStateListAnimator(null);
             b.setOnTouchListener((view, event) -> {
