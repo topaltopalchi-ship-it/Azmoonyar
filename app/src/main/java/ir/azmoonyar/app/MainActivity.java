@@ -849,7 +849,7 @@ public class MainActivity extends Activity {
 
         RadioGroup targetGroup = new RadioGroup(this);
         targetGroup.setOrientation(RadioGroup.VERTICAL);
-        int availableModels = Math.max(2, Math.min(26, prefs.getInt("issued_model_count", 2)));
+        int availableModels = Math.max(1, Math.min(26, prefs.getInt("issued_model_count", 2)));
         RadioButton mainTarget = new RadioButton(this);
         mainTarget.setText("کلید اصلی بانک سؤال");
         mainTarget.setTag("main");
