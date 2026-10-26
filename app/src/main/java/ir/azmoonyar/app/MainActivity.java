@@ -82,13 +82,13 @@ public class MainActivity extends Activity {
         if (modelDownloadDialog == null) {
             modelDownloadDialog = new ProgressDialog(this);
             modelDownloadDialog.setTitle("آماده‌سازی تشخیص گفتار فارسی");
-            modelDownloadDialog.setMessage("در حال بررسی مدل فارسی Vosk...");
+            modelDownloadDialog.setMessage("در حال بررسی مدل صوتی فارسی...");
             modelDownloadDialog.setIndeterminate(true);
             modelDownloadDialog.setCancelable(false);
             modelDownloadDialog.setCanceledOnTouchOutside(false);
             modelDownloadDialog.show();
         } else if (!modelDownloadDialog.isShowing()) {
-            modelDownloadDialog.setMessage("در حال بررسی مدل فارسی Vosk...");
+            modelDownloadDialog.setMessage("در حال بررسی مدل صوتی فارسی...");
             modelDownloadDialog.show();
         }
 
@@ -130,7 +130,7 @@ public class MainActivity extends Activity {
                     modelDownloadDialog.setCanceledOnTouchOutside(false);
                     modelDownloadDialog.show();
                 }
-                modelDownloadDialog.setMessage(status + "\\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
+                modelDownloadDialog.setMessage(status + "\nلطفاً اینترنت را روشن نگه دار و برنامه را نبند.");
             }
         });
     }
