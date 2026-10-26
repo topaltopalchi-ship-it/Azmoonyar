@@ -64,6 +64,14 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         buildScreen();
+        // Ask for microphone permission on the first launch, so voice registration can work.
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    STUDENT_VOICE_REQUEST
+            );
+        }
         PersianVosk.prepareOnFirstLaunch(this, new PersianVosk.Callback() {
             @Override public void onText(String text) {}
             @Override public void onStatus(String status) {
