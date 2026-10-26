@@ -154,7 +154,7 @@ public final class PersianVosk {
                 URL url = new URL(MODEL_URL);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setConnectTimeout(30000);
-                connection.setReadTimeout(180000);
+                connection.setReadTimeout(30000);
                 connection.setInstanceFollowRedirects(true);
                 connection.setRequestProperty("User-Agent", "Azmoonyar-Android/0.2");
                 connection.setRequestProperty("Accept-Encoding", "identity");
@@ -162,28 +162,33 @@ public final class PersianVosk {
                 if (response != HttpURLConnection.HTTP_OK) {
                     throw new java.io.IOException("پاسخ ناموفق سرور: HTTP " + response);
                 }
-                callbackStatus(callback, "ارتباط برقرار شد؛ دریافت مدل صوتی فارسی آغاز می‌شود.");
+                callbackStatus(callback, "ارتباط برقرار شد؛ منتظر دریافت اولین داده از سرور هستیم.");
                 try (InputStream in = new BufferedInputStream(connection.getInputStream());
                      FileOutputStream out = new FileOutputStream(partial)) {
                     byte[] buffer = new byte[65536];
                     int n;
                     long downloaded = 0L;
                     long total = connection.getContentLengthLong();
-                    long nextNotice = 1024L * 1024L;
+                    long nextNotice = 256L * 1024L;
+                    boolean firstBytesReported = false;
                     while ((n = in.read(buffer)) != -1) {
                         out.write(buffer, 0, n);
                         downloaded += n;
+                        if (!firstBytesReported) {
+                            firstBytesReported = true;
+                            callbackStatus(callback, "دریافت مدل صوتی فارسی شروع شد.");
+                        }
                         if (downloaded >= nextNotice) {
                             String progress = total > 0
                                 ? String.format(java.util.Locale.US, "در حال دریافت مدل صوتی فارسی: %.1f از %.1f مگابایت", downloaded / 1048576.0, total / 1048576.0)
                                 : String.format(java.util.Locale.US, "دریافت مدل صوتی فارسی: %.1f مگابایت", downloaded / 1048576.0);
                             callbackStatus(callback, progress);
-                            nextNotice = downloaded + 1024L * 1024L;
+                            nextNotice = downloaded + 256L * 1024L;
                         }
                     }
                 }
                 if (!partial.isFile() || partial.length() < 1000000L) {
-                    throw new java.io.IOException("downloaded file is too small");
+                    throw new java.io.IOException("سرور فایل کامل مدل صوتی فارسی را نفرستاد؛ دریافت دوباره تلاش می‌شود.");
                 }
                 if (!partial.renameTo(zip)) {
                     throw new java.io.IOException("could not finalize downloaded ZIP");
@@ -207,7 +212,7 @@ public final class PersianVosk {
             }
         }
         if (lastError != null) throw new java.io.IOException(
-                "download failed after 3 attempts (" + lastError.getMessage() + ")", lastError);
+                "پس از ۳ تلاش، دریافت مدل صوتی فارسی کامل نشد (" + lastError.getMessage() + ")", lastError);
 
         temp.mkdirs();
         try (ZipInputStream zin = new ZipInputStream(new BufferedInputStream(new java.io.FileInputStream(zip)))) {
