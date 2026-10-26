@@ -193,7 +193,7 @@ public final class PersianVosk {
             } catch (Exception e) {
                 lastError = e;
                 partial.delete();
-                callbackStatus(callback, "تلاش " + attempt + " برای دریافت مدل صوتی فارسی ناموفق بود: "
+                callbackStatus(callback, "تلاش " + attempt + " برای دریافت مدل صوتی فارسی با خطا روبه‌رو شد: "
                         + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                 if (attempt < 3) {
                     try { Thread.sleep(1500L * attempt); }
