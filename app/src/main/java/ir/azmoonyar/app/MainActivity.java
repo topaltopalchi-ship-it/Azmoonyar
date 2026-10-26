@@ -325,6 +325,12 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        TextView voiceStatus = new TextView(this);
+        voiceStatus.setText("برای ثبت صوتی، دکمهٔ میکروفون را بزن.");
+        voiceStatus.setTextSize(14);
+        voiceStatus.setTextColor(Color.rgb(65, 80, 115));
+        voiceStatus.setPadding(dp(4), dp(8), dp(4), dp(8));
+        form.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
         Button voice = new Button(this);
         voice.setText("🎙 گفتن نام با صدا");
         voice.setAllCaps(false);
@@ -340,13 +346,22 @@ public class MainActivity extends Activity {
             voiceRecognizer.start(this, new PersianVosk.Callback() {
                 @Override public void onText(String text) {
                     name.setText(text);
+                    voiceStatus.setText("نام با موفقیت تشخیص داده شد.");
                     if (voiceRecognizer != null) voiceRecognizer.stop();
                 }
                 @Override public void onStatus(String status) {
-                    // Keep routine Vosk status/partial hypotheses out of modal dialogs.
-                    // Only surface actionable failures or recording timeout.
-                    if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
-                            || status.startsWith("ضبط بدون دریافت گفتار")) {
+                    // Show recording progress inside the form instead of repeatedly opening dialogs.
+                    if (status.startsWith("گوش می‌دهم")) {
+                        voiceStatus.setText("🎙 میکروفون فعال است؛ نام را واضح بگو...");
+                    } else if (status.startsWith("صدای شما دریافت شد: ")) {
+                        String partial = status.substring("صدای شما دریافت شد: ".length()).trim();
+                        if (!partial.isEmpty()) name.setText(partial);
+                        voiceStatus.setText("🎙 صدا دریافت می‌شود؛ ادامه بده...");
+                    } else if (status.startsWith("ضبط بدون دریافت گفتار")) {
+                        voiceStatus.setText("صدا دریافت نشد؛ اجازهٔ میکروفون و کلید حریم خصوصی را بررسی کن.");
+                        info(status);
+                    } else if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")) {
+                        voiceStatus.setText(status);
                         info(status);
                     }
                 }
