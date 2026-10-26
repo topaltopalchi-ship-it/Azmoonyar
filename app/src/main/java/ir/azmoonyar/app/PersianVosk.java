@@ -35,7 +35,7 @@ public final class PersianVosk {
     private Model model;
     private Recognizer recognizer;
     private SpeechService speechService;
-    private boolean delivered;
+    private volatile boolean delivered;
 
     public PersianVosk() {}
 
@@ -149,6 +149,7 @@ public final class PersianVosk {
         Exception lastError = null;
         for (int attempt = 1; attempt <= 3; attempt++) {
             HttpURLConnection connection = null;
+            callbackStatus(callback, "در حال اتصال برای دریافت مدل صوتی فارسی؛ تلاش " + attempt + " از 3...");
             try {
                 URL url = new URL(MODEL_URL);
                 connection = (HttpURLConnection) url.openConnection();
@@ -159,8 +160,9 @@ public final class PersianVosk {
                 connection.setRequestProperty("Accept-Encoding", "identity");
                 int response = connection.getResponseCode();
                 if (response != HttpURLConnection.HTTP_OK) {
-                    throw new java.io.IOException("HTTP " + response + " from model server");
+                    throw new java.io.IOException("پاسخ ناموفق سرور: HTTP " + response);
                 }
+                callbackStatus(callback, "ارتباط برقرار شد؛ دریافت مدل صوتی فارسی آغاز می‌شود.");
                 try (InputStream in = new BufferedInputStream(connection.getInputStream());
                      FileOutputStream out = new FileOutputStream(partial)) {
                     byte[] buffer = new byte[65536];
@@ -191,6 +193,8 @@ public final class PersianVosk {
             } catch (Exception e) {
                 lastError = e;
                 partial.delete();
+                callbackStatus(callback, "تلاش " + attempt + " برای دریافت مدل صوتی فارسی ناموفق بود: "
+                        + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                 if (attempt < 3) {
                     try { Thread.sleep(1500L * attempt); }
                     catch (InterruptedException interrupted) {
