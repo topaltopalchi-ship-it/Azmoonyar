@@ -1,0 +1,74 @@
+name: Android Release APK and AAB
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare release signing key
+        shell: bash
+        env:
+          AZMOONYAR_KEYSTORE_BASE64: ${{ secrets.AZMOONYAR_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
+          AZMOONYAR_KEYSTORE_PASSWORD: ${{ secrets.AZMOONYAR_KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          AZMOONYAR_KEY_ALIAS: ${{ secrets.AZMOONYAR_KEY_ALIAS || secrets.KEY_ALIAS }}
+          AZMOONYAR_KEY_PASSWORD: ${{ secrets.AZMOONYAR_KEY_PASSWORD || secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${AZMOONYAR_KEYSTORE_BASE64:-}" || { echo "Missing keystore base64 secret"; exit 1; }
+          test -n "${AZMOONYAR_KEYSTORE_PASSWORD:-}" || { echo "Missing keystore password secret"; exit 1; }
+          test -n "${AZMOONYAR_KEY_ALIAS:-}" || { echo "Missing key alias secret"; exit 1; }
+          test -n "${AZMOONYAR_KEY_PASSWORD:-}" || { echo "Missing key password secret"; exit 1; }
+          KEYSTORE_PATH="$RUNNER_TEMP/azmoonyar-release.jks"
+          printf '%s' "$AZMOONYAR_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$AZMOONYAR_KEYSTORE_PASSWORD" -alias "$AZMOONYAR_KEY_ALIAS" >/dev/null
+          echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "AZMOONYAR_KEYSTORE_PASSWORD=$AZMOONYAR_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "AZMOONYAR_KEY_ALIAS=$AZMOONYAR_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "AZMOONYAR_KEY_PASSWORD=$AZMOONYAR_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Run unit tests
+        run: gradle --no-daemon testDebugUnitTest
+
+      - name: Build signed Release APK and AAB
+        run: gradle --no-daemon assembleRelease bundleRelease
+
+      - name: Verify release outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify app/build/outputs/apk/release/app-release.apk >/dev/null
+          echo "Release APK and AAB were created."
+
+      - name: Upload Release APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: azmoonyar-release-apk-aab
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
