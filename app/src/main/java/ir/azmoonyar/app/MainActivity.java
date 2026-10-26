@@ -530,7 +530,7 @@ public class MainActivity extends Activity {
                 info("برای چاپ نسخه‌دار، ابتدا به تعداد سؤال‌های آزمون سؤال در بانک سؤال ثبت کن.");
                 return;
             }
-            JSONArray variants = getOrCreateExamVariants(bank, 5);
+            JSONArray variants = getOrCreateExamVariants(bank, 2);
             final int total = questionCount();
             final int pageCount = (total + 99) / 100;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
