@@ -135,6 +135,18 @@ public class MainActivity extends Activity {
         });
     }
 
+    @Override protected void onDestroy() {
+        if (voiceRecognizer != null) {
+            voiceRecognizer.stop();
+            voiceRecognizer = null;
+        }
+        if (modelDownloadDialog != null && modelDownloadDialog.isShowing()) {
+            modelDownloadDialog.dismiss();
+        }
+        modelDownloadDialog = null;
+        super.onDestroy();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         if (prefs != null) refreshSummary();
