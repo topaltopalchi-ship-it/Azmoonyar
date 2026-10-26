@@ -814,6 +814,7 @@ public class MainActivity extends Activity {
         }
         try {
             String safeExam = escapeHtml(examName());
+            String safeInstitution = escapeHtml(prefs.getString("institution_name", "").trim());
             StringBuilder html = new StringBuilder();
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
