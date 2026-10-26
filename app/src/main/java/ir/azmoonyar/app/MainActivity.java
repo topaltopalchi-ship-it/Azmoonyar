@@ -61,6 +61,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+        seedOriginalPdfVersionsIfMissing();
         getWindow().setStatusBarColor(Color.rgb(7,27,114));
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -1236,6 +1237,56 @@ public class MainActivity extends Activity {
         });
         dialog.show();
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
+    }
+
+    /** Seeds the two photographed forms on first launch so they are already in the app. */
+    private void seedOriginalPdfVersionsIfMissing() {
+        if (prefs.contains("pdf_original_version_A") && prefs.contains("pdf_original_version_B")) return;
+        try {
+            JSONArray a = new JSONArray();
+            addPdfQuestion(a, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "فرم A");
+            addPdfQuestion(a, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "فرم A");
+            addPdfQuestion(a, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
+            addPdfQuestion(a, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
+            addPdfQuestion(a, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
+            addPdfQuestion(a, "54+12 = ?", new String[]{"67","69","56","68"}, -1, "فرم A؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+            addPdfQuestion(a, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
+            addPdfQuestion(a, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
+            addPdfQuestion(a, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
+            addPdfQuestion(a, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "فرم A");
+
+            JSONArray b = new JSONArray();
+            addPdfQuestion(b, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
+            addPdfQuestion(b, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
+            addPdfQuestion(b, "54+12 = ?", new String[]{"67","69","68","56"}, -1, "فرم B؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+            addPdfQuestion(b, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
+            addPdfQuestion(b, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
+            addPdfQuestion(b, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
+            addPdfQuestion(b, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "فرم B");
+            addPdfQuestion(b, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "فرم B");
+            addPdfQuestion(b, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "فرم B");
+            addPdfQuestion(b, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "فرم B");
+
+            JSONObject fixedA = makeFixedPdfVariant("A", a);
+            JSONObject fixedB = makeFixedPdfVariant("B", b);
+            String masterKey = fixedA.optString("answer_key");
+            prefs.edit().putString("exam_name", "ریاضی")
+                .putInt("question_count", 10)
+                .putString("question_bank_json", a.toString())
+                .putString("answer_key", masterKey)
+                .putString("pdf_original_version_A", fixedA.toString())
+                .putString("pdf_original_version_B", fixedB.toString())
+                .putString("model_questions_A", a.toString())
+                .putString("model_questions_B", b.toString())
+                .putString("answer_key_model_A", fixedA.optString("answer_key"))
+                .putString("answer_key_model_B", fixedB.optString("answer_key"))
+                .putString("answer_key_master", masterKey)
+                .putString("model_questions_master", a.toString())
+                .putInt("issued_model_count", 2).apply();
+            registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
+        } catch (Exception ignored) {
+            // The manual import action remains available if first-launch seeding fails.
+        }
     }
 
     /** Imports the two photographed original forms, preserving printed order and options exactly. */
