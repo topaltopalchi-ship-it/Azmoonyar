@@ -904,6 +904,7 @@ public class MainActivity extends Activity {
                 .append(".num{width:15%}.bubble{display:inline-block;width:4.5mm;height:4.5mm;border:0.4mm solid #111;border-radius:50%}")
                 .append(".correct{background:#111}.note{border:1px solid #777;padding:2mm;font-size:10px}")
                 .append("</style></head><body><h1>کلیدهای پاسخ محرمانه — مسئول آزمون</h1><p>")
+                .append(escapeHtml(prefs.getString("institution_name", "").trim())).append(prefs.getString("institution_name", "").trim().isEmpty() ? "" : " | ")
                 .append(escapeHtml(examName())).append(" | فقط برای مسئول آزمون؛ در اختیار شرکت‌کنندگان قرار نگیرد.</p>");
             for (int v = 0; v < variants.length(); v++) {
                 JSONObject variant = variants.optJSONObject(v);
