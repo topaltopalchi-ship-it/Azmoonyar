@@ -4,8 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.Intent;
-import android.speech.RecognizerIntent;
-import android.content.ActivityNotFoundException;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -42,7 +42,6 @@ import com.google.zxing.BarcodeFormat;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.ArrayList;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.EnumMap;
@@ -61,6 +60,7 @@ public class ScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 4102;
     private static final int STABLE_FRAMES_REQUIRED = 3;
     private static final int VOICE_NAME_REQUEST = 4103;
+    private PersianVosk voiceRecognizer;
 
     private PreviewView previewView;
     private TextView statusView;
@@ -381,33 +381,40 @@ public class ScanActivity extends ComponentActivity {
 
     private void startVoiceNameCapture() {
         if (latestSheetSetId.isEmpty()) { showStatus("اول QR پاسخنامه را اسکن کن."); return; }
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR");
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "نام دانش‌آموز را بگو");
-        try { startActivityForResult(intent, VOICE_NAME_REQUEST); }
-        catch (ActivityNotFoundException e) { showStatus("تشخیص گفتار روی دستگاه در دسترس نیست."); }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, VOICE_NAME_REQUEST);
+            showStatus("برای ثبت صوتی، اجازهٔ میکروفون را بده و دوباره دکمه را بزن.");
+            return;
+        }
+        if (voiceRecognizer != null) voiceRecognizer.stop();
+        voiceRecognizer = new PersianVosk();
+        voiceRecognizer.start(this, new PersianVosk.Callback() {
+            @Override public void onText(String name) {
+                saveVoiceName(name);
+                if (voiceRecognizer != null) voiceRecognizer.stop();
+            }
+            @Override public void onStatus(String status) { showStatus(status); }
+        });
     }
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != VOICE_NAME_REQUEST) return;
-        if (resultCode != Activity.RESULT_OK || data == null) { showStatus("ثبت صوتی لغو شد."); return; }
-        ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-        String name = (matches == null || matches.isEmpty()) ? "" : matches.get(0).trim();
-        if (name.isEmpty()) { showStatus("نام دریافت نشد؛ دوباره تلاش کن."); return; }
+    private void saveVoiceName(String name) {
+        if (name == null || name.trim().isEmpty()) { showStatus("نام دریافت نشد؛ دوباره تلاش کن."); return; }
         try {
             JSONArray rows;
             try { rows = new JSONArray(prefs.getString("scanned_named_answer_sheets", "[]")); }
             catch (Exception e) { rows = new JSONArray(); }
             JSONObject row = new JSONObject();
-            row.put("name", name); row.put("examName", examName);
+            row.put("name", name.trim()); row.put("examName", examName);
             row.put("sheetSetId", latestSheetSetId); row.put("modelId", latestModelId);
             row.put("templateId", latestTemplateId); row.put("createdAt", System.currentTimeMillis());
             rows.put(row);
             prefs.edit().putString("scanned_named_answer_sheets", rows.toString()).apply();
-            showStatus("نام «" + name + "» به نسخهٔ " + (latestModelId.isEmpty() ? "قدیمی" : latestModelId) + " متصل شد.");
+            showStatus("نام «" + name.trim() + "» به نسخهٔ " + (latestModelId.isEmpty() ? "قدیمی" : latestModelId) + " متصل شد.");
         } catch (Exception e) { showStatus("ذخیرهٔ نام انجام نشد."); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     private void registerUniqueId(String uniqueKey, String successMessage) {
