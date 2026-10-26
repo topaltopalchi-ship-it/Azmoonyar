@@ -938,7 +938,7 @@ public class MainActivity extends Activity {
                 : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
             .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
             .setNeutralButton("ورود نمونه PDF ریاضی", (d,w) -> importPdfMathSample())
-            .setNegativeButton("ساخت نسخه‌های تصادفی", (d,w) -> generateRandomVariants())
+            .setNegativeButton("انتخاب تعداد نسخه و آماده‌سازی چاپ", (d,w) -> generateRandomVariants())
             .show();
     }
 
