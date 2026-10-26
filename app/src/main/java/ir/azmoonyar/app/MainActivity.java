@@ -156,7 +156,7 @@ public class MainActivity extends Activity {
                 new String[]{"تعریف / ویرایش آزمون", "ثبت و مدیریت شرکت‌کنندگان"},
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showStudentsDialog()});
         addButtonGrid(
-                new String[]{"چاپ پاسخنامه با QR اختصاصی", "ثبت کلید پاسخ"},
+                new String[]{"چاپ پرسشنامه و پاسخنامه", "ثبت کلید پاسخ"},
                 new View.OnClickListener[]{v -> showPrintStudentDialog(), v -> showKeyDialog()});
         addButtonGrid(
                 new String[]{"نمایش کلید و وضعیت تکمیل", "اسکن زنده پاسخنامه"},
