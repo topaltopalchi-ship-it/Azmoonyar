@@ -819,64 +819,135 @@ public class MainActivity extends Activity {
     }
 
     private void showKeyDialog() {
-        if(examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
-        LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
-        EditText q=new EditText(this); styleInput(q); q.setSingleLine(true); q.setInputType(2); q.setHint("شماره سؤال"); q.setText("1"); form.addView(q);
-        RadioGroup rg=new RadioGroup(this); rg.setOrientation(RadioGroup.HORIZONTAL);
-        String[] options={"A","B","C","D"};
-        for(String option:options) { RadioButton rb=new RadioButton(this); rb.setText(option); rb.setTag(option); styleOption(rb, java.util.Arrays.asList(options).indexOf(option)); rg.addView(rb); }
-        form.addView(rg);
-        new AlertDialog.Builder(this).setTitle("ثبت یک پاسخ در کلید").setMessage("شماره سؤال را وارد و گزینه صحیح را انتخاب کن.")
-          .setView(form).setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
-            int index;
-            try { index=Integer.parseInt(q.getText().toString().trim())-1; } catch(Exception e) { info("شماره سؤال معتبر نیست."); return; }
-            if(index<0 || index>=questionCount()) { info("شماره سؤال باید بین ۱ و "+questionCount()+" باشد."); return; }
-            int checked=rg.getCheckedRadioButtonId();
-            if(checked==-1) { info("یک گزینه از A تا D انتخاب کن."); return; }
-            RadioButton selected=rg.findViewById(checked);
-            StringBuilder k=new StringBuilder(key());
-            while(k.length()<questionCount()) k.append('-');
-            k.setCharAt(index, selected.getTag().toString().charAt(0));
-            prefs.edit().putString("answer_key",k.toString()).apply();
-            refreshSummary(); info("پاسخ سؤال "+(index+1)+" ذخیره شد.");
-          }).show();
+        if (examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(8), dp(6), dp(8), dp(2));
+
+        TextView targetLabel = new TextView(this);
+        targetLabel.setText("کلیدی که می‌خواهی ببینی یا ویرایش کنی:");
+        targetLabel.setTextSize(15);
+        form.addView(targetLabel);
+
+        RadioGroup targetGroup = new RadioGroup(this);
+        targetGroup.setOrientation(RadioGroup.VERTICAL);
+        String[] targetLabels = {"کلید اصلی بانک سؤال", "کلید نسخه الف (خودکار از نسخه چاپی)", "کلید نسخه ب (خودکار از نسخه چاپی)"};
+        String[] targets = {"main", "A", "B"};
+        for (int i = 0; i < targets.length; i++) {
+            RadioButton rb = new RadioButton(this);
+            rb.setText(targetLabels[i]);
+            rb.setTag(targets[i]);
+            targetGroup.addView(rb);
+            if (i == 0) rb.setChecked(true);
+        }
+        form.addView(targetGroup);
+
+        TextView currentKey = new TextView(this);
+        currentKey.setTextSize(13);
+        currentKey.setTextColor(Color.rgb(51, 65, 85));
+        currentKey.setPadding(0, dp(6), 0, dp(8));
+        form.addView(currentKey);
+
+        EditText q = new EditText(this);
+        styleInput(q);
+        q.setSingleLine(true);
+        q.setInputType(2);
+        q.setHint("شماره سؤال");
+        q.setText("1");
+        form.addView(q);
+
+        RadioGroup answerGroup = new RadioGroup(this);
+        answerGroup.setOrientation(RadioGroup.HORIZONTAL);
+        String[] options = {"A", "B", "C", "D"};
+        for (int i = 0; i < options.length; i++) {
+            RadioButton rb = new RadioButton(this);
+            rb.setText(options[i]);
+            rb.setTag(options[i]);
+            styleOption(rb, i);
+            answerGroup.addView(rb);
+        }
+        form.addView(answerGroup);
+
+        final String[] selectedTarget = {"main"};
+        Runnable updateTargetInfo = () -> {
+            String target = selectedTarget[0];
+            String value;
+            if ("main".equals(target)) {
+                value = buildOriginalBankKey();
+                currentKey.setText("کلید اصلی از پاسخ‌های صحیح بانک سؤال ساخته می‌شود.\n" + formatAnswerKey(value, questionCount()));
+            } else {
+                value = getGeneratedModelKey(target);
+                currentKey.setText(value.isEmpty()
+                    ? "هنوز نسخه " + target + " ساخته یا چاپ نشده است. ابتدا «چاپ پرسشنامه و پاسخنامه» را اجرا کن."
+                    : "کلید نسخه " + target + " به‌صورت خودکار از ترتیب واقعی سؤال‌ها و گزینه‌های نسخه ذخیره‌شده ساخته شده است.\n" + formatAnswerKey(value, questionCount()));
+            }
+        };
+        targetGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            RadioButton selected = group.findViewById(checkedId);
+            if (selected != null) {
+                selectedTarget[0] = String.valueOf(selected.getTag());
+                updateTargetInfo.run();
+            }
+        });
+        updateTargetInfo.run();
+
+        new AlertDialog.Builder(this)
+            .setTitle("کلید اصلی، الف و ب")
+            .setMessage("کلید اصلی از بانک سؤال ساخته می‌شود و کلیدهای الف و ب از نسخه‌های تولیدشده. برای جلوگیری از تغییر ناخواستهٔ کلید نسخه‌های چاپی، این صفحه فقط نمایش و بازیابی کلیدها را انجام می‌دهد.")
+            .setView(form)
+            .setNegativeButton("بستن", null)
+            .setPositiveButton("نمایش کلیدها", (d, w) -> showKeySummary())
+            .show();
+    }
+
+    private String buildOriginalBankKey() {
+        JSONArray bank = readQuestionBank();
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < questionCount(); i++) {
+            JSONObject q = i < bank.length() ? bank.optJSONObject(i) : null;
+            int correct = q == null ? -1 : q.optInt("correct_index", -1);
+            result.append(correct >= 0 && correct <= 3 ? (char)('A' + correct) : '-');
+        }
+        return result.toString();
+    }
+
+    private String getGeneratedModelKey(String model) {
+        String savedKey = prefs.getString("answer_key_model_" + model, "");
+        if (savedKey.length() >= questionCount()) return savedKey.substring(0, questionCount());
+        String stored = prefs.getString("model_questions_" + model, "");
+        if (stored.isEmpty()) return "";
+        try {
+            JSONArray questions = new JSONArray(stored);
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < questionCount(); i++) {
+                JSONObject q = i < questions.length() ? questions.optJSONObject(i) : null;
+                String letter = q == null ? "" : q.optString("correct_letter", "");
+                if (!letter.matches("[A-D]")) {
+                    int idx = q == null ? -1 : q.optInt("correct_index", -1);
+                    letter = idx >= 0 && idx <= 3 ? String.valueOf((char)('A' + idx)) : "-";
+                }
+                result.append(letter);
+            }
+            return result.toString();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private void showKeySummary() {
         if(examName().isEmpty()) { info("هنوز آزمونی تعریف نشده است."); return; }
         StringBuilder report = new StringBuilder();
         JSONArray bank = readQuestionBank();
-        StringBuilder fromBank = new StringBuilder();
-        for (int i = 0; i < Math.min(questionCount(), bank.length()); i++) {
-            JSONObject q = bank.optJSONObject(i);
-            int correct = q == null ? -1 : q.optInt("correct_index", -1);
-            fromBank.append(correct >= 0 && correct <= 3 ? (char)('A' + correct) : '-');
-        }
-        String bankKey = fromBank.length() > 0 ? fromBank.toString() : key();
+        String bankKey = buildOriginalBankKey();
         report.append("کلید اصلی بانک سؤال (ترتیب اولیه):\\n");
         report.append(formatAnswerKey(bankKey, questionCount())).append("\\n\\n");
         for (String model : new String[]{"A", "B"}) {
-            String stored = prefs.getString("model_questions_" + model, "");
             report.append("نسخه ").append(model).append(":\\n");
-            if (stored.isEmpty()) {
-                report.append("کلید نسخه در حافظهٔ برنامه پیدا نشد.\\n\\n");
-                continue;
-            }
-            try {
-                JSONArray questions = new JSONArray(stored);
-                StringBuilder modelKey = new StringBuilder();
-                for (int i = 0; i < Math.min(questionCount(), questions.length()); i++) {
-                    JSONObject q = questions.optJSONObject(i);
-                    String letter = q == null ? "" : q.optString("correct_letter", "");
-                    if (!letter.matches("[A-D]")) {
-                        int idx = q == null ? -1 : q.optInt("correct_index", -1);
-                        letter = idx >= 0 && idx <= 3 ? String.valueOf((char)('A' + idx)) : "-";
-                    }
-                    modelKey.append(letter);
-                }
-                report.append(formatAnswerKey(modelKey.toString(), questionCount())).append("\\n\\n");
-            } catch (Exception e) {
-                report.append("اطلاعات کلید نسخه قابل خواندن نیست.\\n\\n");
+            String modelKey = getGeneratedModelKey(model);
+            if (modelKey.isEmpty()) {
+                report.append("کلید نسخه در حافظهٔ برنامه پیدا نشد؛ ابتدا نسخه‌ها را چاپ کن.\\n\\n");
+            } else {
+                report.append(formatAnswerKey(modelKey, questionCount())).append("\\n\\n");
             }
         }
         report.append("توجه: کلید نسخه‌ها از آخرین اطلاعات ذخیره‌شدهٔ برنامه خوانده می‌شود؛ اگر چاپ قبلی با نسخه‌ای انجام شده که ترتیب نسخه‌ها را ذخیره نمی‌کرد، کلید دقیق همان چاپ از این اطلاعات قابل تضمین نیست.");
