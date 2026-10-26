@@ -163,8 +163,8 @@ public class MainActivity extends Activity {
                 new String[]{"نمایش کلید و وضعیت تکمیل", "اسکن زنده پاسخنامه"},
                 new View.OnClickListener[]{v -> showKeySummary(), v -> openScanner()});
         addButtonGrid(
-                new String[]{"مدل صوتی فارسی", "تنظیمات ذخیره تصاویر"},
-                new View.OnClickListener[]{v -> downloadPersianSpeechModel(), v -> showImageRetentionDialog()});
+                new String[]{"تنظیمات ذخیره تصاویر"},
+                new View.OnClickListener[]{v -> showImageRetentionDialog()});
         addButtonGrid(
                 new String[]{"گزارش‌ها و حریم خصوصی", "بانک سؤال"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showQuestionBank()});
@@ -176,135 +176,6 @@ public class MainActivity extends Activity {
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
-    }
-
-    private void downloadPersianSpeechModel() {
-        File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
-        if (new File(modelDir, "am/final.mdl").exists() && new File(modelDir, "conf/model.conf").exists()) {
-            return;
-        }
-        startPersianModelDownload(modelDir);
-    }
-
-    private void startPersianModelDownload(File modelDir) {
-        ProgressDialog progress = new ProgressDialog(this);
-        progress.setTitle("مدل صوتی فارسی");
-        progress.setMessage("در حال دانلود…");
-        progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        progress.setMax(100);
-        progress.setProgress(0);
-        progress.setCancelable(false);
-        progress.setCanceledOnTouchOutside(false);
-        progress.show();
-        new Thread(() -> {
-            File zipFile = new File(getCacheDir(), "persian-speech-model.zip");
-            File stagingDir = new File(getFilesDir(), "persian-speech-installing");
-            String error = null;
-            try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(
-                        "https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip").openConnection();
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(30000);
-                connection.setInstanceFollowRedirects(true);
-                connection.connect();
-                int code = connection.getResponseCode();
-                if (code < 200 || code >= 300) throw new java.io.IOException("HTTP " + code);
-                int totalBytes = connection.getContentLength();
-                try (InputStream in = connection.getInputStream();
-                     FileOutputStream out = new FileOutputStream(zipFile)) {
-                    byte[] buffer = new byte[16384];
-                    int count;
-                    long downloaded = 0;
-                    int lastPercent = -1;
-                    while ((count = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, count);
-                        downloaded += count;
-                        if (totalBytes > 0) {
-                            int percent = (int) Math.min(100, downloaded * 100L / totalBytes);
-                            if (percent != lastPercent) {
-                                lastPercent = percent;
-                                final int p = percent;
-                                runOnUiThread(() -> {
-                                    progress.setProgress(p);
-                                    progress.setMessage("مدل صوتی فارسی — " + p + "٪");
-                                });
-                            }
-                        } else {
-                            final long mb = downloaded / (1024 * 1024);
-                            runOnUiThread(() -> progress.setMessage("مدل صوتی فارسی — " + mb + " مگابایت دانلود شد"));
-                        }
-                    }
-                } finally {
-                    connection.disconnect();
-                }
-
-                runOnUiThread(() -> {
-                    progress.setProgress(100);
-                    progress.setMessage("در حال آماده‌سازی مدل صوتی فارسی…");
-                });
-                deleteTree(stagingDir);
-                if (!stagingDir.mkdirs() && !stagingDir.isDirectory()) {
-                    throw new java.io.IOException("ساخت پوشهٔ نصب ناموفق بود");
-                }
-                String prefix = "vosk-model-small-fa-0.42/";
-                try (ZipInputStream zip = new ZipInputStream(new java.io.BufferedInputStream(
-                        new java.io.FileInputStream(zipFile)))) {
-                    ZipEntry entry;
-                    byte[] buffer = new byte[16384];
-                    while ((entry = zip.getNextEntry()) != null) {
-                        String name = entry.getName();
-                        if (!name.startsWith(prefix)) continue;
-                        String relative = name.substring(prefix.length());
-                        if (relative.isEmpty()) continue;
-                        File target = new File(stagingDir, relative);
-                        String rootPath = stagingDir.getCanonicalPath() + File.separator;
-                        if (!target.getCanonicalPath().startsWith(rootPath)) {
-                            throw new java.io.IOException("مسیر نامعتبر در فایل مدل");
-                        }
-                        if (entry.isDirectory()) {
-                            if (!target.isDirectory() && !target.mkdirs()) throw new java.io.IOException("ساخت پوشه ناموفق بود");
-                        } else {
-                            File parent = target.getParentFile();
-                            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
-                                throw new java.io.IOException("ساخت پوشه ناموفق بود");
-                            }
-                            try (FileOutputStream out = new FileOutputStream(target)) {
-                                int count;
-                                while ((count = zip.read(buffer)) != -1) out.write(buffer, 0, count);
-                            }
-                        }
-                        zip.closeEntry();
-                    }
-                }
-                if (!new File(stagingDir, "am/final.mdl").exists()
-                        || !new File(stagingDir, "conf/model.conf").exists()) {
-                    throw new java.io.IOException("فایل‌های مدل کامل نیستند");
-                }
-                deleteTree(modelDir);
-                if (!stagingDir.renameTo(modelDir)) throw new java.io.IOException("انتقال مدل به پوشهٔ نهایی ناموفق بود");
-            } catch (Exception e) {
-                error = e.getMessage() == null ? "خطای ناشناخته" : e.getMessage();
-                deleteTree(stagingDir);
-            } finally {
-                //noinspection ResultOfMethodCallIgnored
-                zipFile.delete();
-            }
-            final String result = error;
-            runOnUiThread(() -> {
-                progress.dismiss();
-                if (result != null) {
-                    showStyledInfo("دریافت مدل صوتی فارسی کامل نشد. اینترنت را بررسی کن و برنامه را دوباره باز کن.");
-                }
-            });
-        }, "persian-speech-model-download").start();
-    }
-
-    private void deleteTree(File file) {
-        if (file == null || !file.exists()) return;
-        File[] children = file.listFiles();
-        if (children != null) for (File child : children) deleteTree(child);
-        //noinspection ResultOfMethodCallIgnored
-        file.delete();
     }
 
     private void openScanner() {
@@ -426,21 +297,16 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        Button voice = new Button(this);
-        voice.setText("🎙 گفتن نام با صدا");
-        voice.setAllCaps(false);
-        form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
                 .setView(form)
                 .setNegativeButton("انصراف", null)
                 .setPositiveButton("ذخیره", null)
                 .create();
-        voice.setOnClickListener(v -> startPersianNameCapture(name, voice));
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String studentName = name.getText().toString().trim();
             if (studentName.isEmpty()) {
-                info("نام شرکت‌کننده را وارد کن یا با صدا بگو.");
+                info("نام شرکت‌کننده را وارد کن.");
                 return;
             }
             JSONArray students = readStudents();
@@ -458,61 +324,6 @@ public class MainActivity extends Activity {
             }
         }));
         dialog.show();
-    }
-
-    private void startPersianNameCapture(EditText target, Button voiceButton) {
-        if (android.os.Build.VERSION.SDK_INT >= 23
-                && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 731);
-            voiceButton.setText("برای ضبط، مجوز میکروفن را بده");
-            return;
-        }
-        File modelDir = new File(getFilesDir(), "vosk-model-small-fa-0.42");
-        if (!new File(modelDir, "am/final.mdl").exists()) {
-            info("مدل صوتی فارسی هنوز آماده نیست؛ پس از تکمیل دانلود دوباره تلاش کن.");
-            return;
-        }
-        voiceButton.setEnabled(false);
-        voiceButton.setText("در حال آماده‌سازی میکروفن…");
-        new Thread(() -> {
-            PersianSpeechCapture capture = null;
-            try {
-                capture = new PersianSpeechCapture(modelDir.getAbsolutePath(), new PersianSpeechCapture.Listener() {
-                    @Override public void onText(String text) {
-                        runOnUiThread(() -> {
-                            target.setText(text);
-                            target.setSelection(target.getText().length());
-                            voiceButton.setText("🎙 گفتن نام با صدا");
-                            voiceButton.setEnabled(true);
-                        });
-                    }
-                    @Override public void onStatus(String status) {
-                        runOnUiThread(() -> voiceButton.setText(status));
-                    }
-                    @Override public void onError(String message) {
-                        runOnUiThread(() -> {
-                            voiceButton.setText("🎙 تلاش دوباره برای گفتن نام");
-                            voiceButton.setEnabled(true);
-                            info(message);
-                        });
-                    }
-                });
-                PersianSpeechCapture ready = capture;
-                runOnUiThread(() -> {
-                    voiceButton.setText("اکنون نام را بگو…");
-                    voiceButton.setEnabled(false);
-                });
-                capture.start();
-            } catch (Exception e) {
-                if (capture != null) capture.stop();
-                runOnUiThread(() -> {
-                    voiceButton.setText("🎙 گفتن نام با صدا");
-                    voiceButton.setEnabled(true);
-                    info("تشخیص گفتار شروع نشد؛ دوباره تلاش کن.");
-                });
-            }
-        }, "persian-name-recognition").start();
     }
 
     private void showPrintStudentDialog() {
