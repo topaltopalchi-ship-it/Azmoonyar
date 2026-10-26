@@ -1989,6 +1989,8 @@ public class MainActivity extends Activity {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
         StringBuilder message = new StringBuilder();
+        String institutionName = prefs.getString("institution_name", "").trim();
+        if (!institutionName.isEmpty()) message.append("مؤسسه: ").append(institutionName).append("\n");
         message.append("صندوق گزارش‌های محلی\n");
         message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\n\n");
         if (inbox.length() == 0) {
