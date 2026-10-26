@@ -1100,14 +1100,60 @@ public class MainActivity extends Activity {
         panel.addView(message);
         Button add = new Button(this); add.setText("افزودن سؤال"); add.setAllCaps(false);
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
+        Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); clearBank.setAllCaps(false);
+        clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button importButton = new Button(this); importButton.setText("ورود نمونه PDF ریاضی"); importButton.setAllCaps(false);
         importButton.setOnClickListener(v -> importPdfMathSample()); panel.addView(importButton);
+        Button clearPdf = new Button(this); clearPdf.setText("پاک کردن نمونه PDF (فرم‌های A و B)"); clearPdf.setAllCaps(false);
+        clearPdf.setOnClickListener(v -> confirmClearPdfSample()); panel.addView(clearPdf);
         Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
         Button generate = new Button(this); generate.setText("آماده‌سازی فرم واحد و کلید پاسخ"); generate.setAllCaps(false);
         generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
+    }
+
+    private void confirmClearQuestionBank() {
+        new AlertDialog.Builder(this).setTitle("پاک کردن بانک سؤال")
+            .setMessage("همهٔ سؤال‌های بانک و کلید فرم واحد پاک شوند؟ این کار قابل بازگشت نیست.")
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("پاک کردن", (d, w) -> {
+                String emptyKey = new String(new char[Math.max(1, questionCount())]).replace("\\0", "-");
+                prefs.edit().putString("question_bank_json", "[]")
+                    .putString("answer_key", emptyKey)
+                    .putString("answer_key_master", "")
+                    .putString("model_questions_master", "[]")
+                    .apply();
+                refreshSummary();
+                info("بانک سؤال و کلید فرم واحد پاک شدند.");
+            }).show();
+    }
+
+    private void confirmClearPdfSample() {
+        new AlertDialog.Builder(this).setTitle("پاک کردن نمونه PDF")
+            .setMessage("اطلاعات نمونهٔ PDF ریاضی و فرم‌های A و B از این دستگاه پاک شوند؟ بانک سؤال عمومی و مجموعه‌های دیگر حذف نمی‌شوند.")
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("پاک کردن", (d, w) -> {
+                SharedPreferences.Editor edit = prefs.edit()
+                    .remove("pdf_original_version_A").remove("pdf_original_version_B")
+                    .remove("answer_key_model_A").remove("answer_key_model_B")
+                    .remove("model_questions_A").remove("model_questions_B")
+                    .remove("pdf_original_version_A").remove("pdf_original_version_B")
+                    .remove("qr_payload_model_A").remove("qr_payload_model_B")
+                    .remove("original_forms_corrected_v2");
+                try {
+                    for (String keyName : prefs.getAll().keySet()) {
+                        if (keyName.startsWith("issued_exam_") || keyName.startsWith("saved_variant_")) {
+                            String value = prefs.getString(keyName, "");
+                            if (value.contains("ریاضی (۱)") || value.contains("fixed_original_order")) edit.remove(keyName);
+                        }
+                    }
+                } catch (Exception ignored) {}
+                edit.apply();
+                refreshSummary();
+                info("داده‌های نمونه PDF پاک شدند.");
+            }).show();
     }
 
     private JSONArray readSavedExamBatches() {
