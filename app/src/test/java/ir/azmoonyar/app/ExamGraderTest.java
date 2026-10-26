@@ -3,14 +3,19 @@ package ir.azmoonyar.app;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Test;
+
 import static org.junit.Assert.*;
 
 public class ExamGraderTest {
+    private JSONObject variant(String sheetSetId, String variantId, String answerKey) throws Exception {
+        return new JSONObject()
+                .put("sheet_set_id", sheetSetId)
+                .put("variant_id", variantId)
+                .put("answer_key", answerKey);
+    }
+
     @Test public void gradesAnswersAndCountsBlankAndReviewSeparately() throws Exception {
-        JSONObject variant = new JSONObject();
-        variant.put("variant_id", "V1");
-        variant.put("sheet_set_id", "qr-unique-1");
-        variant.put("answer_key", "ABCD");
+        JSONObject variant = variant("qr-unique-1", "V1", "ABCD");
         ExamGrader.Result result = ExamGrader.grade(
                 variant, new String[]{"A", "D", "", "?"});
         assertEquals(4, result.total);
@@ -19,19 +24,61 @@ public class ExamGraderTest {
         assertEquals(1, result.blank);
         assertEquals(1, result.review);
         assertEquals(25.0, result.percentage, 0.001);
+        assertEquals("V1", result.variantId);
+        assertEquals(4, result.itemResults.length());
     }
 
     @Test public void findsOnlyTheExactSavedQrSet() throws Exception {
         JSONArray variants = new JSONArray();
-        variants.put(new JSONObject().put("sheet_set_id", "qr-a").put("variant_id", "V1"));
-        variants.put(new JSONObject().put("sheet_set_id", "qr-b").put("variant_id", "V2"));
+        variants.put(variant("qr-a", "V1", "ABCD"));
+        variants.put(variant("qr-b", "V2", "DCBA"));
         assertEquals("V2", ExamGrader.findVariant(variants, "qr-b").optString("variant_id"));
         assertNull(ExamGrader.findVariant(variants, "qr-missing"));
+        assertNull(ExamGrader.findVariant(variants, ""));
+        assertNull(ExamGrader.findVariant(null, "qr-a"));
+    }
+
+    @Test public void blankAndReviewAreNotCountedAsIncorrect() throws Exception {
+        ExamGrader.Result result = ExamGrader.grade(
+                variant("qr-a", "V1", "ABCD"), new String[]{"", "?", "BLANK", "REVIEW"});
+        assertEquals(0, result.correct);
+        assertEquals(0, result.incorrect);
+        assertEquals(2, result.blank);
+        assertEquals(2, result.review);
+    }
+
+    @Test public void serializesStableGradeSummary() throws Exception {
+        ExamGrader.Result result = ExamGrader.grade(
+                variant("qr-a", "V1", "AB"), new String[]{"A", "B"});
+        JSONObject json = result.toJson();
+        assertEquals("V1", json.getString("variant_id"));
+        assertEquals(2, json.getInt("correct"));
+        assertEquals(100.0, json.getDouble("percentage"), 0.001);
+        assertEquals(2, json.getJSONArray("items").length());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void rejectsMismatchedAnswerCount() throws Exception {
-        JSONObject variant = new JSONObject().put("answer_key", "ABCD");
-        ExamGrader.grade(variant, new String[]{"A", "B"});
+        ExamGrader.grade(variant("qr-a", "V1", "ABCD"), new String[]{"A", "B"});
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsMissingVariant() throws Exception {
+        ExamGrader.grade(null, new String[]{"A"});
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsMissingAnswerKey() throws Exception {
+        ExamGrader.grade(variant("qr-a", "V1", ""), new String[]{});
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsInvalidOption() throws Exception {
+        ExamGrader.grade(variant("qr-a", "V1", "AB"), new String[]{"E", "B"});
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsInvalidAnswerKey() throws Exception {
+        ExamGrader.grade(variant("qr-a", "V1", "AX"), new String[]{"A", "B"});
     }
 }
