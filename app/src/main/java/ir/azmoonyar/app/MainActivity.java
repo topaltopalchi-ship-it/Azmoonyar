@@ -846,16 +846,13 @@ public class MainActivity extends Activity {
         if(examName().isEmpty()) { info("هنوز آزمونی تعریف نشده است."); return; }
         StringBuilder report = new StringBuilder();
         JSONArray bank = readQuestionBank();
-        String bankKey = key();
-        if (bankKey.length() < questionCount() || bankKey.indexOf("-") >= 0) {
-            StringBuilder fromBank = new StringBuilder();
-            for (int i = 0; i < Math.min(questionCount(), bank.length()); i++) {
-                JSONObject q = bank.optJSONObject(i);
-                int correct = q == null ? -1 : q.optInt("correct_index", -1);
-                fromBank.append(correct >= 0 && correct <= 3 ? (char)('A' + correct) : '-');
-            }
-            if (fromBank.length() > 0) bankKey = fromBank.toString();
+        StringBuilder fromBank = new StringBuilder();
+        for (int i = 0; i < Math.min(questionCount(), bank.length()); i++) {
+            JSONObject q = bank.optJSONObject(i);
+            int correct = q == null ? -1 : q.optInt("correct_index", -1);
+            fromBank.append(correct >= 0 && correct <= 3 ? (char)('A' + correct) : '-');
         }
+        String bankKey = fromBank.length() > 0 ? fromBank.toString() : key();
         report.append("کلید اصلی بانک سؤال (ترتیب اولیه):\\n");
         report.append(formatAnswerKey(bankKey, questionCount())).append("\\n\\n");
         for (String model : new String[]{"A", "B"}) {
