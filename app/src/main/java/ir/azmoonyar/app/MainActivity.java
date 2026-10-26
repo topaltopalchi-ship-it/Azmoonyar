@@ -1241,7 +1241,7 @@ public class MainActivity extends Activity {
 
     /** Seeds the two photographed forms on first launch so they are already in the app. */
     private void seedOriginalPdfVersionsIfMissing() {
-        if (prefs.contains("pdf_original_version_A") && prefs.contains("pdf_original_version_B")) return;
+        if (prefs.getBoolean("original_forms_corrected_v2", false)) return;
         try {
             JSONArray a = new JSONArray();
             addPdfQuestion(a, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "فرم A");
@@ -1249,7 +1249,7 @@ public class MainActivity extends Activity {
             addPdfQuestion(a, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
             addPdfQuestion(a, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
             addPdfQuestion(a, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
-            addPdfQuestion(a, "54+12 = ?", new String[]{"67","69","56","68"}, -1, "فرم A؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+            addPdfQuestion(a, "54+12 = ?", new String[]{"67","69","66","68"}, 2, "فرم A؛ گزینه C اصلاح شد به ۶۶");
             addPdfQuestion(a, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
             addPdfQuestion(a, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
             addPdfQuestion(a, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
@@ -1258,7 +1258,7 @@ public class MainActivity extends Activity {
             JSONArray b = new JSONArray();
             addPdfQuestion(b, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
             addPdfQuestion(b, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
-            addPdfQuestion(b, "54+12 = ?", new String[]{"67","69","68","56"}, -1, "فرم B؛ پاسخ صحیح ۶۶ در گزینه‌ها نیست");
+            addPdfQuestion(b, "54+12 = ?", new String[]{"67","69","66","56"}, 2, "فرم B؛ گزینه C اصلاح شد به ۶۶");
             addPdfQuestion(b, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
             addPdfQuestion(b, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
             addPdfQuestion(b, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
@@ -1282,7 +1282,7 @@ public class MainActivity extends Activity {
                 .putString("answer_key_model_B", fixedB.optString("answer_key"))
                 .putString("answer_key_master", masterKey)
                 .putString("model_questions_master", a.toString())
-                .putInt("issued_model_count", 2).apply();
+                .putInt("issued_model_count", 2).putBoolean("original_forms_corrected_v2", true).apply();
             registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
         } catch (Exception ignored) {
             // The manual import action remains available if first-launch seeding fails.
@@ -1293,7 +1293,7 @@ public class MainActivity extends Activity {
     private void importPdfMathSample() {
         new AlertDialog.Builder(this)
             .setTitle("ثبت دو فرم اصلی A و B")
-            .setMessage("سؤال‌ها و گزینه‌ها مطابق دو عکس وارد می‌شوند. در سؤال جمع ۵۴+۱۲، پاسخ ۶۶ در گزینه‌های چاپ‌شده نیست؛ پاسخ این سؤال در کلید با «-» مشخص می‌شود و باید بررسی شود.")
+            .setMessage("سؤال‌ها مطابق دو عکس ثبت می‌شوند؛ برای سؤال ۵۴+۱۲، گزینه C به ۶۶ اصلاح و در کلید پاسخ ثبت می‌شود.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ثبت فرم‌های A و B", (dialog, which) -> {
                 try {
@@ -1304,7 +1304,7 @@ public class MainActivity extends Activity {
                     addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
                     addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
                     addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
-                    addPdfQuestion(versionA, "54+12 = ?", new String[]{"67","56","68","69"}, -1, "فرم A؛ پاسخ ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionA, "54+12 = ?", new String[]{"67","56","66","69"}, 2, "فرم A؛ گزینه C اصلاح شد به ۶۶");
                     addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
                     addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
                     addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
@@ -1314,7 +1314,7 @@ public class MainActivity extends Activity {
                     JSONArray versionB = new JSONArray();
                     addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
                     addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
-                    addPdfQuestion(versionB, "54+12 = ?", new String[]{"67","56","68","69"}, -1, "فرم B؛ پاسخ ۶۶ در گزینه‌ها نیست");
+                    addPdfQuestion(versionB, "54+12 = ?", new String[]{"67","56","66","69"}, 2, "فرم B؛ گزینه C اصلاح شد به ۶۶");
                     addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
                     addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
                     addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
@@ -1343,7 +1343,7 @@ public class MainActivity extends Activity {
                         .putInt("issued_model_count", 2).apply();
                     registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
                     refreshSummary();
-                    info("دو نسخهٔ A و B ثبت شدند؛ کلید اصلی از نسخهٔ مبنا نگهداری می‌شود و نسخهٔ C ساخته نمی‌شود. کلید اصلی: "
+                    info("دو نسخهٔ A و B ثبت شدند؛ پاسخ سؤال ۵۴+۱۲ گزینه C=۶۶ است و کلیدها به‌روزرسانی شدند. نسخهٔ C ساخته نمی‌شود. کلید اصلی: "
                         + masterKey + ".");
                 } catch (Exception e) {
                     info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
