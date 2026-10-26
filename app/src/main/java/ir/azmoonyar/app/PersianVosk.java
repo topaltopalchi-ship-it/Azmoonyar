@@ -50,7 +50,8 @@ public final class PersianVosk {
                 }
                 callbackStatus(callback, "مدل آفلاین فارسی آماده است.");
             } catch (Exception e) {
-                callbackStatus(callback, "دانلود مدل Vosk ناموفق بود؛ اینترنت و فضای خالی را بررسی کن.");
+                String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                callbackStatus(callback, "دانلود مدل Vosk ناموفق بود: " + reason + "؛ اینترنت را بررسی کن و دوباره تلاش کن.");
             }
         });
     }
@@ -137,18 +138,60 @@ public final class PersianVosk {
     }
 
     private static void downloadAndExtract(File target) throws Exception {
-        File zip = new File(target.getParentFile(), "vosk-fa.zip");
-        File temp = new File(target.getParentFile(), "vosk-fa-extract");
+        File parent = target.getParentFile();
+        File zip = new File(parent, "vosk-fa.zip");
+        File partial = new File(parent, "vosk-fa.zip.part");
+        File temp = new File(parent, "vosk-fa-extract");
         deleteTree(temp);
-        HttpURLConnection connection = (HttpURLConnection) new URL(MODEL_URL).openConnection();
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(60000);
-        connection.setInstanceFollowRedirects(true);
-        try (InputStream in = new BufferedInputStream(connection.getInputStream());
-             FileOutputStream out = new FileOutputStream(zip)) {
-            byte[] buffer = new byte[32768]; int n;
-            while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
-        } finally { connection.disconnect(); }
+        zip.delete();
+        partial.delete();
+
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(MODEL_URL);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(30000);
+                connection.setReadTimeout(180000);
+                connection.setInstanceFollowRedirects(true);
+                connection.setRequestProperty("User-Agent", "Azmoonyar-Android/0.2");
+                connection.setRequestProperty("Accept-Encoding", "identity");
+                int response = connection.getResponseCode();
+                if (response != HttpURLConnection.HTTP_OK) {
+                    throw new java.io.IOException("HTTP " + response + " from model server");
+                }
+                try (InputStream in = new BufferedInputStream(connection.getInputStream());
+                     FileOutputStream out = new FileOutputStream(partial)) {
+                    byte[] buffer = new byte[65536];
+                    int n;
+                    while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                }
+                if (!partial.isFile() || partial.length() < 1000000L) {
+                    throw new java.io.IOException("downloaded file is too small");
+                }
+                if (!partial.renameTo(zip)) {
+                    throw new java.io.IOException("could not finalize downloaded ZIP");
+                }
+                lastError = null;
+                break;
+            } catch (Exception e) {
+                lastError = e;
+                partial.delete();
+                if (attempt < 3) {
+                    try { Thread.sleep(1500L * attempt); }
+                    catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new java.io.IOException("download interrupted", interrupted);
+                    }
+                }
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }
+        if (lastError != null) throw new java.io.IOException(
+                "download failed after 3 attempts (" + lastError.getMessage() + ")", lastError);
+
         temp.mkdirs();
         try (ZipInputStream zin = new ZipInputStream(new BufferedInputStream(new java.io.FileInputStream(zip)))) {
             ZipEntry entry;
@@ -160,22 +203,31 @@ public final class PersianVosk {
                 if (relative.isEmpty()) { zin.closeEntry(); continue; }
                 File outFile = new File(temp, relative);
                 String canonicalRoot = temp.getCanonicalPath() + File.separator;
-                if (!outFile.getCanonicalPath().startsWith(canonicalRoot)) throw new java.io.IOException("Invalid archive path");
+                if (!outFile.getCanonicalPath().startsWith(canonicalRoot)) {
+                    throw new java.io.IOException("invalid model archive path");
+                }
                 if (entry.isDirectory()) outFile.mkdirs();
                 else {
-                    File parent = outFile.getParentFile();
-                    if (parent != null) parent.mkdirs();
+                    File outputParent = outFile.getParentFile();
+                    if (outputParent != null) outputParent.mkdirs();
                     try (FileOutputStream out = new FileOutputStream(outFile)) {
-                        byte[] buffer = new byte[32768]; int n;
+                        byte[] buffer = new byte[32768];
+                        int n;
                         while ((n = zin.read(buffer)) != -1) out.write(buffer, 0, n);
                     }
                 }
                 zin.closeEntry();
             }
+        } catch (Exception e) {
+            deleteTree(temp);
+            throw new java.io.IOException("could not extract model ZIP: " + e.getMessage(), e);
         }
-        if (!isModelReady(temp)) { deleteTree(temp); throw new java.io.IOException("Model archive incomplete"); }
+        if (!isModelReady(temp)) {
+            deleteTree(temp);
+            throw new java.io.IOException("model ZIP does not contain the expected Persian model files");
+        }
         deleteTree(target);
-        if (!temp.renameTo(target)) throw new java.io.IOException("Could not install model");
+        if (!temp.renameTo(target)) throw new java.io.IOException("could not install model");
         zip.delete();
     }
 
