@@ -25,12 +25,16 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Prepare signing keystore
-        if: env.AZMOONYAR_KEYSTORE_BASE64 != ''
+        if: env.AZMOONYAR_KEYSTORE_BASE64 != '' && env.AZMOONYAR_KEYSTORE_PASSWORD != '' && env.AZMOONYAR_KEY_ALIAS != '' && env.AZMOONYAR_KEY_PASSWORD != ''
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p "$RUNNER_TEMP/azmoonyar-signing"
-          printf '%s' "$AZMOONYAR_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/azmoonyar-signing/release.jks"
-          echo "AZMOONYAR_KEYSTORE_PATH=$RUNNER_TEMP/azmoonyar-signing/release.jks" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/azmoonyar-signing/release.jks"
+          printf '%s' "$AZMOONYAR_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          keytool -list -keystore "$KEYSTORE" -storepass "$AZMOONYAR_KEYSTORE_PASSWORD" -alias "$AZMOONYAR_KEY_ALIAS" >/dev/null
+          echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
       - name: Compile debug and release variants
         run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
@@ -40,14 +44,14 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Upload signed release APK
-        if: env.AZMOONYAR_KEYSTORE_BASE64 != ''
+        if: env.AZMOONYAR_KEYSTORE_BASE64 != '' && env.AZMOONYAR_KEYSTORE_PASSWORD != '' && env.AZMOONYAR_KEY_ALIAS != '' && env.AZMOONYAR_KEY_PASSWORD != ''
         uses: actions/upload-artifact@v4
         with:
           name: azmoonyar-release-signed
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
       - name: Upload unsigned release APK (signing secrets not configured)
-        if: env.AZMOONYAR_KEYSTORE_BASE64 == ''
+        if: env.AZMOONYAR_KEYSTORE_BASE64 == '' || env.AZMOONYAR_KEYSTORE_PASSWORD == '' || env.AZMOONYAR_KEY_ALIAS == '' || env.AZMOONYAR_KEY_PASSWORD == ''
         uses: actions/upload-artifact@v4
         with:
           name: azmoonyar-release-unsigned
