@@ -1273,8 +1273,22 @@ public class MainActivity extends Activity {
                     addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "نسخه ۲");
                     addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "نسخه ۲");
 
+                    // Rebuild original A/B questionnaires plus the canonical master questionnaire.
+                    JSONArray versionC = new JSONArray();
+                    addPdfQuestion(versionC, "8×6 = ?", new String[]{"45","48","49","76"}, 1, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "4+4 = ?", new String[]{"9","7","8","2"}, 2, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "12+54 = ?", new String[]{"68","66","67","69"}, 1, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "5×5 = ?", new String[]{"32","28","25","85"}, 2, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "12−4 = ?", new String[]{"6","8","7","0"}, 1, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "18÷3 = ?", new String[]{"9","5","6","7"}, 2, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "8÷2 = ?", new String[]{"8","4","5","3"}, 1, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "8×4 = ?", new String[]{"31","32","34","65"}, 1, "پرسشنامه اصلی");
+                    addPdfQuestion(versionC, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "پرسشنامه اصلی");
+
                     JSONObject fixedA = makeFixedPdfVariant("A", versionA);
                     JSONObject fixedB = makeFixedPdfVariant("B", versionB);
+                    JSONObject fixedC = makeFixedPdfVariant("C", versionC);
                     prefs.edit().putString("exam_name", "ریاضی (۱)")
                         .putInt("question_count", 10)
                         .putString("question_bank_json", versionA.toString())
@@ -1285,11 +1299,15 @@ public class MainActivity extends Activity {
                         .putString("model_questions_B", versionB.toString())
                         .putString("answer_key_model_A", fixedA.optString("answer_key"))
                         .putString("answer_key_model_B", fixedB.optString("answer_key"))
-                        .putInt("issued_model_count", 2).apply();
+                        .putString("pdf_original_version_C", fixedC.toString())
+                        .putString("model_questions_C", versionC.toString())
+                        .putString("answer_key_model_C", fixedC.optString("answer_key"))
+                        .putString("answer_key_master", fixedC.optString("answer_key"))
+                        .putString("model_questions_master", versionC.toString())
+                        .putInt("issued_model_count", 3).apply();
                     refreshSummary();
-                    info("هر دو نسخهٔ اصلی ثبت شدند. کلید نسخه ۱: " + fixedA.optString("answer_key")
-                        + "؛ کلید نسخه ۲: " + fixedB.optString("answer_key")
-                        + "؛ خط تیره یعنی پاسخ صحیح در گزینه‌های PDF موجود نیست.");
+                    info("نسخه‌های A و B و پرسشنامه اصلی با کلیدهای تصحیح در حافظه برنامه ثبت شدند. کلید اصلی: "
+                        + fixedC.optString("answer_key") + ". شناسه QR برگه‌های چاپ‌شده باید جداگانه تطبیق داده شود.");
                 } catch (Exception e) {
                     info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
                 }
