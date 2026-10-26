@@ -10,6 +10,9 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.content.ActivityNotFoundException;
+import java.util.ArrayList;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.graphics.Color;
@@ -40,6 +43,8 @@ import java.util.zip.ZipInputStream;
 
 /** Offline exam setup and answer-key editor. */
 public class MainActivity extends Activity {
+    private static final int STUDENT_VOICE_REQUEST = 4201;
+    private EditText activeStudentNameInput;
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
@@ -307,6 +312,19 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        Button voice = new Button(this);
+        voice.setText("🎙 گفتن نام با صدا");
+        voice.setAllCaps(false);
+        voice.setOnClickListener(v -> {
+            activeStudentNameInput = name;
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR");
+            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "نام شرکت‌کننده را بگو");
+            try { startActivityForResult(intent, STUDENT_VOICE_REQUEST); }
+            catch (ActivityNotFoundException e) { info("تشخیص گفتار در این دستگاه در دسترس نیست؛ نام را تایپ کن."); }
+        });
+        form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
                 .setView(form)
@@ -333,6 +351,13 @@ public class MainActivity extends Activity {
             }
         }));
         dialog.show();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != STUDENT_VOICE_REQUEST || resultCode != Activity.RESULT_OK || data == null || activeStudentNameInput == null) return;
+        ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        if (matches != null && !matches.isEmpty()) activeStudentNameInput.setText(matches.get(0).trim());
     }
 
     private void showPrintStudentDialog() {
