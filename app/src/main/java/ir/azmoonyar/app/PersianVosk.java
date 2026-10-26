@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/** Downloads and runs the Persian Vosk model locally; audio is not sent to Google. */
+/** Downloads and runs the Persian speech model locally; audio is not sent to Google. */
 public final class PersianVosk {
     private static final String MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip";
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
@@ -45,13 +45,13 @@ public final class PersianVosk {
             try {
                 File dir = modelDir(app);
                 if (!isModelReady(dir)) {
-                    callbackStatus(callback, "در حال دانلود مدل فارسی Vosk (حدود ۵۳ مگابایت)…");
-                    downloadAndExtract(dir);
+                    callbackStatus(callback, "در حال دریافت مدل صوتی فارسی؛ لطفاً اینترنت را روشن نگه دار.");
+                    downloadAndExtract(dir, callback);
                 }
                 callbackStatus(callback, "مدل آفلاین فارسی آماده است.");
             } catch (Exception e) {
                 String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                callbackStatus(callback, "دانلود مدل Vosk ناموفق بود: " + reason + "؛ اینترنت را بررسی کن و دوباره تلاش کن.");
+                callbackStatus(callback, "دریافت مدل صوتی فارسی ناموفق بود: " + reason + "؛ اینترنت را بررسی کن و دوباره تلاش کن.");
             }
         });
     }
@@ -137,7 +137,7 @@ public final class PersianVosk {
                 && new File(dir, "conf").isDirectory() && new File(dir, "graph").isDirectory();
     }
 
-    private static void downloadAndExtract(File target) throws Exception {
+    private static void downloadAndExtract(File target, Callback callback) throws Exception {
         File parent = target.getParentFile();
         File zip = new File(parent, "vosk-fa.zip");
         File partial = new File(parent, "vosk-fa.zip.part");
@@ -165,7 +165,20 @@ public final class PersianVosk {
                      FileOutputStream out = new FileOutputStream(partial)) {
                     byte[] buffer = new byte[65536];
                     int n;
-                    while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                    long downloaded = 0L;
+                    long total = connection.getContentLengthLong();
+                    long nextNotice = 1024L * 1024L;
+                    while ((n = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, n);
+                        downloaded += n;
+                        if (downloaded >= nextNotice) {
+                            String progress = total > 0
+                                ? String.format(java.util.Locale.US, "در حال دریافت مدل صوتی فارسی: %.1f از %.1f مگابایت", downloaded / 1048576.0, total / 1048576.0)
+                                : String.format(java.util.Locale.US, "دریافت مدل صوتی فارسی: %.1f مگابایت", downloaded / 1048576.0);
+                            callbackStatus(callback, progress);
+                            nextNotice = downloaded + 1024L * 1024L;
+                        }
+                    }
                 }
                 if (!partial.isFile() || partial.length() < 1000000L) {
                     throw new java.io.IOException("downloaded file is too small");
