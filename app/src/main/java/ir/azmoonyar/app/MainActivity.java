@@ -1946,6 +1946,8 @@ public class MainActivity extends Activity {
         }
         double average = sum / results.length();
         StringBuilder analysis = new StringBuilder();
+        String institutionName = prefs.getString("institution_name", "").trim();
+        if (!institutionName.isEmpty()) analysis.append("مؤسسه: ").append(institutionName).append("\n\n");
         analysis.append("تعداد برگه‌های تصحیح‌شده: ").append(results.length()).append("\n")
             .append("میانگین نمره: ").append(String.format(Locale.ROOT, "%.2f", average)).append("%\n")
             .append("بالاترین نمره: ").append(String.format(Locale.ROOT, "%.2f", highest)).append("%\n")
