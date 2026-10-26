@@ -16,6 +16,23 @@ public final class RandomExamBuilder {
     public static JSONArray generateVariants(JSONArray bank, int variantCount, long seed) throws Exception {
         if (bank == null || bank.length() == 0) throw new IllegalArgumentException("بانک سؤال خالی است.");
         if (variantCount < 1 || variantCount > 10) throw new IllegalArgumentException("تعداد نسخه باید بین ۱ تا ۱۰ باشد.");
+        // Fail closed before randomization: a printed exam must have a complete, defensible key.
+        for (int i = 0; i < bank.length(); i++) {
+            JSONObject q = bank.optJSONObject(i);
+            if (q == null) throw new IllegalArgumentException("سؤال شماره " + (i + 1) + " معتبر نیست.");
+            if (q.optString("text", "").trim().isEmpty())
+                throw new IllegalArgumentException("متن سؤال شماره " + (i + 1) + " خالی است.");
+            JSONArray options = q.optJSONArray("options");
+            if (options == null || options.length() != 4)
+                throw new IllegalArgumentException("سؤال شماره " + (i + 1) + " باید دقیقاً چهار گزینه داشته باشد.");
+            for (int j = 0; j < 4; j++) {
+                if (options.optString(j, "").trim().isEmpty())
+                    throw new IllegalArgumentException("گزینه " + (char)('A' + j) + " سؤال " + (i + 1) + " خالی است.");
+            }
+            int correct = q.optInt("correct_index", -1);
+            if (correct < 0 || correct > 3)
+                throw new IllegalArgumentException("پاسخ صحیح سؤال شماره " + (i + 1) + " مشخص نشده است؛ قبل از چاپ آن را اصلاح کن.");
+        }
         JSONArray variants = new JSONArray();
         Random random = new Random(seed);
         Set<String> usedQuestionOrders = new HashSet<>();
@@ -47,8 +64,7 @@ public final class RandomExamBuilder {
                     throw new IllegalArgumentException("هر سؤال باید دقیقاً چهار گزینه داشته باشد.");
                 }
                 int correct = source.optInt("correct_index", -1);
-                if (correct < -1 || correct > 3) throw new IllegalArgumentException("پاسخ صحیح یک سؤال معتبر نیست.");
-                // -1 means the source PDF has no defensible correct option; preserve it as an unresolved key.
+                if (correct < 0 || correct > 3) throw new IllegalArgumentException("پاسخ صحیح یک سؤال معتبر نیست.");
                 List<Integer> optionOrder = new ArrayList<>();
                 for (int i = 0; i < 4; i++) optionOrder.add(i);
                 Collections.shuffle(optionOrder, random);
