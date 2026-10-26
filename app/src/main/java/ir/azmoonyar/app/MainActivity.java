@@ -812,12 +812,57 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("بانک سؤال (" + bank.length() + ")")
             .setMessage(bank.length() == 0
-                ? "هنوز سؤالی ثبت نشده است. برای ساخت نسخه‌های تصادفی، سؤال و چهار گزینه و پاسخ صحیح را ثبت کن."
+                ? "هنوز سؤالی ثبت نشده است. می‌توانی نمونهٔ ۱۰ سؤالی را از PDF ریاضی وارد کنی."
                 : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.")
             .setPositiveButton("افزودن سؤال", (d,w) -> showAddBankQuestionDialog())
-            .setNeutralButton("بستن", null)
+            .setNeutralButton("ورود نمونه PDF ریاضی", (d,w) -> importPdfMathSample())
             .setNegativeButton("ساخت نسخه‌های تصادفی", (d,w) -> generateRandomVariants())
             .show();
+    }
+
+    /** Imports the readable base question set from AzmoonYar-ریاضی(1).PDF. */
+    private void importPdfMathSample() {
+        new AlertDialog.Builder(this)
+            .setTitle("جایگزینی بانک با نمونهٔ PDF")
+            .setMessage("این کار بانک سؤال فعلی را با ۱۰ سؤال استخراج‌شده از PDF جایگزین می‌کند. سؤال ۶ در فایل پاسخ صحیح ندارد (۱۲+۵۴=۶۶ ولی ۶۶ بین گزینه‌ها نیست) و به‌عنوان «کلید نامشخص» ذخیره می‌شود.")
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("جایگزینی بانک", (dialog, which) -> {
+                try {
+                    JSONArray bank = new JSONArray();
+                    addPdfQuestion(bank, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "ضرب");
+                    addPdfQuestion(bank, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "تفریق");
+                    addPdfQuestion(bank, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "ضرب");
+                    addPdfQuestion(bank, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "ضرب");
+                    addPdfQuestion(bank, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "ضرب");
+                    addPdfQuestion(bank, "12+54 = ?", new String[]{"67","69","56","68"}, -1, "جمع؛ PDF گزینهٔ صحیح ۶۶ را ندارد");
+                    addPdfQuestion(bank, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
+                    addPdfQuestion(bank, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "تقسیم؛ جهت خواندن مطابق PDF");
+                    addPdfQuestion(bank, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "جمع");
+                    addPdfQuestion(bank, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "تقسیم؛ جهت خواندن مطابق PDF");
+                    prefs.edit().putString("exam_name", "ریاضی (۱)")
+                        .putInt("question_count", 10).putString("question_bank_json", bank.toString())
+                        .putString("answer_key", "DBBDD-B-CB".replace("-", ""))
+                        .remove("model_questions_A").remove("model_questions_B")
+                        .remove("answer_key_model_A").remove("answer_key_model_B")
+                        .putInt("issued_model_count", 0).apply();
+                    refreshSummary();
+                    info("۱۰ سؤال PDF وارد شد. توجه: پاسخ سؤال ۶ در فایل موجود نیست؛ تا اصلاح آن، ساخت نسخهٔ تصادفی مجاز نخواهد بود.");
+                } catch (Exception e) {
+                    info("ورود نمونه PDF انجام نشد؛ دوباره تلاش کن.");
+                }
+            }).show();
+    }
+
+    private void addPdfQuestion(JSONArray bank, String text, String[] options, int correctIndex, String topic) throws Exception {
+        JSONObject q = new JSONObject();
+        q.put("id", UUID.randomUUID().toString());
+        q.put("text", text);
+        q.put("topic", topic);
+        JSONArray opts = new JSONArray();
+        for (String option : options) opts.put(option);
+        q.put("options", opts);
+        q.put("correct_index", correctIndex);
+        bank.put(q);
     }
 
     private void showAddBankQuestionDialog() {
