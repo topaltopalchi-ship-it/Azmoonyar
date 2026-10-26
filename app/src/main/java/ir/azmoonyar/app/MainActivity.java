@@ -1073,7 +1073,7 @@ public class MainActivity extends Activity {
         panel.setPadding(dp(12), dp(8), dp(12), dp(8));
         TextView message = new TextView(this);
         message.setText(bank.length() == 0
-                ? "هنوز سؤالی ثبت نشده است. می‌توانی نمونهٔ ۱۰ سؤالی را از PDF ریاضی وارد کنی."
+                ? "هنوز سؤالی ثبت نشده است. برای شروع، سؤال‌ها را به‌صورت دستی اضافه کن."
                 : "تعداد سؤال‌های ذخیره‌شده: " + bank.length() + "\nهر نسخه از همین بانک ساخته می‌شود؛ ترتیب سؤال‌ها و گزینه‌ها جابه‌جا می‌شوند.");
         message.setTextSize(15);
         message.setPadding(0, 0, 0, dp(12));
@@ -1082,8 +1082,6 @@ public class MainActivity extends Activity {
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
         Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); clearBank.setAllCaps(false);
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
-        Button importButton = new Button(this); importButton.setText("ورود نمونه PDF ریاضی"); importButton.setAllCaps(false);
-        importButton.setOnClickListener(v -> importPdfMathSample()); panel.addView(importButton);
         Button clearPdf = new Button(this); clearPdf.setText("پاک کردن نمونه PDF (فرم‌های A و B)"); clearPdf.setAllCaps(false);
         clearPdf.setOnClickListener(v -> confirmClearPdfSample()); panel.addView(clearPdf);
         Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
