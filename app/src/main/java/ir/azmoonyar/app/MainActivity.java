@@ -1084,7 +1084,7 @@ public class MainActivity extends Activity {
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button clearPdf = new Button(this); clearPdf.setText("پاک کردن نمونه PDF (فرم‌های A و B)"); clearPdf.setAllCaps(false);
         clearPdf.setOnClickListener(v -> confirmClearPdfSample()); panel.addView(clearPdf);
-        Button saved = new Button(this); saved.setText("مجموعه‌های ذخیره‌شده"); saved.setAllCaps(false);
+        Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
         Button generate = new Button(this); generate.setText("آماده‌سازی فرم واحد و کلید پاسخ"); generate.setAllCaps(false);
         generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
@@ -1142,7 +1142,7 @@ public class MainActivity extends Activity {
     private void showSavedExamBatches() {
         JSONArray batches = readSavedExamBatches();
         if (batches.length() == 0) {
-            info("هنوز مجموعه‌آزمونی ذخیره نشده است. از بانک سؤال تعداد نسخه‌ها را انتخاب و «تأیید، ذخیره و چاپ» را بزن.");
+            info("هنوز آزمون ذخیره‌شده‌ای وجود ندارد. آزمون‌های قبلی پس از ذخیره در این فهرست نمایش داده می‌شوند.");
             return;
         }
         ScrollView scroll = new ScrollView(this);
@@ -1168,7 +1168,7 @@ public class MainActivity extends Activity {
             name.setTextSize(14);
             name.setTextColor(Color.rgb(30, 41, 59));
             name.setPadding(dp(10), dp(12), dp(10), dp(12));
-            name.setOnClickListener(v -> showSavedBatchActions(selectedBatch));
+            name.setOnClickListener(v -> showSavedBatchContents(selectedBatch));
             row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
             Button delete = new Button(this);
             delete.setText("حذف");
