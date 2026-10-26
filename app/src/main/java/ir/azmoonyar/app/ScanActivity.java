@@ -365,9 +365,18 @@ public class ScanActivity extends ComponentActivity {
             return;
         }
         JSONArray variantQuestions = matchedVariant.optJSONArray("questions");
-        int expectedQuestionCount = Math.min(
-                matchedVariant.optInt("question_count", variantQuestions == null ? 0 : variantQuestions.length()),
-                variantQuestions == null ? 0 : variantQuestions.length());
+        int declaredQuestionCount = matchedVariant.optInt(
+                "question_count", variantQuestions == null ? 0 : variantQuestions.length());
+        String savedAnswerKey = matchedVariant.optString("answer_key", "");
+        // Fail closed: the QR page count must be checked against a complete saved variant,
+        // not a silently truncated question list or missing answer key.
+        if (variantQuestions == null || declaredQuestionCount < 1
+                || declaredQuestionCount != variantQuestions.length()
+                || savedAnswerKey.length() < declaredQuestionCount) {
+            showStatus("اطلاعات سؤال‌ها یا کلید پاسخ نسخه ناقص است؛ QR ثبت نشد.");
+            return;
+        }
+        int expectedQuestionCount = declaredQuestionCount;
         boolean hasFigures = false;
         if (variantQuestions != null) {
             for (int qi = 0; qi < expectedQuestionCount; qi++) {
