@@ -362,8 +362,9 @@ public class ScanActivity extends ComponentActivity {
         latestSheetSetId = sheetSetId;
         latestModelId = modelId;
         latestTemplateId = templateId;
-        // The QR identifies the exam/version group, not a unique physical answer sheet.
-        // Do not deduplicate by sheetSetId/page: multiple students' sheets intentionally share it.
+        // Current print flow creates a new sheetSetId for each printed model batch.
+        // This deduplicates repeated scans of the same page within that batch; it does not
+        // identify individual students because the printed QR does not yet contain a student ID.
         Set<String> events = new HashSet<>(prefs.getStringSet("scanned_qr_events", Collections.emptySet()));
         // The same QR is printed on the question/answer pair for one page. Use a stable
         // page key so rescanning that same printed page does not inflate the scan count.
