@@ -47,7 +47,8 @@ public final class RandomExamBuilder {
                     throw new IllegalArgumentException("هر سؤال باید دقیقاً چهار گزینه داشته باشد.");
                 }
                 int correct = source.optInt("correct_index", -1);
-                if (correct < 0 || correct > 3) throw new IllegalArgumentException("پاسخ صحیح یک سؤال معتبر نیست.");
+                if (correct < -1 || correct > 3) throw new IllegalArgumentException("پاسخ صحیح یک سؤال معتبر نیست.");
+                // -1 means the source PDF has no defensible correct option; preserve it as an unresolved key.
                 List<Integer> optionOrder = new ArrayList<>();
                 for (int i = 0; i < 4; i++) optionOrder.add(i);
                 Collections.shuffle(optionOrder, random);
@@ -65,9 +66,9 @@ public final class RandomExamBuilder {
                 item.put("topic", source.optString("topic", ""));
                 item.put("options", options);
                 item.put("correct_index", newCorrect);
-                item.put("correct_letter", String.valueOf((char)('A' + newCorrect)));
+                item.put("correct_letter", newCorrect >= 0 ? String.valueOf((char)('A' + newCorrect)) : "-");
                 outputQuestions.put(item);
-                answerKey.append((char)('A' + newCorrect));
+                answerKey.append(newCorrect >= 0 ? (char)('A' + newCorrect) : '-');
             }
             JSONObject variant = new JSONObject();
             variant.put("variant_id", "V" + (v + 1));
