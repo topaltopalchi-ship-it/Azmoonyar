@@ -180,6 +180,7 @@ public final class ExternalTemplateActivity extends Activity {
         RadioButton b = new RadioButton(this);
         b.setText(value);
         b.setTag(tag);
+        b.setId(View.generateViewId());
         b.setTextSize(15);
         return b;
     }
