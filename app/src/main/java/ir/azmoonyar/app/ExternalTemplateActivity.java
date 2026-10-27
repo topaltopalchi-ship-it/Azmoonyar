@@ -255,7 +255,7 @@ public final class ExternalTemplateActivity extends Activity {
             TableCalibrationView calibrationView = new TableCalibrationView(bitmap);
             AlertDialog calibrationDialog = new AlertDialog.Builder(this)
                     .setTitle("محدودهٔ جدول پاسخ‌ها")
-                    .setMessage("انگشت را از گوشهٔ بالا-چپ جدول بگذارید و تا گوشهٔ پایین-راست بکشید. کادر قرمز هنگام حرکت نمایش داده می‌شود. برای اصلاح، دوباره بکشید.")
+                    .setMessage("از گوشهٔ بالا-چپ جدول تا پایین-راست بکشید. سپس «ذخیرهٔ محدوده» را بزنید.")
                     .setView(calibrationView)
                     .setNeutralButton("پاک‌کردن کادر", (dialog, which) -> calibrationView.resetSelection())
                     .setNegativeButton("انصراف", null)
@@ -277,7 +277,15 @@ public final class ExternalTemplateActivity extends Activity {
                 if (saveButton != null) {
                     saveButton.setText("ذخیرهٔ محدوده");
                     saveButton.setTextSize(16);
+                    saveButton.setTextColor(Color.WHITE);
                     saveButton.setMinHeight(dp(48));
+                    android.graphics.drawable.GradientDrawable saveBg = new android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                            new int[]{Color.rgb(255, 90, 185), Color.rgb(220, 0, 110)});
+                    saveBg.setCornerRadius(dp(28));
+                    saveBg.setStroke(dp(2), Color.rgb(255, 140, 210));
+                    saveButton.setBackground(saveBg);
+                    saveButton.setPadding(dp(16), dp(8), dp(16), dp(8));
                 }
                 Button resetButton = calibrationDialog.getButton(AlertDialog.BUTTON_NEUTRAL);
                 if (resetButton != null) {
@@ -286,6 +294,25 @@ public final class ExternalTemplateActivity extends Activity {
                 }
             });
             calibrationDialog.show();
+            // Keep the dialog open if the user tries to save before drawing a valid rectangle.
+            Button saveButton = calibrationDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            if (saveButton != null) {
+                saveButton.setOnClickListener(v -> {
+                    if (!calibrationView.hasRectangle()) {
+                        Toast.makeText(this, "ابتدا با کشیدن انگشت محدودهٔ جدول را مشخص کنید", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    RectF rect = calibrationView.normalizedRect();
+                    prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
+                            .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
+                            .putBoolean("table_bounds_saved", true).apply();
+                    savedStatus.setText(String.format(java.util.Locale.US,
+                            "محدودهٔ جدول ذخیره شد؛ اکنون مراکز حباب‌ها را تنظیم کنید.",
+                            rect.left, rect.top, rect.right, rect.bottom));
+                    Toast.makeText(this, "محدودهٔ جدول ذخیره شد", Toast.LENGTH_SHORT).show();
+                    calibrationDialog.dismiss();
+                });
+            }
         } catch (Exception e) {
             Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
@@ -534,7 +561,7 @@ public final class ExternalTemplateActivity extends Activity {
         private final float[] points = new float[4];
         private int pointCount = 0;
         private RectF imageRect = new RectF();
-        TableCalibrationView(Bitmap bitmap) { super(ExternalTemplateActivity.this); this.bitmap = bitmap; setLayoutParams(new LinearLayout.LayoutParams(-1, dp(320))); linePaint.setColor(Color.RED); linePaint.setStrokeWidth(dp(3)); linePaint.setStyle(Paint.Style.STROKE); }
+        TableCalibrationView(Bitmap bitmap) { super(ExternalTemplateActivity.this); this.bitmap = bitmap; setLayoutParams(new LinearLayout.LayoutParams(-1, dp(210))); linePaint.setColor(Color.RED); linePaint.setStrokeWidth(dp(3)); linePaint.setStyle(Paint.Style.STROKE); }
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float scale = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight());
