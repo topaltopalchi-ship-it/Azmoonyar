@@ -1882,22 +1882,169 @@ public class MainActivity extends Activity {
 
     private void showParticipantAnalysis() {
         JSONArray results = readGradingResults();
-        if (results.length() == 0) { info("برای آنالیز، هنوز نتیجه‌ای ثبت نشده است."); return; }
-        java.util.LinkedHashMap<String, double[]> totals = new java.util.LinkedHashMap<>();
+        if (results.length() == 0) {
+            info("برای آنالیز، هنوز نتیجه‌ای ثبت نشده است.");
+            return;
+        }
+
+        java.util.LinkedHashMap<String, Boolean> participants = new java.util.LinkedHashMap<>();
         for (int i = 0; i < results.length(); i++) {
             JSONObject r = results.optJSONObject(i);
-            if (r == null) continue;
-            String name = r.optString("name", "بدون نام");
-            double[] t = totals.get(name);
-            if (t == null) { t = new double[2]; totals.put(name, t); }
-            t[0] += r.optDouble("score", 0.0); t[1]++;
+            if (r != null) participants.put(r.optString("name", "بدون نام"), true);
         }
-        StringBuilder out = new StringBuilder();
-        for (java.util.Map.Entry<String, double[]> e : totals.entrySet())
-            out.append(e.getKey()).append("\nتعداد آزمون: ").append((int)e.getValue()[1])
-                .append("\nمیانگین نمره: ").append(String.format(Locale.US, "%.1f", e.getValue()[0] / e.getValue()[1]))
-                .append(" از 100\n\n");
-        showAnalysisText("آنالیز شرکت‌کننده", out.toString());
+        String[] names = participants.keySet().toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("آنالیز شرکت‌کننده — نام را انتخاب کن")
+                .setItems(names, (dialog, which) -> showParticipantExamChoices(names[which], results))
+                .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu())
+                .show();
+    }
+
+    private void showParticipantExamChoices(String participantName, JSONArray allResults) {
+        java.util.ArrayList<JSONObject> participantResults = new java.util.ArrayList<>();
+        for (int i = 0; i < allResults.length(); i++) {
+            JSONObject r = allResults.optJSONObject(i);
+            if (r != null && participantName.equals(r.optString("name", "بدون نام"))) {
+                participantResults.add(r);
+            }
+        }
+        java.util.Collections.sort(participantResults, (a, b) ->
+                Long.compare(a.optLong("createdAt", 0L), b.optLong("createdAt", 0L)));
+
+        if (participantResults.isEmpty()) {
+            info("برای این شرکت‌کننده نتیجه‌ای ثبت نشده است.");
+            return;
+        }
+        java.text.SimpleDateFormat dateFormat =
+                new java.text.SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
+        String[] choices = new String[participantResults.size()];
+        for (int i = 0; i < participantResults.size(); i++) {
+            JSONObject r = participantResults.get(i);
+            long timestamp = r.optLong("createdAt", 0L);
+            String date = timestamp > 0 ? dateFormat.format(new java.util.Date(timestamp)) : "تاریخ نامشخص";
+            choices[i] = (i + 1) + ". " + r.optString("examName", "آزمون بدون نام") +
+                    " — " + date + " — نمره: " +
+                    String.format(Locale.US, "%.1f", r.optDouble("score", 0.0));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("آزمون شرکت‌کننده: " + participantName + "\nآزمون را بر اساس تاریخ یا شماره انتخاب کن")
+                .setItems(choices, (dialog, which) -> {
+                    JSONObject selected = participantResults.get(which);
+                    JSONObject previous = which > 0 ? participantResults.get(which - 1) : null;
+                    showParticipantPieChart(participantName, selected, previous, which + 1);
+                })
+                .setNegativeButton("بازگشت", (d, w) -> showParticipantAnalysis())
+                .show();
+    }
+
+    private void showParticipantPieChart(String participantName, JSONObject result,
+                                         JSONObject previous, int examNumber) {
+        int correct = result.optInt("correct", 0);
+        int wrong = result.optInt("wrong", 0);
+        int blank = result.optInt("blank", 0);
+        int total = Math.max(0, correct) + Math.max(0, wrong) + Math.max(0, blank);
+        double score = result.optDouble("score", 0.0);
+        StringBuilder details = new StringBuilder();
+        details.append("شرکت‌کننده: ").append(participantName)
+                .append("\nآزمون شماره: ").append(examNumber)
+                .append("\nنام آزمون: ").append(result.optString("examName", "—"))
+                .append("\nنمره: ").append(String.format(Locale.US, "%.1f", score)).append(" از 100")
+                .append("\nسؤال صحیح: ").append(correct)
+                .append("\nسؤال غلط: ").append(wrong)
+                .append("\nسؤال بی‌پاسخ: ").append(blank);
+
+        if (previous != null) {
+            double previousScore = previous.optDouble("score", 0.0);
+            double change = score - previousScore;
+            details.append("\n\nمقایسه با آزمون قبلی: ")
+                    .append(change > 0 ? "پیشرفت " : change < 0 ? "افت " : "بدون تغییر ")
+                    .append(String.format(Locale.US, "%.1f", Math.abs(change)))
+                    .append(" امتیاز از 100")
+                    .append("\nنمره آزمون قبلی: ")
+                    .append(String.format(Locale.US, "%.1f", previousScore));
+        } else {
+            details.append("\n\nاین اولین نتیجهٔ ثبت‌شده برای این شرکت‌کننده است؛ هنوز آزمون قبلی برای مقایسه وجود ندارد.");
+        }
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(12), dp(8), dp(12), dp(8));
+        TextView detailText = new TextView(this);
+        detailText.setText(details.toString());
+        detailText.setTextSize(15);
+        detailText.setTextColor(Color.rgb(30, 41, 59));
+        detailText.setTextDirection(View.TEXT_DIRECTION_RTL);
+        detailText.setGravity(Gravity.RIGHT);
+        content.addView(detailText, new LinearLayout.LayoutParams(-1, -2));
+
+        if (total > 0) {
+            View chart = new ParticipantPieChartView(this, correct, wrong, blank);
+            LinearLayout.LayoutParams chartParams = new LinearLayout.LayoutParams(-1, dp(230));
+            chartParams.topMargin = dp(8);
+            content.addView(chart, chartParams);
+        } else {
+            TextView empty = new TextView(this);
+            empty.setText("\nبرای این نتیجه، تعداد پاسخ‌ها ثبت نشده است و نمودار قابل نمایش نیست.");
+            content.addView(empty);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+        new AlertDialog.Builder(this)
+                .setTitle("نمودار عملکرد — " + participantName)
+                .setView(scroll)
+                .setPositiveButton("بستن", null)
+                .setNeutralButton("انتخاب آزمون دیگر", (d, w) -> showParticipantExamChoices(participantName, readGradingResults()))
+                .show();
+    }
+
+    private class ParticipantPieChartView extends View {
+        private final int correct, wrong, blank;
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF pieBounds = new android.graphics.RectF();
+
+        ParticipantPieChartView(Context context, int correct, int wrong, int blank) {
+            super(context);
+            this.correct = Math.max(0, correct);
+            this.wrong = Math.max(0, wrong);
+            this.blank = Math.max(0, blank);
+        }
+
+        @Override protected void onDraw(android.graphics.Canvas canvas) {
+            super.onDraw(canvas);
+            float density = getResources().getDisplayMetrics().density;
+            float radius = Math.min(dp(78), Math.min(getWidth() * 0.28f, getHeight() * 0.38f));
+            float cx = getWidth() * 0.72f;
+            float cy = getHeight() * 0.48f;
+            pieBounds.set(cx - radius, cy - radius, cx + radius, cy + radius);
+            int total = correct + wrong + blank;
+            if (total <= 0) return;
+
+            int[] values = {correct, wrong, blank};
+            int[] colors = {Color.rgb(22, 163, 74), Color.rgb(220, 38, 38), Color.rgb(148, 163, 184)};
+            float start = -90f;
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] == 0) continue;
+                float sweep = 360f * values[i] / total;
+                paint.setColor(colors[i]);
+                paint.setStyle(android.graphics.Paint.Style.FILL);
+                canvas.drawArc(pieBounds, start, sweep, true, paint);
+                start += sweep;
+            }
+
+            String[] labels = {"صحیح: " + correct, "غلط: " + wrong, "بی‌پاسخ: " + blank};
+            paint.setTextSize(dp(14));
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextAlign(android.graphics.Paint.Align.RIGHT);
+            for (int i = 0; i < labels.length; i++) {
+                float y = dp(62) + i * dp(34);
+                paint.setColor(colors[i]);
+                canvas.drawRoundRect(getWidth() - dp(18), y - dp(10), getWidth() - dp(5), y + dp(3),
+                        dp(3), dp(3), paint);
+                paint.setColor(Color.rgb(30, 41, 59));
+                canvas.drawText(labels[i], getWidth() - dp(28), y, paint);
+            }
+        }
     }
 
     private void showExamAnalysis() {
