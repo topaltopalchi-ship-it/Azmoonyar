@@ -132,6 +132,11 @@ public final class ExternalTemplateActivity extends Activity {
         calibrate.setAllCaps(false);
         page.addView(calibrate);
         calibrate.setOnClickListener(v -> openTableCalibration());
+        Button gridCalibrate = new Button(this);
+        gridCalibrate.setText("تنظیم ردیف سؤال‌ها و ستون گزینه‌ها");
+        gridCalibrate.setAllCaps(false);
+        page.addView(gridCalibrate);
+        gridCalibrate.setOnClickListener(v -> openGridCalibration());
 
         Button save = new Button(this);
         save.setText("ذخیرهٔ تنظیمات قالب");
@@ -244,6 +249,37 @@ public final class ExternalTemplateActivity extends Activity {
         }
     }
 
+    private void openGridCalibration() {
+        if (sampleUri == null || !prefs.getBoolean("table_bounds_saved", false)) {
+            Toast.makeText(this, "ابتدا عکس را انتخاب و محدودهٔ جدول را ذخیره کنید", Toast.LENGTH_LONG).show();
+            return;
+        }
+        int questions = number(questionCount.getText().toString(), 0);
+        int options = number(optionCount.getText().toString(), 0);
+        if (questions < 1 || questions > 100 || options < 2 || options > 6) {
+            Toast.makeText(this, "تعداد سؤال یا گزینه معتبر نیست", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(sampleUri));
+            if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            GridCalibrationView grid = new GridCalibrationView(bitmap, questions, options,
+                    prefs.getFloat("table_left", 0), prefs.getFloat("table_top", 0),
+                    prefs.getFloat("table_right", 1), prefs.getFloat("table_bottom", 1));
+            new AlertDialog.Builder(this).setTitle("پیش‌نمایش شبکهٔ حباب‌ها")
+                    .setMessage("شبکهٔ پیشنهادی روی محدودهٔ ذخیره‌شده نمایش داده می‌شود. اگر ردیف‌ها و ستون‌ها با حباب‌ها منطبق نیستند، محدودهٔ جدول را دوباره تنظیم کنید.")
+                    .setView(grid).setNegativeButton("بستن", null)
+                    .setPositiveButton("تأیید و ذخیرهٔ شبکه", (dialog, which) -> {
+                        prefs.edit().putInt("grid_questions", questions).putInt("grid_options", options)
+                                .putString("grid_option_order", options == 4 ? "D,C,B,A" : "custom")
+                                .putBoolean("grid_saved", true).apply();
+                        savedStatus.setText("شبکهٔ پیشنهادی " + questions + " ردیف و " + options + " ستون ذخیره شد. ترتیب پیش‌فرض چهارگزینه‌ای از چپ به راست D/C/B/A است؛ خواندن پاسخ‌ها هنوز باید آزمایش شود.");
+                    }).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void chooseSampleImage() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -259,6 +295,41 @@ public final class ExternalTemplateActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
         samplePreview.setImageURI(sampleUri);
         savedStatus.setText("عکس نمونه انتخاب شد؛ برای ذخیرهٔ دائمی، «ذخیرهٔ تنظیمات قالب» را بزنید.");
+    }
+
+    private final class GridCalibrationView extends View {
+        private final Bitmap bitmap;
+        private final int questions, options;
+        private final float left, top, right, bottom;
+        private final Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF imageRect = new RectF();
+        GridCalibrationView(Bitmap bitmap, int questions, int options, float left, float top, float right, float bottom) {
+            super(ExternalTemplateActivity.this); this.bitmap=bitmap; this.questions=questions; this.options=options;
+            this.left=left; this.top=top; this.right=right; this.bottom=bottom;
+            setLayoutParams(new LinearLayout.LayoutParams(-1, dp(380)));
+            gridPaint.setColor(Color.rgb(0,160,70)); gridPaint.setStrokeWidth(dp(1)); gridPaint.setStyle(Paint.Style.STROKE);
+            labelPaint.setColor(Color.RED); labelPaint.setTextSize(dp(11)); labelPaint.setTextAlign(Paint.Align.CENTER);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float scale=Math.min((float)getWidth()/bitmap.getWidth(),(float)getHeight()/bitmap.getHeight());
+            float w=bitmap.getWidth()*scale,h=bitmap.getHeight()*scale;
+            imageRect.set((getWidth()-w)/2f,(getHeight()-h)/2f,(getWidth()+w)/2f,(getHeight()+h)/2f);
+            canvas.drawBitmap(bitmap,null,imageRect,imagePaint);
+            float l=imageRect.left+left*imageRect.width(), r=imageRect.left+right*imageRect.width();
+            float t=imageRect.top+top*imageRect.height(), b=imageRect.top+bottom*imageRect.height();
+            canvas.drawRect(l,t,r,b,gridPaint);
+            for(int q=0;q<questions;q++) {
+                float y=t+(q+0.5f)*(b-t)/questions;
+                for(int o=0;o<options;o++) {
+                    float x=l+(o+0.5f)*(r-l)/options;
+                    canvas.drawCircle(x,y,Math.max(dp(2),Math.min(dp(8),(r-l)/options*0.22f)),gridPaint);
+                }
+            }
+            canvas.drawText("ردیف‌ها: "+questions+" | ستون‌ها: "+options,(l+r)/2f,Math.max(dp(14),t-dp(5)),labelPaint);
+        }
     }
 
     private final class TableCalibrationView extends View {
