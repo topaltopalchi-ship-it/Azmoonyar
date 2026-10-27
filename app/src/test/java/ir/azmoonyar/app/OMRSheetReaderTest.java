@@ -4,6 +4,7 @@ import org.junit.Test;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class OMRSheetReaderTest {
     @Test public void readsStrongFillAndLeavesBlankBubblesUnmarked() {
@@ -62,4 +63,24 @@ public class OMRSheetReaderTest {
         assertEquals(0, result.get(0).classification.optionIndex);
     }
 
+    @Test public void rejectsEmptyOrOversizedPageInsteadOfReturningEmptyResults() {
+        byte[] image = new byte[120 * 60];
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
+                new SheetPerspectiveTransform.Point(0, 0),
+                new SheetPerspectiveTransform.Point(119, 0),
+                new SheetPerspectiveTransform.Point(119, 59),
+                new SheetPerspectiveTransform.Point(0, 59), 119, 59);
+        try {
+            new OMRSheetReader().read(image, 120, 60, transform, new double[0][][], 8);
+            fail("An empty answer page must not be accepted");
+        } catch (IllegalArgumentException expected) {
+            // Expected: empty results could otherwise be mistaken for a successful scan.
+        }
+        try {
+            new OMRSheetReader().read(image, 120, 60, transform, new double[101][4][2], 8);
+            fail("A page larger than the supported 100 questions must be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Expected: this reader handles one page, with at most 100 questions.
+        }
+    }
 }
