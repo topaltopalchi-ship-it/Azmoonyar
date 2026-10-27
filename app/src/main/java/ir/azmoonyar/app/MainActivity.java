@@ -251,7 +251,7 @@ public class MainActivity extends Activity {
                 new String[]{"کلید پاسخ", "اسکن و تصحیح پاسخنامه"},
                 new View.OnClickListener[]{v -> showKeyDialog(), v -> openScanner()});
         addButtonGrid(
-                new String[]{"گزارش‌ها و حریم خصوصی", "تنظیمات تصاویر"},
+                new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
         TextView note = new TextView(this);
         note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
