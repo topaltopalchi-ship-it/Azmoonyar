@@ -450,19 +450,40 @@ public class MainActivity extends Activity {
         for (int i = 0; i < students.length(); i++) {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
-                    .append(student.optString("name", "بدون نام"))
-                    .append("\n");
+                    .append(student.optString("name", "بدون نام")).append("\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
-        new AlertDialog.Builder(this)
-                .setTitle("فهرست شرکت‌کنندگان")
-                .setMessage(list.toString())
-                .setPositiveButton("افزودن شرکت‌کننده", (d, w) -> showAddStudentDialog())
-                .setNeutralButton("بستن", null)
-                .show();
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(8), dp(8), dp(8), dp(4));
+        TextView roster = new TextView(this);
+        roster.setText(list.toString());
+        roster.setTextSize(16);
+        roster.setTextColor(Color.rgb(30, 41, 59));
+        roster.setPadding(dp(8), dp(8), dp(8), dp(12));
+        content.addView(roster, new LinearLayout.LayoutParams(-1, -2));
+
+        Button voice = new Button(this);
+        voice.setText("🎙 ثبت‌نام صوتی");
+        voice.setAllCaps(false);
+        content.addView(voice, new LinearLayout.LayoutParams(-1, -2));
+        Button typed = new Button(this);
+        typed.setText("⌨ ثبت‌نام متنی");
+        typed.setAllCaps(false);
+        content.addView(typed, new LinearLayout.LayoutParams(-1, -2));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("ثبت‌نام شرکت‌کنندگان")
+                .setView(content)
+                .setNegativeButton("بستن", null)
+                .create();
+        voice.setOnClickListener(v -> { dialog.dismiss(); showAddStudentDialog(true); });
+        typed.setOnClickListener(v -> { dialog.dismiss(); showAddStudentDialog(false); });
+        dialog.show();
     }
 
-    private void showAddStudentDialog() {
+    private void showAddStudentDialog(boolean voiceMode) {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(8), dp(6), dp(8), dp(2));
@@ -472,7 +493,7 @@ public class MainActivity extends Activity {
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
         TextView voiceStatus = new TextView(this);
-        voiceStatus.setText("برای ثبت صوتی، دکمهٔ میکروفون را بزن.");
+        voiceStatus.setText(voiceMode ? "برای ثبت صوتی، نام و نام خانوادگی را واضح بگو." : "نام و نام خانوادگی را وارد کن.");
         voiceStatus.setTextSize(14);
         voiceStatus.setTextColor(Color.rgb(65, 80, 115));
         voiceStatus.setPadding(dp(4), dp(8), dp(4), dp(8));
@@ -521,7 +542,7 @@ public class MainActivity extends Activity {
                 }
             });
         });
-        form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
+        if (voiceMode) form.addView(voice, new LinearLayout.LayoutParams(-1, -2));\n        else voiceStatus.setVisibility(View.GONE);
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
                 .setView(form)
