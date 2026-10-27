@@ -410,8 +410,10 @@ public class MainActivity extends Activity {
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
         EditText name=new EditText(this); styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
         EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۱۰۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
-        new AlertDialog.Builder(this).setTitle("تعریف آزمون").setView(form)
-          .setNegativeButton("انصراف",null).setPositiveButton("ذخیره",(d,w)->{
+        new AlertDialog.Builder(this).setTitle("تعریف / ویرایش آزمون").setView(form)
+          .setNegativeButton("انصراف",null)
+          .setNeutralButton("ثبت‌نام شرکت‌کنندگان",(d,w)->showStudentsDialog())
+          .setPositiveButton("ذخیره",(d,w)->{
             String n=name.getText().toString().trim(); int c;
             try { c=Integer.parseInt(count.getText().toString().trim()); } catch(Exception e) { info("تعداد سؤال را به‌صورت عدد وارد کن."); return; }
             if(n.isEmpty() || c<1 || c>1000) { info("نام آزمون لازم است و تعداد سؤال باید بین ۱ تا ۱۰۰۰ باشد."); return; }
