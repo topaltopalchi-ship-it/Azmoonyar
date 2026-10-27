@@ -678,7 +678,7 @@ public class MainActivity extends Activity {
                     info("چاپ برای جلوگیری از تولید پاسخنامهٔ ناسازگار متوقف شد: " + validationError);
                     return;
                 }
-                // Print question text on its own pages (25 questions per page). QR codes
+                // Print question text on its own pages (25 questions per page).
                 // belong only on answer sheets, so scanning a question page cannot be counted
                 // as a scanned answer sheet.
                 final int questionsPerPage = 25;
@@ -1262,7 +1262,7 @@ public class MainActivity extends Activity {
         String title = batch.optString("exam_name", "آزمون");
         new AlertDialog.Builder(this).setTitle(title)
             .setMessage("تعداد نسخه‌ها: " + batch.optInt("variant_count", 0)
-                    + "\nبرای دیدن سؤال‌ها، ترتیب گزینه‌ها، QR و کلید هر نسخه، «مشاهده محتویات» را بزن.")
+                    + "\nبرای دیدن سؤال‌ها، ترتیب گزینه‌ها و کلید هر نسخه، «مشاهده محتویات» را بزن.")
             .setItems(new String[]{"مشاهده محتویات", "چاپ دوباره همین مجموعه", "حذف این مجموعه"}, (d, which) -> {
                 if (which == 0) {
                     showSavedBatchContents(batch);
