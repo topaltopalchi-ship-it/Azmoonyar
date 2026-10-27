@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(7,27,114));
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        buildScreen();
+        showEntryScreen();
         // Begin downloading the Persian offline speech model immediately on first app launch.
         // This runs independently of the microphone permission prompt and never requires a button tap.
         prepareVoskModel();
@@ -205,6 +205,83 @@ public class MainActivity extends Activity {
             }
         });
         dialog.show();
+    }
+
+
+    private void showEntryScreen() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setGravity(Gravity.CENTER);
+        page.setPadding(dp(26), dp(32), dp(26), dp(32));
+        page.setBackgroundColor(Color.rgb(245, 248, 255));
+
+        TextView title = new TextView(this);
+        title.setText("آزمون‌یار");
+        title.setTextSize(32);
+        title.setTextColor(Color.rgb(7, 40, 130));
+        title.setGravity(Gravity.CENTER);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        page.addView(title, new LinearLayout.LayoutParams(-1, dp(58)));
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("برای ادامه یکی از روش‌های ورود را انتخاب کن");
+        subtitle.setTextSize(16);
+        subtitle.setTextColor(Color.rgb(65, 80, 115));
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(-1, -2);
+        subtitleParams.topMargin = dp(8);
+        subtitleParams.bottomMargin = dp(28);
+        page.addView(subtitle, subtitleParams);
+
+        Button free = new Button(this);
+        free.setText("ورود رایگان");
+        free.setAllCaps(false);
+        free.setTextSize(17);
+        free.setTypeface(null, android.graphics.Typeface.BOLD);
+        free.setTextColor(Color.WHITE);
+        android.graphics.drawable.GradientDrawable freeBg = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.rgb(37, 99, 235), Color.rgb(79, 70, 229)});
+        freeBg.setCornerRadius(dp(18));
+        freeBg.setStroke(dp(2), Color.rgb(147, 197, 253));
+        free.setBackground(freeBg);
+        free.setElevation(dp(6));
+        page.addView(free, new LinearLayout.LayoutParams(-1, dp(60)));
+        free.setOnClickListener(v -> {
+            prefs.edit().putString("entry_mode", "free_local").apply();
+            buildScreen();
+        });
+
+        Button create = new Button(this);
+        create.setText("ساخت حساب");
+        create.setAllCaps(false);
+        create.setTextSize(16);
+        create.setTypeface(null, android.graphics.Typeface.BOLD);
+        create.setTextColor(Color.rgb(30, 64, 130));
+        android.graphics.drawable.GradientDrawable createBg = new android.graphics.drawable.GradientDrawable();
+        createBg.setColor(Color.WHITE);
+        createBg.setCornerRadius(dp(18));
+        createBg.setStroke(dp(2), Color.rgb(147, 177, 230));
+        create.setBackground(createBg);
+        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(-1, dp(58));
+        createParams.topMargin = dp(12);
+        page.addView(create, createParams);
+        create.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("ساخت حساب")
+                .setMessage("ورود رایگان بدون ساخت حساب فعال است و اطلاعات این نسخه روی همین دستگاه ذخیره می‌شود. ثبت‌نام اینترنتی و ورود با حساب در چند دستگاه هنوز پیاده‌سازی نشده است.")
+                .setPositiveButton("باشه", null)
+                .show());
+
+        TextView note = new TextView(this);
+        note.setText("ورود رایگان نیازی به نام کاربری یا رمز عبور ندارد.");
+        note.setTextSize(13);
+        note.setTextColor(Color.rgb(90, 105, 130));
+        note.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
+        noteParams.topMargin = dp(22);
+        page.addView(note, noteParams);
+
+        setContentView(page);
     }
 
     private void buildScreen() {
