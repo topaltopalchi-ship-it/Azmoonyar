@@ -371,14 +371,40 @@ public class MainActivity extends Activity {
         scanCorrection.setOnClickListener(v -> showScanCorrectionEntry());
 
         Button externalCorrection = new Button(this);
-        externalCorrection.setText("تصحیح پاسخنامهٔ چاپ‌شده خارج از آزمون‌یار");
+        externalCorrection.setText("تصحیح پاسخنامهٔ خارج از آزمون‌یار");
         externalCorrection.setAllCaps(false);
-        externalCorrection.setTextSize(14);
-        externalCorrection.setMinHeight(dp(50));
-        externalCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
+        externalCorrection.setTextSize(17);
+        externalCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
+        externalCorrection.setTextColor(Color.WHITE);
+        externalCorrection.setGravity(Gravity.CENTER);
+        externalCorrection.setMinHeight(dp(72));
+        externalCorrection.setPadding(dp(14), dp(12), dp(14), dp(12));
+        android.graphics.drawable.GradientDrawable externalPink = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.rgb(255, 76, 177), Color.rgb(238, 0, 120), Color.rgb(180, 0, 86)});
+        externalPink.setCornerRadius(dp(48));
+        externalPink.setStroke(dp(3), Color.rgb(255, 90, 190));
+        externalCorrection.setBackground(externalPink);
+        externalCorrection.setElevation(dp(10));
+        externalCorrection.setStateListAnimator(null);
+        externalCorrection.setContentDescription("تصحیح پاسخنامهٔ چاپ‌شده خارج از آزمون‌یار");
+        externalCorrection.setOnTouchListener((view, event) -> {
+            switch (event.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    view.animate().translationY(dp(4)).setDuration(70).start();
+                    view.setElevation(dp(3));
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    view.animate().translationY(0).setDuration(110).start();
+                    view.setElevation(dp(10));
+                    break;
+            }
+            return false;
+        });
         LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(-1, -2);
-        externalParams.topMargin = dp(3);
-        externalParams.bottomMargin = dp(4);
+        externalParams.topMargin = dp(5);
+        externalParams.bottomMargin = dp(5);
         root.addView(externalCorrection, externalParams);
         externalCorrection.setOnClickListener(v -> startActivity(new Intent(this, ExternalTemplateActivity.class)));
 
