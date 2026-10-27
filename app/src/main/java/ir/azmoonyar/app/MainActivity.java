@@ -370,43 +370,6 @@ public class MainActivity extends Activity {
         root.addView(scanCorrection, scanParams);
         scanCorrection.setOnClickListener(v -> showScanCorrectionEntry());
 
-        Button externalCorrection = new Button(this);
-        externalCorrection.setText("تصحیح پاسخنامهٔ خارج از آزمون‌یار");
-        externalCorrection.setAllCaps(false);
-        externalCorrection.setTextSize(17);
-        externalCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
-        externalCorrection.setTextColor(Color.WHITE);
-        externalCorrection.setGravity(Gravity.CENTER);
-        externalCorrection.setMinHeight(dp(72));
-        externalCorrection.setPadding(dp(14), dp(12), dp(14), dp(12));
-        android.graphics.drawable.GradientDrawable externalPink = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(255, 76, 177), Color.rgb(238, 0, 120), Color.rgb(180, 0, 86)});
-        externalPink.setCornerRadius(dp(48));
-        externalPink.setStroke(dp(3), Color.rgb(255, 90, 190));
-        externalCorrection.setBackground(externalPink);
-        externalCorrection.setElevation(dp(10));
-        externalCorrection.setStateListAnimator(null);
-        externalCorrection.setContentDescription("تصحیح پاسخنامهٔ چاپ‌شده خارج از آزمون‌یار");
-        externalCorrection.setOnTouchListener((view, event) -> {
-            switch (event.getActionMasked()) {
-                case android.view.MotionEvent.ACTION_DOWN:
-                    view.animate().translationY(dp(4)).setDuration(70).start();
-                    view.setElevation(dp(3));
-                    break;
-                case android.view.MotionEvent.ACTION_UP:
-                case android.view.MotionEvent.ACTION_CANCEL:
-                    view.animate().translationY(0).setDuration(110).start();
-                    view.setElevation(dp(10));
-                    break;
-            }
-            return false;
-        });
-        LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(-1, -2);
-        externalParams.topMargin = dp(5);
-        externalParams.bottomMargin = dp(5);
-        root.addView(externalCorrection, externalParams);
-        externalCorrection.setOnClickListener(v -> startActivity(new Intent(this, ExternalTemplateActivity.class)));
 
         TextView note = new TextView(this);
         note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
@@ -416,31 +379,6 @@ public class MainActivity extends Activity {
     }
 
 
-    private void showExternalAnswerSheetEntry() {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(18), dp(12), dp(18), dp(6));
-
-        TextView help = new TextView(this);
-        help.setText("این بخش برای پاسخنامه‌هایی است که با نرم‌افزار دیگری یا به‌صورت دستی طراحی و چاپ شده‌اند. برای تصحیح خودکار باید ابتدا نمونهٔ برگه و جای حباب‌ها تعریف و تأیید شود؛ چیدمان دلخواه هنوز به‌صورت خودکار تشخیص داده نمی‌شود.");
-        help.setTextSize(15);
-        help.setTextColor(Color.rgb(45, 58, 86));
-        help.setGravity(Gravity.CENTER);
-        panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
-
-        TextView steps = new TextView(this);
-        steps.setText("\\nمراحل پشتیبانی از قالب خارجی:\\n۱. انتخاب آزمون و تعداد سؤال‌ها (حداکثر ۱۰۰).\\n۲. ارائهٔ یک نمونهٔ واضح از پاسخنامه.\\n۳. تعریف یا تأیید محل حباب‌های A/B/C/D.\\n۴. آزمایش روی چند برگه پیش از فعال‌کردن نمره‌دهی خودکار.");
-        steps.setTextSize(14);
-        steps.setTextColor(Color.DKGRAY);
-        steps.setPadding(0, dp(12), 0, 0);
-        panel.addView(steps, new LinearLayout.LayoutParams(-1, -2));
-
-        new AlertDialog.Builder(this)
-                .setTitle("پاسخنامهٔ خارج از قالب")
-                .setView(panel)
-                .setPositiveButton("باشه", null)
-                .show();
-    }
 
     private void showScanCorrectionEntry() {
         LinearLayout panel = new LinearLayout(this);
