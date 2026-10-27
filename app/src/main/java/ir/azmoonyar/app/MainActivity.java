@@ -351,11 +351,50 @@ public class MainActivity extends Activity {
         root.addView(scanCorrection, scanParams);
         scanCorrection.setOnClickListener(v -> showScanCorrectionEntry());
 
+        Button externalCorrection = new Button(this);
+        externalCorrection.setText("تصحیح پاسخنامهٔ چاپ‌شده خارج از آزمون‌یار");
+        externalCorrection.setAllCaps(false);
+        externalCorrection.setTextSize(16);
+        externalCorrection.setMinHeight(dp(64));
+        externalCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(-1, -2);
+        externalParams.topMargin = dp(6);
+        externalParams.bottomMargin = dp(8);
+        root.addView(externalCorrection, externalParams);
+        externalCorrection.setOnClickListener(v -> showExternalAnswerSheetEntry());
+
         TextView note = new TextView(this);
         note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
+    }
+
+
+    private void showExternalAnswerSheetEntry() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(18), dp(12), dp(18), dp(6));
+
+        TextView help = new TextView(this);
+        help.setText("این بخش برای پاسخنامه‌هایی است که با نرم‌افزار دیگری یا به‌صورت دستی طراحی و چاپ شده‌اند. برای تصحیح خودکار باید ابتدا نمونهٔ برگه و جای حباب‌ها تعریف و تأیید شود؛ چیدمان دلخواه هنوز به‌صورت خودکار تشخیص داده نمی‌شود.");
+        help.setTextSize(15);
+        help.setTextColor(Color.rgb(45, 58, 86));
+        help.setGravity(Gravity.CENTER);
+        panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView steps = new TextView(this);
+        steps.setText("\\nمراحل پشتیبانی از قالب خارجی:\\n۱. انتخاب آزمون و تعداد سؤال‌ها (حداکثر ۱۰۰).\\n۲. ارائهٔ یک نمونهٔ واضح از پاسخنامه.\\n۳. تعریف یا تأیید محل حباب‌های A/B/C/D.\\n۴. آزمایش روی چند برگه پیش از فعال‌کردن نمره‌دهی خودکار.");
+        steps.setTextSize(14);
+        steps.setTextColor(Color.DKGRAY);
+        steps.setPadding(0, dp(12), 0, 0);
+        panel.addView(steps, new LinearLayout.LayoutParams(-1, -2));
+
+        new AlertDialog.Builder(this)
+                .setTitle("پاسخنامهٔ خارج از قالب")
+                .setView(panel)
+                .setPositiveButton("باشه", null)
+                .show();
     }
 
     private void showScanCorrectionEntry() {
