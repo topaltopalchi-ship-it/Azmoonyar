@@ -44,7 +44,9 @@ public final class OMRSheetReader {
             double bubbleRadiusMm) {
         if (luminance == null || imageWidth <= 0 || imageHeight <= 0
                 || (long) imageWidth * imageHeight > luminance.length
-                || transform == null || bubbleCentersMm == null || bubbleRadiusMm < 1
+                || transform == null || bubbleCentersMm == null
+                || bubbleCentersMm.length < 1 || bubbleCentersMm.length > 100
+                || bubbleRadiusMm < 1
                 || Double.isNaN(bubbleRadiusMm) || Double.isInfinite(bubbleRadiusMm)) {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
