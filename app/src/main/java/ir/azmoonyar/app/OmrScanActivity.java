@@ -447,8 +447,33 @@ public final class OmrScanActivity extends ComponentActivity {
             ExamScorer.Result score = ExamScorer.score(
                     answerKey.substring(0, total), answers, 1.0, 0.0, 0.0);
             if (!score.isComplete()) {
-                updateStatus("برگهٔ " + participantName + " خوانده شد، اما " + score.needsReview
-                        + " سؤال مبهم است؛ نمرهٔ قطعی ذخیره نشد. برگه را کنار ببرید.");
+                // Preserve the uncertain sheet for later human review, but never store a final score.
+                JSONArray queue;
+                try { queue = new JSONArray(prefs.getString("grading_review_queue", "[]")); }
+                catch (Exception ignored) { queue = new JSONArray(); }
+                JSONObject pending = new JSONObject();
+                pending.put("name", participantName.trim());
+                pending.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
+                pending.put("createdAt", System.currentTimeMillis());
+                pending.put("source", "live_camera");
+                pending.put("needsReview", score.needsReview);
+                pending.put("totalQuestions", score.totalQuestions);
+                JSONArray questionStates = new JSONArray();
+                for (int i = 0; i < questions.size(); i++) {
+                    OMRAnswerClassifier.Result answer = questions.get(i).classification;
+                    JSONObject item = new JSONObject();
+                    item.put("question", i + 1);
+                    item.put("status", answer.status.name());
+                    item.put("optionIndex", answer.optionIndex);
+                    item.put("margin", answer.margin);
+                    item.put("strongestScore", answer.strongestScore);
+                    questionStates.put(item);
+                }
+                pending.put("questions", questionStates);
+                queue.put(pending);
+                prefs.edit().putString("grading_review_queue", queue.toString()).apply();
+                updateStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
+                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
                 return;
             }
             JSONArray saved;
