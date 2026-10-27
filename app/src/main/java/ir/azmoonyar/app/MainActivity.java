@@ -183,7 +183,7 @@ public class MainActivity extends Activity {
     }
 
     private void showStyledInfo(String message) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = styledDialogBuilder()
                 .setMessage(message)
                 .setPositiveButton("باشه", null)
                 .create();
@@ -513,6 +513,59 @@ public class MainActivity extends Activity {
         row.addView(typed, p);
     }
 
+    private void stylePinkOvalButton(Button button) {
+        button.setAllCaps(false);
+        button.setTextColor(Color.WHITE);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setPadding(dp(16), dp(10), dp(16), dp(10));
+        android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.rgb(255, 104, 190), Color.rgb(238, 0, 120), Color.rgb(177, 0, 82)});
+        pink.setCornerRadius(dp(48));
+        pink.setStroke(dp(2), Color.rgb(255, 135, 205));
+        button.setBackground(pink);
+        button.setElevation(dp(5));
+        button.setStateListAnimator(null);
+        button.setOnTouchListener((view, event) -> {
+            switch (event.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    view.animate().translationY(dp(2)).setDuration(65).start();
+                    view.setElevation(dp(2));
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    view.animate().translationY(0).setDuration(90).start();
+                    view.setElevation(dp(5));
+                    break;
+            }
+            return false;
+        });
+    }
+
+    private AlertDialog.Builder styledDialogBuilder() {
+        return new AlertDialog.Builder(this) {
+            @Override public AlertDialog show() {
+                AlertDialog dialog = super.show();
+                dialog.setOnShowListener(ignored -> {
+                    int[] ids = {android.R.id.button1, android.R.id.button2, android.R.id.button3};
+                    for (int id : ids) {
+                        android.view.View candidate = dialog.findViewById(id);
+                        if (candidate instanceof Button) {
+                            Button action = (Button) candidate;
+                            stylePinkOvalButton(action);
+                            android.view.ViewGroup.LayoutParams old = action.getLayoutParams();
+                            if (old != null) {
+                                old.height = dp(48);
+                                action.setLayoutParams(old);
+                            }
+                        }
+                    }
+                });
+                return dialog;
+            }
+        };
+    }
+
     private Button createGlossyShortcut(String label, int[] colors, int borderColor) {
         Button button = new Button(this);
         button.setText(label);
@@ -552,6 +605,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < labels.length; i++) {
             final int index = i;
             Button b = new Button(this);
+            stylePinkOvalButton(b);
             b.setText(labels[i]);
             b.setAllCaps(false);
             b.setTextSize(labels[i].length() > 22 ? 12 : 13);
