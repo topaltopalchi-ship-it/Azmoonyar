@@ -324,8 +324,8 @@ public class MainActivity extends Activity {
                 new String[]{"تعریف / ویرایش آزمون", "فرم سؤال‌ها"},
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showQuestionBank()});
         addButtonGrid(
-                new String[]{"کلید پاسخ", "اسکن و تصحیح پاسخنامه"},
-                new View.OnClickListener[]{v -> showKeyDialog(), v -> openScanner()});
+                new String[]{"کلید پاسخ", "نتایج تصحیح"},
+                new View.OnClickListener[]{v -> showKeyDialog(), v -> showReportsCenter()});
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
