@@ -1084,7 +1084,7 @@ public class MainActivity extends Activity {
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
-        Button generate = new Button(this); generate.setText("آماده‌سازی فرم واحد و کلید پاسخ"); generate.setAllCaps(false);
+        Button generate = new Button(this); generate.setText("چاپ پرسشنامه و پاسخنامه"); generate.setAllCaps(false);
         generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
