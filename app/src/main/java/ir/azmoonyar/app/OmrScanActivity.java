@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.List;
 
 /**
  * Live-camera alignment cue only. Corner-window detection is intentionally not
@@ -71,7 +72,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("برگه را تا حد امکان کامل داخل تصویر بگیرید؛ مربع‌های گوشه باید واضح باشند. تشخیص فعلی راهنمای اولیه است و هنوز نمره‌ای ذخیره نمی‌شود.");
+        guidance.setText("برگه را کامل داخل تصویر بگیرید و مربع‌های گوشه را واضح نگه دارید. خواندن حباب‌ها به‌صورت آزمایشی نمایش داده می‌شود؛ تا تأیید دقت روی برگهٔ چاپی، نمره‌ای ذخیره نمی‌شود.");
         guidance.setTextColor(Color.rgb(80, 90, 110));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -146,30 +147,50 @@ public final class OmrScanActivity extends ComponentActivity {
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
-            boolean perspectiveReady = false;
+            SheetPerspectiveTransform transform = null;
             if (markerCount == 4) {
                 try {
-                    // Registration mark centers from the existing paired-sheet template:
-                    // 5 mm square marks with their centers 6.5 mm from each page edge.
-                    SheetPerspectiveTransform.fromControlPoints(
+                    // Existing template registration-mark centers.
+                    transform = SheetPerspectiveTransform.fromControlPoints(
                             new SheetPerspectiveTransform.Point[]{
                                     new SheetPerspectiveTransform.Point(6.5, 6.5),
                                     new SheetPerspectiveTransform.Point(203.5, 6.5),
                                     new SheetPerspectiveTransform.Point(203.5, 290.5),
                                     new SheetPerspectiveTransform.Point(6.5, 290.5)
                             },
-                            detection.points, 210.0, 297.0);
-                    perspectiveReady = true;
+                            detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
+                            OmrTemplateLayout.PAGE_HEIGHT_MM);
                 } catch (IllegalArgumentException ignored) {
-                    perspectiveReady = false;
+                    transform = null;
                 }
             }
             long now = android.os.SystemClock.elapsedRealtime();
-            if (now - lastStatusUpdate > 220) {
+            if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
                 final String message;
-                if (perspectiveReady) {
-                    message = "چهار نشانه پیدا شد و هندسهٔ پرسپکتیو برگه قابل محاسبه است؛ تشخیص پاسخ هنوز فعال نیست."; 
+                if (transform != null) {
+                    try {
+                        // Diagnostic-only live sampling. No answers or scores are saved.
+                        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(
+                                OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
+                        List<OMRSheetReader.QuestionResult> results =
+                                new OMRSheetReader().read(upright.pixels, upright.width,
+                                        upright.height, transform, centers, 1.0);
+                        int answered = 0, blank = 0, review = 0, multiple = 0;
+                        for (OMRSheetReader.QuestionResult result : results) {
+                            switch (result.classification.status) {
+                                case ANSWERED: answered++; break;
+                                case BLANK: blank++; break;
+                                case MULTIPLE_MARKS: multiple++; break;
+                                case REVIEW: review++; break;
+                            }
+                        }
+                        message = "خواندن آزمایشی حباب‌ها • پاسخ تشخیص‌داده‌شده: " + answered
+                                + " • خالی: " + blank + " • بازبینی: " + review
+                                + " • چندعلامتی: " + multiple + " — نمره ذخیره نمی‌شود.";
+                    } catch (RuntimeException readError) {
+                        message = "چهار گوشه پیدا شد، اما خواندن حباب‌ها پایدار نیست؛ برگه را صاف‌تر و با نور یکنواخت بگیرید.";
+                    }
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
