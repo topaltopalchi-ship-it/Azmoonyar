@@ -258,10 +258,24 @@ public final class ExternalTemplateActivity extends Activity {
                         .setPositiveButton("باشه", null).show();
                 return;
             }
+            float[] markerCenters = hasCornerMarks.isChecked()
+                    ? ExternalSheetAutoDetector.findCornerMarkerCenters(bitmap) : null;
+            if (hasCornerMarks.isChecked() && markerCenters == null) {
+                new AlertDialog.Builder(this).setTitle("چهار مربع گوشه با اطمینان پیدا نشد")
+                        .setMessage("تشخیص محدودهٔ جدول انجام شد، اما مراکز چهار مربع سیاه به‌طور مستقل قابل شناسایی نبودند. قالب ذخیره نشد تا جای حباب‌ها در عکس‌های کج جابه‌جا نشود.")
+                        .setPositiveButton("باشه", null).show();
+                return;
+            }
             RectF rect = detection.table;
-            prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
+            SharedPreferences.Editor templateEdit = prefs.edit()
+                    .putFloat("table_left", rect.left).putFloat("table_top", rect.top)
                     .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
-                    .putBoolean("table_bounds_saved", true).putBoolean("grid_saved", false).apply();
+                    .putBoolean("table_bounds_saved", true).putBoolean("grid_saved", false);
+            if (markerCenters != null) {
+                for (int i=0;i<markerCenters.length;i++) templateEdit.putFloat("page_marker_"+i, markerCenters[i]);
+                templateEdit.putBoolean("page_markers_saved", true);
+            }
+            templateEdit.apply();
             savedStatus.setText("محدودهٔ پیشنهادی جدول پیدا شد. علامت‌های گوشهٔ تشخیص‌داده‌شده: "
                     + detection.cornerMarks + " از ۴. هنوز اصلاح پرسپکتیو خودکار فعال نیست؛ شبکه را قبل از ذخیره بررسی کنید.");
             Toast.makeText(this, "محدودهٔ پیشنهادی جدول پیدا شد؛ پیش‌نمایش را بررسی کنید", Toast.LENGTH_LONG).show();
@@ -486,12 +500,24 @@ public final class ExternalTemplateActivity extends Activity {
                 referenceBitmap = decodeOrientedBitmap(Uri.parse(referenceUriText));
             }
             if (referenceBitmap == null) throw new IllegalStateException("عکس الگوی کامل A4 پیدا نشد؛ دوباره الگوی خالی را انتخاب و ذخیره کنید");
-            double refRatio = referenceBitmap.getWidth() / (double) referenceBitmap.getHeight();
-            double filledRatio = bitmap.getWidth() / (double) bitmap.getHeight();
-            referenceBitmap.recycle();
-            if (Math.abs(filledRatio-refRatio) / refRatio > 0.04) {
-                throw new IllegalStateException("کادر عکس با الگوی A4 یکسان نیست. از کل برگه، با همان جهت و بدون بریدن لبه‌ها عکس بگیرید؛ این برگه برای جلوگیری از نمرهٔ اشتباه تصحیح نشد.");
+            float[] referenceMarkers = new float[8];
+            boolean markersSaved = prefs.getBoolean("page_markers_saved", false);
+            for (int i=0;i<8;i++) referenceMarkers[i]=prefs.getFloat("page_marker_"+i, -1f);
+            float[] filledMarkers = markersSaved ? ExternalSheetAutoDetector.findCornerMarkerCenters(bitmap) : null;
+            if (markersSaved && filledMarkers == null) {
+                referenceBitmap.recycle();
+                throw new IllegalStateException("چهار مربع سیاه گوشه در عکس پرشده پیدا نشدند؛ عکس کامل برگه را بدون بریدن گوشه‌ها بگیرید. نمره ثبت نشد.");
             }
+            if (markersSaved) {
+                for (int i=0;i<8;i++) if (referenceMarkers[i]<0 || referenceMarkers[i]>1) {
+                    referenceBitmap.recycle();
+                    throw new IllegalStateException("مختصات مرجع گوشه‌ها ناقص است؛ قالب را دوباره تشخیص دهید.");
+                }
+            }
+            referenceBitmap.recycle();
+            double[] pageTransform = markersSaved ? solveHomography(referenceMarkers, filledMarkers) : null;
+            if (markersSaved && pageTransform == null)
+                throw new IllegalStateException("تطبیق پرسپکتیو چهار گوشه ممکن نشد؛ نمره ثبت نشد.");
             String participantName = participantNameInput.getText().toString().trim();
             if (participantName.isEmpty()) throw new IllegalStateException("نام شرکت‌کننده را وارد کنید");
             int questions = number(questionCount.getText().toString(), prefs.getInt("questions", 10));
@@ -516,6 +542,12 @@ public final class ExternalTemplateActivity extends Activity {
                     org.json.JSONObject savedCenter = storedCenters.getJSONObject(q * options + o);
                     double nx = savedCenter.getDouble("x");
                     double ny = savedCenter.getDouble("y");
+                    if (pageTransform != null) {
+                        double[] mapped = applyHomography(pageTransform, nx, ny);
+                        nx = mapped[0]; ny = mapped[1];
+                        if (!Double.isFinite(nx) || !Double.isFinite(ny) || nx<0 || nx>1 || ny<0 || ny>1)
+                            throw new IllegalStateException("جای حباب پس از اصلاح پرسپکتیو بیرون از تصویر افتاد؛ نمره ثبت نشد.");
+                    }
                     // The selected table includes the question-number column as well as answer bubbles.
                     // Sample only the inner center of each bubble cell so printed outlines/grid lines
                     // do not make every option appear equally dark.
@@ -612,6 +644,39 @@ public final class ExternalTemplateActivity extends Activity {
         Bitmap oriented = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
         if (oriented != source) source.recycle();
         return oriented;
+    }
+
+
+    /** Fits an 8-parameter projective transform from four normalized page fiducials. */
+    private double[] solveHomography(float[] src, float[] dst) {
+        if (src==null || dst==null || src.length!=8 || dst.length!=8) return null;
+        double[][] a=new double[8][9];
+        for(int i=0;i<4;i++) {
+            double x=src[2*i], y=src[2*i+1], u=dst[2*i], v=dst[2*i+1];
+            int r=2*i;
+            a[r][0]=x; a[r][1]=y; a[r][2]=1; a[r][6]=-u*x; a[r][7]=-u*y; a[r][8]=u;
+            a[r+1][3]=x; a[r+1][4]=y; a[r+1][5]=1; a[r+1][6]=-v*x; a[r+1][7]=-v*y; a[r+1][8]=v;
+        }
+        for(int col=0;col<8;col++) {
+            int pivot=col;
+            for(int row=col+1;row<8;row++) if(Math.abs(a[row][col])>Math.abs(a[pivot][col]))pivot=row;
+            if(Math.abs(a[pivot][col])<1e-9)return null;
+            double[] tmp=a[col];a[col]=a[pivot];a[pivot]=tmp;
+            double div=a[col][col];for(int j=col;j<9;j++)a[col][j]/=div;
+            for(int row=0;row<8;row++)if(row!=col) {
+                double factor=a[row][col];
+                for(int j=col;j<9;j++)a[row][j]-=factor*a[col][j];
+            }
+        }
+        double[] h=new double[8];for(int i=0;i<8;i++)h[i]=a[i][8];
+        return h;
+    }
+
+    private double[] applyHomography(double[] h, double x, double y) {
+        double denominator=h[6]*x+h[7]*y+1.0;
+        if(Math.abs(denominator)<1e-9)return new double[]{Double.NaN,Double.NaN};
+        return new double[]{(h[0]*x+h[1]*y+h[2])/denominator,
+                (h[3]*x+h[4]*y+h[5])/denominator};
     }
 
     private double sampleDarkness(Bitmap bitmap, double nx, double ny, double rx, double ry) {
