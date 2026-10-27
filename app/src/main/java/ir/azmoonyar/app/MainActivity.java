@@ -273,7 +273,7 @@ public class MainActivity extends Activity {
 
         TextView note = new TextView(this);
         note.setText("ورود رایگان نیازی به نام کاربری یا رمز عبور ندارد.");
-        note.setTextSize(13);
+        note.setTextSize(12);
         note.setTextColor(Color.rgb(90, 105, 130));
         note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-1, -2);
@@ -288,26 +288,26 @@ public class MainActivity extends Activity {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(22),dp(30),dp(22),dp(24));
+        root.setPadding(dp(16),dp(8),dp(16),dp(12));
         root.setBackgroundColor(Color.rgb(245,248,255));
         scroll.addView(root);
 
         TextView title = new TextView(this);
         title.setText("آزمون‌یار");
-        title.setTextSize(32); title.setTextColor(Color.rgb(7,40,130));
+        title.setTextSize(25); title.setTextColor(Color.rgb(7,40,130));
         title.setGravity(Gravity.CENTER); title.setTypeface(null, android.graphics.Typeface.BOLD);
         title.setShadowLayer(dp(1), 0, dp(1), Color.rgb(210,222,250));
-        root.addView(title, new LinearLayout.LayoutParams(-1,dp(62)));
+        root.addView(title, new LinearLayout.LayoutParams(-1,dp(42)));
 
         TextView subtitle = new TextView(this);
         subtitle.setText("مدیریت آزمون و کلید پاسخ — آفلاین");
         subtitle.setTextSize(16); subtitle.setTextColor(Color.rgb(65,80,115)); subtitle.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1,-2); sp.bottomMargin=dp(22); root.addView(subtitle,sp);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1,-2); sp.bottomMargin=dp(8); root.addView(subtitle,sp);
 
         summary = new TextView(this);
-        summary.setTextSize(15); summary.setTextColor(Color.rgb(30,45,80)); summary.setGravity(Gravity.CENTER);
+        summary.setTextSize(14); summary.setTextColor(Color.rgb(30,45,80)); summary.setGravity(Gravity.CENTER);
         summary.setTypeface(null, android.graphics.Typeface.BOLD);
-        summary.setPadding(dp(16),dp(18),dp(16),dp(18));
+        summary.setPadding(dp(12),dp(10),dp(12),dp(10));
         android.graphics.drawable.GradientDrawable summaryBg = new android.graphics.drawable.GradientDrawable();
         summaryBg.setColor(Color.WHITE);
         summaryBg.setCornerRadius(dp(20));
@@ -315,7 +315,7 @@ public class MainActivity extends Activity {
         summary.setBackground(summaryBg);
         summary.setElevation(dp(3));
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1,-2);
-        summaryParams.bottomMargin = dp(12);
+        summaryParams.bottomMargin = dp(6);
         root.addView(summary,summaryParams);
         refreshSummary();
 
@@ -335,12 +335,12 @@ public class MainActivity extends Activity {
         Button scanCorrection = new Button(this);
         scanCorrection.setText("اسکن و تصحیح");
         scanCorrection.setAllCaps(false);
-        scanCorrection.setTextSize(19);
+        scanCorrection.setTextSize(18);
         scanCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
         scanCorrection.setTextColor(Color.WHITE);
         scanCorrection.setGravity(Gravity.CENTER);
-        scanCorrection.setMinHeight(dp(86));
-        scanCorrection.setPadding(dp(14), dp(16), dp(14), dp(16));
+        scanCorrection.setMinHeight(dp(68));
+        scanCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
         android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Color.rgb(255, 76, 177), Color.rgb(238, 0, 120), Color.rgb(180, 0, 86)});
@@ -365,27 +365,27 @@ public class MainActivity extends Activity {
             return false;
         });
         LinearLayout.LayoutParams scanParams = new LinearLayout.LayoutParams(-1, -2);
-        scanParams.topMargin = dp(12);
-        scanParams.bottomMargin = dp(8);
+        scanParams.topMargin = dp(6);
+        scanParams.bottomMargin = dp(4);
         root.addView(scanCorrection, scanParams);
         scanCorrection.setOnClickListener(v -> showScanCorrectionEntry());
 
         Button externalCorrection = new Button(this);
         externalCorrection.setText("تصحیح پاسخنامهٔ چاپ‌شده خارج از آزمون‌یار");
         externalCorrection.setAllCaps(false);
-        externalCorrection.setTextSize(16);
-        externalCorrection.setMinHeight(dp(64));
+        externalCorrection.setTextSize(14);
+        externalCorrection.setMinHeight(dp(50));
         externalCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(-1, -2);
-        externalParams.topMargin = dp(6);
-        externalParams.bottomMargin = dp(8);
+        externalParams.topMargin = dp(3);
+        externalParams.bottomMargin = dp(4);
         root.addView(externalCorrection, externalParams);
         externalCorrection.setOnClickListener(v -> startActivity(new Intent(this, ExternalTemplateActivity.class)));
 
         TextView note = new TextView(this);
         note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(8); np.bottomMargin=dp(8); root.addView(note,np);
         setContentView(scroll);
     }
 
@@ -599,8 +599,8 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-        rowParams.topMargin = dp(5);
-        rowParams.bottomMargin = dp(5);
+        rowParams.topMargin = dp(2);
+        rowParams.bottomMargin = dp(2);
         root.addView(row, rowParams);
         for (int i = 0; i < labels.length; i++) {
             final int index = i;
@@ -612,7 +612,7 @@ public class MainActivity extends Activity {
             b.setTypeface(null, android.graphics.Typeface.BOLD);
             b.setTextColor(Color.WHITE);
             b.setGravity(Gravity.CENTER);
-            b.setMinHeight(dp(66));
+            b.setMinHeight(dp(52));
             b.setPadding(dp(7), dp(8), dp(7), dp(8));
             b.setMaxLines(2);
             // Glossy, deeply raised electric button with layered wave ribbons like the selected reference.
@@ -649,7 +649,7 @@ public class MainActivity extends Activity {
                 return false;
             });
             b.setOnClickListener(listeners[i]);
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(68), 1f);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(54), 1f);
             p.leftMargin = dp(4);
             p.rightMargin = dp(4);
             row.addView(b, p);
