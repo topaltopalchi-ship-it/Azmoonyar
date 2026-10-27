@@ -27,8 +27,6 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.qrcode.QRCodeWriter;
 import java.io.ByteArrayOutputStream;
 import android.util.Base64;
 import org.json.JSONArray;
@@ -332,18 +330,10 @@ public class MainActivity extends Activity {
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
         TextView note = new TextView(this);
-        note.setText("اسکن زنده QR بدون ذخیره عکس اضافه شده است. خواندن حباب‌های پاسخ و نمره‌دهی خودکار هنوز در حال توسعه است.");
+        note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
-    }
-
-    private void openScanner() {
-        if (examName().trim().isEmpty()) {
-            info("ابتدا آزمون را تعریف کن؛ کد QR هر پاسخنامه باید نام همان آزمون را داشته باشد.");
-            return;
-        }
-        startActivity(new Intent(this, ScanActivity.class));
     }
 
     private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
@@ -414,7 +404,7 @@ public class MainActivity extends Activity {
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
         int scanned=prefs.getInt("scanned_sheet_count",0);
         int studentCount=readStudents().length();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nصفحه‌های ثبت‌شده: "+scanned);
     }
 
     private void showExamDialog() {
@@ -660,7 +650,7 @@ public class MainActivity extends Activity {
                 .append("body{font-family:sans-serif;color:#111;margin:0;direction:rtl}")
                 .append(".page{width:210mm;height:297mm;padding:10mm 12mm;position:relative;page-break-after:always;overflow:hidden}")
                 .append(".page:last-child{page-break-after:auto}.head{font-size:17px;font-weight:bold;margin:0 0 3mm}")
-                .append(".meta{font-size:10px;margin:2mm 0}.qr{width:25mm;height:25mm;float:left}.clear{clear:both}")
+                .append(".meta{font-size:10px;margin:2mm 0}.clear{clear:both}")
                 .append(".instructions{font-size:9px;border:1px solid #333;padding:2mm;margin:2mm 0}")
                 .append(".question{font-size:11px;margin:0 0 3mm;page-break-inside:avoid}")
                 .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1mm;margin:1mm 5mm 0;font-size:10px}")
@@ -716,21 +706,11 @@ public class MainActivity extends Activity {
                 }
 
                 for (int page = 1; page <= pageCount; page++) {
-                    String payload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|"
-                            + modelId + "|T1|" + page + "|" + pageCount;
-                    com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, 320, 320);
-                    Bitmap qr = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
-                    for (int y = 0; y < 320; y++) for (int x = 0; x < 320; x++)
-                        qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
-                    ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    qr.compress(Bitmap.CompressFormat.PNG, 100, output);
-                    String qr64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
                     int first = (page - 1) * 100;
                     int last = Math.min(page * 100, total);
                     html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
-                        .append("<img class='qr' src='data:image/png;base64,").append(qr64).append("'/>")
                         .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                         .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
                         .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
@@ -750,8 +730,7 @@ public class MainActivity extends Activity {
                     html.append("</div></section>");
                 }
                 // Save an immutable grading snapshot for this exact printed batch and model.
-                // The QR contains sheetSetId + modelId, so grading can retrieve this exact key
-                // even after another batch is generated with a different question/option order.
+                // Save the exact answer key and question order for this printed batch/model.
                 JSONObject issuedExam = new JSONObject();
                 issuedExam.put("schema_version", 1);
                 issuedExam.put("exam_name", examName());
@@ -1314,8 +1293,7 @@ public class MainActivity extends Activity {
             String model = variant.optString("model_id", "?");
             details.append("نسخه ").append(model)
                 .append(" — تعداد سؤال: ").append(variant.optInt("question_count", 0))
-                .append("\nشناسه QR: ").append(variant.optString("qr_payload", "ثبت نشده"))
-                .append("\nکلید پاسخ: ").append(variant.optString("answer_key", "ثبت نشده"))
+                                .append("\nکلید پاسخ: ").append(variant.optString("answer_key", "ثبت نشده"))
                 .append("\n\n");
             JSONArray questions = variant.optJSONArray("questions");
             if (questions != null) {
@@ -1437,56 +1415,6 @@ public class MainActivity extends Activity {
         });
         dialog.show();
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
-    }
-
-    private void registerImportedQrVariants(JSONObject[] variants) throws Exception {
-        String encodedName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
-        String batchId = UUID.randomUUID().toString();
-        JSONArray savedVariants = new JSONArray();
-        StringBuilder html = new StringBuilder("<html><head><meta charset='utf-8'><style>@page{size:A4;margin:10mm}body{font-family:sans-serif;direction:rtl}.page{page-break-after:always}.qr{width:28mm;height:28mm;float:left}.q{padding:3mm;border-bottom:1px solid #aaa}.opts{display:grid;grid-template-columns:1fr 1fr}.bubble{display:inline-block;width:5mm;height:5mm;border:1px solid #111;border-radius:50%}table{width:100%;border-collapse:collapse}td,th{border:1px solid #555;text-align:center;padding:2mm}</style></head><body>");
-        for (JSONObject variant : variants) {
-            String model = variant.optString("variant_id", "");
-            JSONArray questions = variant.optJSONArray("questions");
-            String answerKey = variant.optString("answer_key", "");
-            if (questions == null || questions.length() != 10 || answerKey.length() != 10) throw new IllegalStateException("Invalid variant");
-            String sheetId = UUID.randomUUID().toString();
-            String payload = "AZY3|" + encodedName + "|" + sheetId + "|" + model + "|T1|1|1";
-            com.google.zxing.common.BitMatrix matrix = new QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, 320, 320);
-            Bitmap qr = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
-            for (int y = 0; y < 320; y++) for (int x = 0; x < 320; x++) qr.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream(); qr.compress(Bitmap.CompressFormat.PNG, 100, bytes);
-            String qr64 = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
-            JSONObject issued = new JSONObject();
-            issued.put("schema_version", 1); issued.put("exam_name", examName()); issued.put("sheet_set_id", sheetId);
-            issued.put("model_id", model); issued.put("template_id", "T1"); issued.put("question_count", 10);
-            issued.put("answer_key", answerKey); issued.put("questions", questions); issued.put("qr_payload", payload);
-            issued.put("created_at", System.currentTimeMillis()); issued.put("original_answer_key", answerKey);
-            prefs.edit().putString("issued_exam_" + sheetId + "_" + model, issued.toString())
-                    .putString("saved_variant_" + sheetId, issued.toString()).putString("answer_key_model_" + model, answerKey)
-                    .putString("model_questions_" + model, questions.toString()).putString("pdf_original_version_" + model, variant.toString())
-                    .putString("qr_payload_model_" + model, payload).putInt("issued_model_count", variants.length).apply();
-            savedVariants.put(issued);
-            html.append("<section class='page'><h1>").append(escapeHtml(examName())).append(" — نسخه ").append(model)
-                    .append("</h1><img class='qr' src='data:image/png;base64,").append(qr64)
-                    .append("'/><p>نام و نام خانوادگی: ................................</p><h2>پرسشنامه</h2>");
-            for (int i = 0; i < questions.length(); i++) {
-                JSONObject q = questions.optJSONObject(i); JSONArray options = q == null ? null : q.optJSONArray("options");
-                html.append("<div class='q'><b>").append(i + 1).append(". ").append(escapeHtml(q == null ? "" : q.optString("text", ""))).append("</b><div class='opts'>");
-                for (int j = 0; options != null && j < Math.min(4, options.length()); j++)
-                    html.append("<div>").append((char)('A' + j)).append(") ").append(escapeHtml(options.optString(j, ""))).append("</div>");
-                html.append("</div></div>");
-            }
-            html.append("<h2>پاسخنامه</h2><table><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr>");
-            for (int i = 1; i <= 10; i++) html.append("<tr><td>").append(i).append("</td><td><span class='bubble'></span></td><td><span class='bubble'></span></td><td><span class='bubble'></span></td><td><span class='bubble'></span></td></tr>");
-            html.append("</table></section>");
-        }
-        html.append("</body></html>");
-        JSONObject batch = new JSONObject(); batch.put("batch_id", batchId); batch.put("exam_name", examName());
-        batch.put("variant_count", variants.length); batch.put("created_at", System.currentTimeMillis());
-        batch.put("print_html", html.toString()); batch.put("variants", savedVariants);
-        JSONArray batches = readSavedExamBatches(); batches.put(batch);
-        prefs.edit().putString("saved_exam_batches_json", batches.toString()).apply();
-        printHtmlDocument("AzmoonYar-" + examName() + "-AB-QR", html.toString());
     }
 
     private JSONObject makeFixedPdfVariant(String model, JSONArray sourceQuestions) throws Exception {
@@ -1730,7 +1658,7 @@ public class MainActivity extends Activity {
             if (i == checked) option.setChecked(true);
         }
         TextView note = new TextView(this);
-        note.setText("توجه: در نسخهٔ فعلی اسکن QR انجام می‌شود و هیچ تصویری ذخیره نمی‌شود. این انتخاب فقط سیاست دلخواه شما را ثبت می‌کند؛ ذخیرهٔ واقعی تصاویر و تشخیص پاسخنامهٔ مشکوک تا زمان پیاده‌سازی پردازش تصویر فعال نیست.");
+        note.setText("ذخیره و پردازش تصاویر پاسخنامه بر اساس گزینهٔ انتخاب‌شده انجام می‌شود؛ تشخیص حباب‌ها باید پس از اتصال پردازش تصویر فعال شود.");
         note.setTextSize(14);
         note.setPadding(dp(12), dp(8), dp(12), dp(8));
         LinearLayout layout = new LinearLayout(this);
