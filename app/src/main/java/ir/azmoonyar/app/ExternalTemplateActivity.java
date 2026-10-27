@@ -384,14 +384,72 @@ public final class ExternalTemplateActivity extends Activity {
                     .setMessage("شبکهٔ پیشنهادی روی محدودهٔ ذخیره‌شده نمایش داده می‌شود. اگر ردیف‌ها و ستون‌ها با حباب‌ها منطبق نیستند، محدودهٔ جدول را دوباره تنظیم کنید.")
                     .setView(grid).setNegativeButton("بستن", null)
                     .setPositiveButton("تأیید و ذخیرهٔ شبکه", (dialog, which) -> {
-                        prefs.edit().putInt("grid_questions", questions).putInt("grid_options", options)
-                                .putString("grid_option_order", options == 4 ? "D,C,B,A" : "custom")
-                                .putBoolean("grid_saved", true).apply();
-                        savedStatus.setText("شبکهٔ پیشنهادی " + questions + " ردیف و " + options + " ستون ذخیره شد. ترتیب پیش‌فرض چهارگزینه‌ای از چپ به راست D/C/B/A است؛ پیش از استفادهٔ رسمی آن را با چند پاسخنامهٔ واقعی بررسی کنید.");
+                        try {
+                            Bitmap reference = decodeOrientedBitmap(sampleUri);
+                            org.json.JSONArray centers = detectAndStoreBubbleCenters(reference, questions, options);
+                            if (reference != null) reference.recycle();
+                            if (centers == null || centers.length() != questions * options) {
+                                Toast.makeText(this, "مراکز حباب‌ها با اطمینان کافی پیدا نشد؛ شبکه ذخیره نشد.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            prefs.edit().putInt("grid_questions", questions).putInt("grid_options", options)
+                                    .putString("grid_option_order", options == 4 ? "D,C,B,A" : "custom")
+                                    .putString("bubble_centers", centers.toString())
+                                    .putBoolean("grid_saved", true).apply();
+                            savedStatus.setText("مراکز " + centers.length() + " حباب از روی عکس مرجع تخمین و ذخیره شدند. پیش از استفادهٔ رسمی با برگه‌های پرشده بررسی کنید؛ اصلاح پرسپکتیو هنوز فعال نیست.");
+                        } catch (Exception ex) {
+                            Toast.makeText(this, "ذخیرهٔ مراکز حباب‌ها ناموفق بود: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                        }
                     }).show();
         } catch (Exception e) {
             Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * Refines each expected cell centre against the printed circular ring on the blank reference.
+     * Returns null unless every bubble has a clear local ring candidate.
+     */
+    private org.json.JSONArray detectAndStoreBubbleCenters(Bitmap bitmap, int questions, int options) throws Exception {
+        if (bitmap == null) return null;
+        float left=prefs.getFloat("table_left",0), top=prefs.getFloat("table_top",0);
+        float right=prefs.getFloat("table_right",1), bottom=prefs.getFloat("table_bottom",1);
+        double cellW=(right-left)/(options+1.0), cellH=(bottom-top)/(double)questions;
+        org.json.JSONArray all = new org.json.JSONArray();
+        for (int q=0; q<questions; q++) {
+            for (int o=0; o<options; o++) {
+                double[] nominal=ExternalSheetLayout.bubbleCenter(q,o,questions,options,
+                        prefs.getString("table_mode","single"),left,top,right,bottom);
+                int nx=(int)Math.round(nominal[0]*bitmap.getWidth());
+                int ny=(int)Math.round(nominal[1]*bitmap.getHeight());
+                int searchX=Math.max(2,(int)(cellW*bitmap.getWidth()*0.28));
+                int searchY=Math.max(2,(int)(cellH*bitmap.getHeight()*0.25));
+                int radius=Math.max(3,(int)(Math.min(cellW*bitmap.getWidth(),cellH*bitmap.getHeight())*0.10));
+                double best=-1; int bestX=nx,bestY=ny;
+                for(int cy=Math.max(radius,ny-searchY);cy<Math.min(bitmap.getHeight()-radius,ny+searchY);cy+=2) {
+                    for(int cx=Math.max(radius,nx-searchX);cx<Math.min(bitmap.getWidth()-radius,nx+searchX);cx+=2) {
+                        double ring=0, inner=0; int rc=0,ic=0;
+                        for(int yy=-radius;yy<=radius;yy+=2) for(int xx=-radius;xx<=radius;xx+=2) {
+                            double d=Math.sqrt(xx*xx+yy*yy)/(double)radius;
+                            int px=bitmap.getPixel(cx+xx,cy+yy);
+                            double lum=0.299*Color.red(px)+0.587*Color.green(px)+0.114*Color.blue(px);
+                            if(d>=0.72 && d<=1.08) {ring+=255-lum;rc++;}
+                            else if(d<=0.42) {inner+=lum;ic++;}
+                        }
+                        if(rc==0||ic==0) continue;
+                        double score=ring/rc - (255-inner/ic)*0.25;
+                        if(score>best){best=score;bestX=cx;bestY=cy;}
+                    }
+                }
+                if(best<20) return null;
+                org.json.JSONObject point=new org.json.JSONObject();
+                point.put("q",q); point.put("o",o);
+                point.put("x",bestX/(double)bitmap.getWidth());
+                point.put("y",bestY/(double)bitmap.getHeight());
+                all.put(point);
+            }
+        }
+        return all;
     }
 
     private void chooseFilledImage() {
