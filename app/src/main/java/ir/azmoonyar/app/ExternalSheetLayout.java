@@ -31,13 +31,16 @@ public final class ExternalSheetLayout {
             int columnQuestions = rightColumn ? firstColumnQuestions : questions - firstColumnQuestions;
             if (columnQuestions < 1) columnQuestions = 1;
             double half = (right - left) / 2.0;
+            double answerHalf = half * options / (options + 1.0);
             double x = rightColumn
-                    ? left + half + (optionIndex + 0.5) * half / options
-                    : left + (optionIndex + 0.5) * half / options;
+                    ? left + half + (optionIndex + 0.5) * answerHalf / options
+                    : left + (optionIndex + 0.5) * answerHalf / options;
             double y = top + (row + 0.5) * (bottom - top) / columnQuestions;
             return new double[]{x, y};
         }
-        double x = left + (optionIndex + 0.5) * (right - left) / options;
+        // Reserve the rightmost table cell for question numbers on standard RTL sheets.
+        double answerAreaWidth = (right - left) * options / (options + 1.0);
+        double x = left + (optionIndex + 0.5) * answerAreaWidth / options;
         double y = top + (questionIndex + 0.5) * (bottom - top) / questions;
         return new double[]{x, y};
     }
