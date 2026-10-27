@@ -1,7 +1,6 @@
 package ir.azmoonyar.app;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -10,6 +9,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
  * It deliberately does not save grades: reliable sheet rectification and bubble
  * coordinate calibration must be completed before automatic scoring is enabled.
  */
-public final class OmrScanActivity extends Activity {
+public final class OmrScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 8402;
     private PreviewView previewView;
     private TextView statusView;
@@ -106,6 +106,7 @@ public final class OmrScanActivity extends Activity {
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
                 provider.unbindAll();
+                // ComponentActivity implements LifecycleOwner, as required by CameraX.
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,
                         preview, analysis);
             } catch (Exception error) {
@@ -152,9 +153,8 @@ public final class OmrScanActivity extends Activity {
     }
 
     /**
-     * Conservative coarse alignment cue, not a full fiducial detector.
-     * Counts dark pixels in four corner windows; it does not claim that they
-     * form correctly sized squares and must not be used for grading decisions.
+     * Coarse cue only: counts dark pixels in four image-corner windows, not
+     * validated printed square markers. It must never be used for grading.
      */
     private int countDarkCornerRegions(byte[] yPlane, int width, int height) {
         int windowW = Math.max(12, width / 7);
