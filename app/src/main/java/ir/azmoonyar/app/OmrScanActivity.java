@@ -2,6 +2,12 @@ package ir.azmoonyar.app;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.app.AlertDialog;
+import android.widget.EditText;
+import android.widget.Button;
+import android.content.SharedPreferences;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -39,6 +45,10 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
+    private String participantName = "";
+    private int stableMarkerFrames, missingMarkerFrames;
+    private volatile boolean sheetConsumed, waitingForNextName;
+    private PersianVosk voiceRecognizer;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -72,7 +82,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("برگه را کامل داخل تصویر بگیرید و مربع‌های گوشه را واضح نگه دارید. خواندن حباب‌ها به‌صورت آزمایشی نمایش داده می‌شود؛ تا تأیید دقت روی برگهٔ چاپی، نمره‌ای ذخیره نمی‌شود.");
+        guidance.setText("برگه را کامل داخل تصویر بگیرید. پس از تشخیص پایدار، اسکن خودکار انجام می‌شود؛ برای برگهٔ بعدی، برگهٔ قبلی را کنار ببرید.");
         guidance.setTextColor(Color.rgb(80, 90, 110));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -80,6 +90,8 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(guidance, new LinearLayout.LayoutParams(-1, -2));
         setContentView(page);
 
+        participantName = getIntent().getStringExtra("participant_name");
+        if (participantName == null) participantName = "";
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -166,6 +178,25 @@ public final class OmrScanActivity extends ComponentActivity {
                             OmrTemplateLayout.PAGE_HEIGHT_MM);
                 } catch (IllegalArgumentException ignored) {
                     transform = null;
+                }
+            }
+            if (transform != null && markerCount == 4) {
+                stableMarkerFrames++;
+                missingMarkerFrames = 0;
+                if (!sheetConsumed && stableMarkerFrames >= 3) {
+                    sheetConsumed = true;
+                    processRecognizedSheet(upright.pixels, upright.width, upright.height, transform);
+                }
+            } else {
+                stableMarkerFrames = 0;
+                if (sheetConsumed && markerCount < 2) {
+                    missingMarkerFrames++;
+                    if (missingMarkerFrames >= 5 && !waitingForNextName) {
+                        waitingForNextName = true;
+                        showNextParticipantDialog();
+                    }
+                } else if (markerCount >= 2) {
+                    missingMarkerFrames = 0;
                 }
             }
             long now = android.os.SystemClock.elapsedRealtime();
