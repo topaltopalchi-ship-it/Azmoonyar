@@ -266,7 +266,7 @@ public final class ExternalTemplateActivity extends Activity {
             instruction.setPadding(dp(4), dp(4), dp(4), dp(8));
             panel.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
 
-            panel.addView(calibrationView, new LinearLayout.LayoutParams(-1, dp(190)));
+            panel.addView(calibrationView, new LinearLayout.LayoutParams(-1, dp(270)));
 
             LinearLayout controls = new LinearLayout(this);
             controls.setOrientation(LinearLayout.HORIZONTAL);
@@ -563,59 +563,146 @@ public final class ExternalTemplateActivity extends Activity {
         private final Bitmap bitmap;
         private final Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float[] points = new float[4];
-        private int pointCount = 0;
-        private RectF imageRect = new RectF();
-        TableCalibrationView(Bitmap bitmap) { super(ExternalTemplateActivity.this); this.bitmap = bitmap; setLayoutParams(new LinearLayout.LayoutParams(-1, dp(210))); linePaint.setColor(Color.RED); linePaint.setStrokeWidth(dp(3)); linePaint.setStyle(Paint.Style.STROKE); }
+        private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // TL, TR, BL, BR handles, each as x/y.
+        private final float[] corners = new float[8];
+        private int activeCorner = -1;
+        private boolean hasRect = false;
+        private boolean creatingRect = false;
+        private final RectF imageRect = new RectF();
+
+        TableCalibrationView(Bitmap bitmap) {
+            super(ExternalTemplateActivity.this);
+            this.bitmap = bitmap;
+            linePaint.setColor(Color.RED);
+            linePaint.setStrokeWidth(dp(3));
+            linePaint.setStyle(Paint.Style.STROKE);
+            handleFill.setColor(Color.WHITE);
+            handleFill.setStyle(Paint.Style.FILL);
+            setLayoutParams(new LinearLayout.LayoutParams(-1, dp(270)));
+            setContentDescription("محدودهٔ جدول: برای اصلاح، یکی از چهار دستگیرهٔ قرمز را بکشید");
+        }
+
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float scale = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight());
-            float w=bitmap.getWidth()*scale, h=bitmap.getHeight()*scale;
-            imageRect.set((getWidth()-w)/2f,(getHeight()-h)/2f,(getWidth()+w)/2f,(getHeight()+h)/2f);
+            float w = bitmap.getWidth() * scale, h = bitmap.getHeight() * scale;
+            imageRect.set((getWidth()-w)/2f, (getHeight()-h)/2f, (getWidth()+w)/2f, (getHeight()+h)/2f);
             canvas.drawBitmap(bitmap, null, imageRect, imagePaint);
-            if(pointCount>0) canvas.drawCircle(points[0],points[1],dp(6),linePaint);
-            if(pointCount>1) { canvas.drawCircle(points[2],points[3],dp(6),linePaint); canvas.drawRect(Math.min(points[0],points[2]),Math.min(points[1],points[3]),Math.max(points[0],points[2]),Math.max(points[1],points[3]),linePaint); }
+            if (hasRect || creatingRect) {
+                float left = Math.min(corners[0], corners[4]);
+                float right = Math.max(corners[0], corners[4]);
+                float top = Math.min(corners[1], corners[5]);
+                float bottom = Math.max(corners[1], corners[5]);
+                canvas.drawRect(left, top, right, bottom, linePaint);
+                for (int i=0; i<4; i++) {
+                    float x=corners[i*2], y=corners[i*2+1], radius=dp(10);
+                    canvas.drawCircle(x,y,radius,handleFill);
+                    canvas.drawCircle(x,y,radius,linePaint);
+                    canvas.drawCircle(x,y,dp(3),linePaint);
+                }
+            }
+            if (!hasRect && !creatingRect) {
+                Paint hint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                hint.setColor(Color.WHITE);
+                hint.setTextSize(dp(13));
+                hint.setShadowLayer(dp(2), 0, 0, Color.BLACK);
+                canvas.drawText("برای شروع، از گوشهٔ بالا-چپ تا پایین-راست بکشید", dp(8), imageRect.bottom-dp(10), hint);
+            }
         }
+
         @Override public boolean onTouchEvent(android.view.MotionEvent event) {
             float x = Math.max(imageRect.left, Math.min(imageRect.right, event.getX()));
             float y = Math.max(imageRect.top, Math.min(imageRect.bottom, event.getY()));
             switch (event.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_DOWN:
                     if (!imageRect.contains(event.getX(), event.getY())) return false;
-                    points[0] = x; points[1] = y;
-                    points[2] = x; points[3] = y;
-                    pointCount = 1;
+                    activeCorner = hasRect ? nearestCorner(event.getX(), event.getY()) : -1;
+                    if (activeCorner >= 0) {
+                        creatingRect = false;
+                    } else {
+                        corners[0]=x; corners[1]=y;
+                        corners[2]=x; corners[3]=y;
+                        corners[4]=x; corners[5]=y;
+                        corners[6]=x; corners[7]=y;
+                        hasRect=false;
+                        creatingRect=true;
+                    }
                     invalidate();
                     return true;
                 case android.view.MotionEvent.ACTION_MOVE:
-                    if (pointCount < 1) return false;
-                    points[2] = x; points[3] = y;
-                    pointCount = 2;
+                    if (activeCorner >= 0) {
+                        moveCorner(activeCorner, x, y);
+                    } else if (creatingRect) {
+                        setRectangle(corners[0], corners[1], x, y);
+                    } else {
+                        return false;
+                    }
                     invalidate();
                     return true;
                 case android.view.MotionEvent.ACTION_UP:
-                    if (pointCount < 1) return false;
-                    points[2] = x; points[3] = y;
-                    pointCount = 2;
-                    invalidate();
-                    performClick();
-                    return true;
+                    if (activeCorner >= 0 || creatingRect) {
+                        if (creatingRect) setRectangle(corners[0], corners[1], x, y);
+                        hasRect = Math.abs(corners[6]-corners[0]) > dp(8) && Math.abs(corners[7]-corners[1]) > dp(8);
+                        creatingRect=false;
+                        activeCorner=-1;
+                        invalidate();
+                        performClick();
+                        return true;
+                    }
+                    return false;
                 case android.view.MotionEvent.ACTION_CANCEL:
+                    creatingRect=false;
+                    activeCorner=-1;
                     return true;
                 default:
                     return true;
             }
         }
+
+        private int nearestCorner(float x, float y) {
+            int best=-1;
+            float bestDistance=dp(28);
+            for(int i=0;i<4;i++) {
+                float dx=corners[i*2]-x, dy=corners[i*2+1]-y;
+                float d=(float)Math.sqrt(dx*dx+dy*dy);
+                if(d<bestDistance) { bestDistance=d; best=i; }
+            }
+            return best;
+        }
+
+        private void setRectangle(float x1, float y1, float x2, float y2) {
+            float l=Math.min(x1,x2), r=Math.max(x1,x2), t=Math.min(y1,y2), b=Math.max(y1,y2);
+            corners[0]=l; corners[1]=t;
+            corners[2]=r; corners[3]=t;
+            corners[4]=l; corners[5]=b;
+            corners[6]=r; corners[7]=b;
+        }
+
+        private void moveCorner(int index, float x, float y) {
+            float l=Math.min(corners[0], corners[4]), r=Math.max(corners[2], corners[6]);
+            float t=Math.min(corners[1], corners[3]), b=Math.max(corners[5], corners[7]);
+            if(index==0 || index==2) l=x; else r=x;
+            if(index==0 || index==1) t=y; else b=y;
+            l=Math.max(imageRect.left,Math.min(l,imageRect.right));
+            r=Math.max(imageRect.left,Math.min(r,imageRect.right));
+            t=Math.max(imageRect.top,Math.min(t,imageRect.bottom));
+            b=Math.max(imageRect.top,Math.min(b,imageRect.bottom));
+            setRectangle(l,t,r,b);
+            hasRect=Math.abs(r-l)>dp(8)&&Math.abs(b-t)>dp(8);
+        }
+
         @Override public boolean performClick() {
             super.performClick();
             return true;
         }
-        void resetSelection() { pointCount = 0; invalidate(); }
-        boolean hasRectangle() { return pointCount==2 && points[2]!=points[0] && points[3]!=points[1]; }
+        void resetSelection() { hasRect=false; creatingRect=false; activeCorner=-1; invalidate(); }
+        boolean hasRectangle() { return hasRect && Math.abs(corners[6]-corners[0])>dp(8) && Math.abs(corners[7]-corners[1])>dp(8); }
         RectF normalizedRect() {
-            float l=Math.min(points[0],points[2]), r=Math.max(points[0],points[2]);
-            float t=Math.min(points[1],points[3]), b=Math.max(points[1],points[3]);
-            return new RectF((l-imageRect.left)/imageRect.width(),(t-imageRect.top)/imageRect.height(),(r-imageRect.left)/imageRect.width(),(b-imageRect.top)/imageRect.height());
+            float l=Math.min(corners[0],corners[4]), r=Math.max(corners[2],corners[6]);
+            float t=Math.min(corners[1],corners[3]), b=Math.max(corners[5],corners[7]);
+            return new RectF((l-imageRect.left)/imageRect.width(),(t-imageRect.top)/imageRect.height(),
+                    (r-imageRect.left)/imageRect.width(),(b-imageRect.top)/imageRect.height());
         }
     }
 
