@@ -3,6 +3,8 @@ package ir.azmoonyar.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -11,6 +13,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
@@ -29,6 +32,9 @@ public final class ExternalTemplateActivity extends Activity {
     private RadioGroup anchorMode;
     private RadioGroup tableMode;
     private TextView savedStatus;
+    private ImageView samplePreview;
+    private Uri sampleUri;
+    private static final int REQUEST_SAMPLE_IMAGE = 8402;
     private SharedPreferences prefs;
 
     @Override public void onCreate(Bundle state) {
@@ -102,6 +108,21 @@ public final class ExternalTemplateActivity extends Activity {
         tableMode.check(single.getId());
         page.addView(tableMode);
 
+        page.addView(label("نمونهٔ خالی پاسخنامه"));
+        TextView sampleHelp = text("یک عکس واضح از کل برگهٔ خالی انتخاب کنید. فعلاً عکس برای مرجع کالیبراسیون ذخیره می‌شود؛ تشخیص خودکار حباب‌ها مرحلهٔ بعدی است.", 14, false);
+        page.addView(sampleHelp);
+        Button chooseSample = new Button(this);
+        chooseSample.setText("انتخاب عکس پاسخنامهٔ خالی");
+        chooseSample.setAllCaps(false);
+        page.addView(chooseSample);
+        chooseSample.setOnClickListener(v -> chooseSampleImage());
+        samplePreview = new ImageView(this);
+        samplePreview.setAdjustViewBounds(true);
+        samplePreview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, dp(260));
+        previewParams.topMargin = dp(8);
+        page.addView(samplePreview, previewParams);
+
         Button save = new Button(this);
         save.setText("ذخیرهٔ تنظیمات قالب");
         save.setAllCaps(false);
@@ -152,12 +173,12 @@ public final class ExternalTemplateActivity extends Activity {
                 .putString("table_mode", selectedTable == null ? "single" : String.valueOf(selectedTable.getTag()))
                 .putBoolean("profile_saved", true)
                 .apply();
-        savedStatus.setText("تنظیمات قالب ذخیره شد. مرحلهٔ بعد، تأیید محل جدول و حباب‌ها روی تصویر نمونه است؛ هنوز تصحیح خودکار این قالب فعال نشده است.");
+        savedStatus.setText(sampleUri == null ? "تنظیمات قالب ذخیره شد. هنوز عکس نمونه انتخاب نشده و تصحیح خودکار فعال نیست." : "تنظیمات و عکس نمونه ذخیره شد. مرحلهٔ بعد تعیین و تأیید محل حباب‌هاست؛ تصحیح خودکار هنوز فعال نیست.");
         Toast.makeText(this, "قالب خارجی ذخیره شد", Toast.LENGTH_SHORT).show();
     }
 
     private void loadProfile() {
-        if (!prefs.getBoolean("profile_saved", false)) return;
+        String savedUri = prefs.getString("sample_image_uri", "");\n        if (!savedUri.isEmpty()) {\n            try { sampleUri = Uri.parse(savedUri); samplePreview.setImageURI(sampleUri); } catch (Exception ignored) { }\n        }\n        if (!prefs.getBoolean("profile_saved", false)) return;
         templateName.setText(prefs.getString("name", ""));
         questionCount.setText(String.valueOf(prefs.getInt("questions", 10)));
         optionCount.setText(String.valueOf(prefs.getInt("options", 4)));
@@ -176,7 +197,7 @@ public final class ExternalTemplateActivity extends Activity {
         savedStatus.setText("یک قالب ذخیره‌شده پیدا شد؛ با ذخیرهٔ دوباره می‌توانید تنظیماتش را به‌روزرسانی کنید.");
     }
 
-    private RadioButton radio(String value, String tag) {
+    private void chooseSampleImage() {\n        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);\n        intent.addCategory(Intent.CATEGORY_OPENABLE);\n        intent.setType("image/*");\n        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);\n        startActivityForResult(intent, REQUEST_SAMPLE_IMAGE);\n    }\n\n    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {\n        super.onActivityResult(requestCode, resultCode, data);\n        if (requestCode != REQUEST_SAMPLE_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;\n        sampleUri = data.getData();\n        try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }\n        samplePreview.setImageURI(sampleUri);\n        savedStatus.setText("عکس نمونه انتخاب شد؛ برای ذخیرهٔ دائمی، «ذخیرهٔ تنظیمات قالب» را بزنید.");\n    }\n\n    private RadioButton radio(String value, String tag) {
         RadioButton b = new RadioButton(this);
         b.setText(value);
         b.setTag(tag);
