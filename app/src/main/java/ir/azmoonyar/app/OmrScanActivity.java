@@ -223,7 +223,7 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /**
-     * Looks for a compact, filled, nearly-square dark component in each corner.
+     * Looks for a compact, nearly-square dark component in each corner. Both filled marks and thin outlined squares are supported.
      * The returned points are candidate mark centers, not proof that the sheet
      * is a valid response form. Scoring stays disabled until layout calibration
      * and bubble sampling are validated against printed sheets.
@@ -294,7 +294,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     double fill = pixels / (double) (boxW * boxH);
                     boolean square = !tooLarge && pixels >= 10 && boxW >= 4 && boxH >= 4
                             && boxW <= 20 && boxH <= 20
-                            && aspect >= 0.68 && aspect <= 1.47 && fill >= 0.42;
+                            && aspect >= 0.68 && aspect <= 1.47 && fill >= 0.18;
                     double area = boxW * (double) boxH;
                     if (square && area > bestArea) {
                         bestArea = area;
