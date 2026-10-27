@@ -319,6 +319,9 @@ public class MainActivity extends Activity {
         root.addView(summary,summaryParams);
         refreshSummary();
 
+        // Large glossy registration shortcuts matching the requested blue/green wave-button design.
+        addRegistrationButtons();
+
         // Keep one clear entry point per task; participant names are captured by voice during grading.
         addButtonGrid(
                 new String[]{"تعریف / ویرایش آزمون", "فرم سؤال‌ها"},
@@ -330,7 +333,7 @@ public class MainActivity extends Activity {
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
         Button scanCorrection = new Button(this);
-        scanCorrection.setText("◎  اسکن و تصحیح پاسخنامه");
+        scanCorrection.setText("اسکن و تصحیح");
         scanCorrection.setAllCaps(false);
         scanCorrection.setTextSize(19);
         scanCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -463,6 +466,63 @@ public class MainActivity extends Activity {
                     if (recognizer[0] != null) recognizer[0].stop();
                 })
                 .show();
+    }
+
+    private void addRegistrationButtons() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.topMargin = dp(8);
+        rowParams.bottomMargin = dp(10);
+        root.addView(row, rowParams);
+
+        Button voice = createGlossyShortcut(
+                "🎙  ثبت‌نام صوتی\nبا گفتن نام و نام خانوادگی",
+                new int[]{Color.rgb(0, 190, 255), Color.rgb(0, 92, 255), Color.rgb(0, 37, 160)},
+                Color.rgb(0, 220, 255));
+        Button typed = createGlossyShortcut(
+                "⌨  ثبت‌نام متنی\nبا صفحه‌کلید",
+                new int[]{Color.rgb(0, 230, 92), Color.rgb(0, 185, 58), Color.rgb(0, 105, 38)},
+                Color.rgb(0, 255, 120));
+        voice.setTextSize(14);
+        typed.setTextSize(14);
+        voice.setOnClickListener(v -> showAddStudentDialog(true));
+        typed.setOnClickListener(v -> showAddStudentDialog(false));
+
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(102), 1f);
+        p.leftMargin = dp(4);
+        p.rightMargin = dp(4);
+        row.addView(voice, p);
+        row.addView(typed, p);
+    }
+
+    private Button createGlossyShortcut(String label, int[] colors, int borderColor) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextColor(Color.WHITE);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setMaxLines(3);
+        button.setPadding(dp(8), dp(8), dp(8), dp(8));
+        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, colors);
+        base.setCornerRadius(dp(38));
+        base.setStroke(dp(3), borderColor);
+        android.graphics.drawable.GradientDrawable shine = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(85, 255, 255, 255), Color.argb(18, 255, 255, 255),
+                        Color.argb(60, 0, 20, 90)});
+        shine.setCornerRadius(dp(35));
+        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{base, shine});
+        layers.setLayerInset(1, dp(4), dp(4), dp(4), dp(6));
+        button.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(130, 255, 255, 255)), layers, null));
+        button.setElevation(dp(9));
+        button.setShadowLayer(dp(2), 0, dp(2), Color.argb(130, 0, 25, 70));
+        return button;
     }
 
     private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
