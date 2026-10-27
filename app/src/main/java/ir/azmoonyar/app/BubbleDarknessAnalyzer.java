@@ -36,6 +36,13 @@ public final class BubbleDarknessAnalyzer {
         int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
         int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
         int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
+        // Do not score a partially visible bubble: clipping the reference ring at
+        // an image edge can make an off-sheet bubble look confidently blank/filled.
+        if (centerX - ringOuter < 0 || centerY - ringOuter < 0
+                || centerX + ringOuter >= width || centerY + ringOuter >= height) {
+            throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
+        }
+
         int minX = Math.max(0, (int) Math.floor(centerX - ringOuter));
         int maxX = Math.min(width - 1, (int) Math.ceil(centerX + ringOuter));
         int minY = Math.max(0, (int) Math.floor(centerY - ringOuter));
