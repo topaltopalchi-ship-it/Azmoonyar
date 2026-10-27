@@ -319,8 +319,8 @@ public class MainActivity extends Activity {
         root.addView(summary,summaryParams);
         refreshSummary();
 
-        // Large glossy registration shortcuts matching the requested blue/green wave-button design.
-        addRegistrationButtons();
+        // Participant registration shortcuts are intentionally hidden from the dashboard.
+        // Name entry remains available in the scan-and-correct flow.
 
         // Keep one clear entry point per task; participant names are captured by voice during grading.
         addButtonGrid(
