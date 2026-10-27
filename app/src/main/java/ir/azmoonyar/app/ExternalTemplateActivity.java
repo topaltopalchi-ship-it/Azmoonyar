@@ -31,6 +31,7 @@ import android.widget.Toast;
  */
 public final class ExternalTemplateActivity extends Activity {
     private EditText templateName;
+    private EditText participantNameInput;
     private EditText questionCount;
     private EditText optionCount;
     private EditText answerKeyInput;
@@ -64,6 +65,10 @@ public final class ExternalTemplateActivity extends Activity {
         TextView intro = text("این تنظیمات برای هر نوع پاسخنامهٔ خارجی جداگانه ذخیره می‌شود و قالب استاندارد ۱۰۰ سؤالی آزمون‌یار را تغییر نمی‌دهد.", 15, false);
         intro.setPadding(0, dp(10), 0, dp(16));
         page.addView(intro);
+
+        page.addView(label("نام شرکت‌کننده برای برگهٔ در حال تصحیح"));
+        participantNameInput = edit("نام و نام خانوادگی");
+        page.addView(participantNameInput);
 
         page.addView(label("نام قالب"));
         templateName = edit("مثلاً پاسخنامهٔ ریاضی");
@@ -321,6 +326,8 @@ public final class ExternalTemplateActivity extends Activity {
             if (stream == null) throw new IllegalStateException("فایل عکس باز نشد");
             try { bitmap = BitmapFactory.decodeStream(stream); } finally { stream.close(); }
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            String participantName = participantNameInput.getText().toString().trim();
+            if (participantName.isEmpty()) throw new IllegalStateException("نام شرکت‌کننده را وارد کنید");
             int questions = number(questionCount.getText().toString(), prefs.getInt("questions", 10));
             int options = number(optionCount.getText().toString(), prefs.getInt("options", 4));
             if (questions < 1 || questions > 100 || options < 2 || options > 6) throw new IllegalArgumentException("تعداد سؤال یا گزینه معتبر نیست");
@@ -361,13 +368,38 @@ public final class ExternalTemplateActivity extends Activity {
                 report.append("سؤال ").append(q+1).append(": ").append(answer)
                         .append("  [تیرگی ").append(Math.round(darkness[best])).append("]").append("\n");
             }
-            int scored = correctCount + wrongCount;
-            String scoreSummary = "صحیح: "+correctCount+" | غلط: "+wrongCount+" | خالی: "+blank+" | بازبینی: "+ambiguous + (scored > 0 ? " | درصد پاسخ‌های قطعی: "+Math.round(100.0*correctCount/scored)+"٪" : "");
-            TextView resultView=text("نتیجهٔ آزمایشی تصحیح\n"+scoreSummary+"\n\n"+report,14,false);
+            double percentage = questions == 0 ? 0.0 : 100.0 * correctCount / questions;
+            boolean finalResultSaved = false;
+            if (ambiguous == 0) {
+                android.content.SharedPreferences resultPrefs =
+                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+                org.json.JSONArray saved;
+                try { saved = new org.json.JSONArray(resultPrefs.getString("grading_results", "[]")); }
+                catch (Exception ignored) { saved = new org.json.JSONArray(); }
+                org.json.JSONObject record = new org.json.JSONObject();
+                record.put("name", participantName);
+                record.put("examName", templateName.getText().toString().trim());
+                record.put("score", percentage);
+                record.put("correct", correctCount);
+                record.put("wrong", wrongCount);
+                record.put("blank", blank);
+                record.put("multipleMarks", 0);
+                record.put("totalQuestions", questions);
+                record.put("createdAt", System.currentTimeMillis());
+                record.put("source", "external_template_photo");
+                saved.put(record);
+                resultPrefs.edit().putString("grading_results", saved.toString()).apply();
+                finalResultSaved = true;
+            }
+            String scoreSummary = "صحیح: "+correctCount+" | غلط: "+wrongCount+" | خالی: "+blank
+                    +" | نیازمند بازبینی: "+ambiguous+" | درصد از کل سؤال‌ها: "+Math.round(percentage)+"٪";
+            if (finalResultSaved) scoreSummary += "\nنتیجهٔ قطعی در بخش نتایج ذخیره شد.";
+            else scoreSummary += "\nبه‌دلیل پاسخ مبهم، نمرهٔ قطعی ذخیره نشد.";
+            TextView resultView=text("نتیجهٔ تصحیح پاسخنامهٔ خارجی\n"+scoreSummary+"\n\n"+report,14,false);
             resultView.setTextIsSelectable(true);
             ScrollView resultScroll=new ScrollView(this); resultScroll.addView(resultView);
-            new AlertDialog.Builder(this).setTitle("نتیجهٔ خواندن آزمایشی")
-                    .setMessage("این روش از شبکهٔ منظم داخل محدودهٔ جدول نمونه‌برداری می‌کند؛ برای عکس چرخیده، جدول نامنظم یا شبکهٔ ناهماهنگ ممکن است اشتباه کند. هیچ نمره‌ای ذخیره نمی‌شود.")
+            new AlertDialog.Builder(this).setTitle("نتیجهٔ تصحیح")
+                    .setMessage("این تصحیح بر اساس قالبی است که دستی کالیبره شده است. اگر عکس چرخیده، تار، دارای سایه یا شبکهٔ نامنظم باشد ممکن است پاسخ اشتباه خوانده شود؛ قبل از استفادهٔ رسمی، چند نمونه را بررسی کنید.")
                     .setView(resultScroll).setPositiveButton("باشه",null).show();
         } catch(Exception e) {
             Toast.makeText(this,"خواندن عکس ناموفق بود: "+e.getMessage(),Toast.LENGTH_LONG).show();
