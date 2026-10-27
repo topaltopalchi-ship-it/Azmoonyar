@@ -268,10 +268,26 @@ public final class ExternalTemplateActivity extends Activity {
 
             panel.addView(calibrationView, new LinearLayout.LayoutParams(-1, dp(270)));
 
+            LinearLayout zoomControls = new LinearLayout(this);
+            zoomControls.setOrientation(LinearLayout.HORIZONTAL);
+            zoomControls.setGravity(Gravity.CENTER);
+            zoomControls.setPadding(0, dp(4), 0, dp(2));
+            Button zoomOutButton = new Button(this);
+            zoomOutButton.setText("− کوچک‌نمایی");
+            Button zoomInButton = new Button(this);
+            zoomInButton.setText("+ بزرگ‌نمایی");
+            for (Button b : new Button[]{zoomOutButton, zoomInButton}) {
+                b.setAllCaps(false);
+                b.setTextSize(13);
+                b.setMinHeight(dp(42));
+                zoomControls.addView(b, new LinearLayout.LayoutParams(0, dp(44), 1f));
+            }
+            panel.addView(zoomControls, new LinearLayout.LayoutParams(-1, -2));
+
             LinearLayout controls = new LinearLayout(this);
             controls.setOrientation(LinearLayout.HORIZONTAL);
             controls.setGravity(Gravity.CENTER);
-            controls.setPadding(0, dp(8), 0, dp(2));
+            controls.setPadding(0, dp(6), 0, dp(2));
 
             Button cancelButton = new Button(this);
             cancelButton.setText("انصراف");
@@ -301,6 +317,8 @@ public final class ExternalTemplateActivity extends Activity {
                     .setView(panel)
                     .create();
             cancelButton.setOnClickListener(v -> calibrationDialog.dismiss());
+            zoomInButton.setOnClickListener(v -> calibrationView.zoomBy(1.25f));
+            zoomOutButton.setOnClickListener(v -> calibrationView.zoomBy(0.8f));
             resetButton.setOnClickListener(v -> calibrationView.resetSelection());
             saveButton.setOnClickListener(v -> {
                 if (!calibrationView.hasRectangle()) {
@@ -574,6 +592,7 @@ public final class ExternalTemplateActivity extends Activity {
         private boolean hasRect = false;
         private boolean creatingRect = false;
         private final RectF imageRect = new RectF();
+        private float zoom = 1f;
 
         TableCalibrationView(Bitmap bitmap) {
             super(ExternalTemplateActivity.this);
@@ -589,10 +608,13 @@ public final class ExternalTemplateActivity extends Activity {
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
-            float scale = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight());
+            float scale = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight()) * zoom;
             float w = bitmap.getWidth() * scale, h = bitmap.getHeight() * scale;
             imageRect.set((getWidth()-w)/2f, (getHeight()-h)/2f, (getWidth()+w)/2f, (getHeight()+h)/2f);
+            canvas.save();
+            canvas.clipRect(0, 0, getWidth(), getHeight());
             canvas.drawBitmap(bitmap, null, imageRect, imagePaint);
+            canvas.restore();
             if (hasRect || creatingRect) {
                 float left = Math.min(corners[0], corners[4]);
                 float right = Math.max(corners[0], corners[4]);
@@ -700,7 +722,24 @@ public final class ExternalTemplateActivity extends Activity {
             super.performClick();
             return true;
         }
-        void resetSelection() { hasRect=false; creatingRect=false; activeCorner=-1; invalidate(); }
+        void zoomBy(float factor) {
+            float oldScale = zoom;
+            zoom = Math.max(1f, Math.min(5f, zoom * factor));
+            if (Math.abs(zoom-oldScale) < 0.001f) return;
+            // Keep an existing rectangle attached to the same image locations while zoom changes.
+            float oldFit = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight()) * oldScale;
+            float newFit = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight()) * zoom;
+            float oldW=bitmap.getWidth()*oldFit, oldH=bitmap.getHeight()*oldFit;
+            float newW=bitmap.getWidth()*newFit, newH=bitmap.getHeight()*newFit;
+            RectF oldRect = new RectF((getWidth()-oldW)/2f,(getHeight()-oldH)/2f,(getWidth()+oldW)/2f,(getHeight()+oldH)/2f);
+            RectF newRect = new RectF((getWidth()-newW)/2f,(getHeight()-newH)/2f,(getWidth()+newW)/2f,(getHeight()+newH)/2f);
+            for(int i=0;i<4;i++) {
+                corners[i*2] = newRect.left + (corners[i*2]-oldRect.left)/oldRect.width()*newRect.width();
+                corners[i*2+1] = newRect.top + (corners[i*2+1]-oldRect.top)/oldRect.height()*newRect.height();
+            }
+            invalidate();
+        }
+        void resetSelection() { hasRect=false; creatingRect=false; activeCorner=-1; zoom=1f; invalidate(); }
         boolean hasRectangle() { return hasRect && Math.abs(corners[6]-corners[0])>dp(8) && Math.abs(corners[7]-corners[1])>dp(8); }
         RectF normalizedRect() {
             float l=Math.min(corners[0],corners[4]), r=Math.max(corners[2],corners[6]);
