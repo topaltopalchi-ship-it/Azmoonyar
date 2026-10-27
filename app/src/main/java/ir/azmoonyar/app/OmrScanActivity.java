@@ -141,13 +141,37 @@ public final class OmrScanActivity extends ComponentActivity {
                     }
                 }
             }
-            int markerCount = countDarkCornerRegions(luma, width, height);
+            int rotation = image.getImageInfo().getRotationDegrees();
+            UprightLuma upright = rotateToUpright(luma, width, height, rotation);
+            MarkerDetection detection = detectDarkCornerMarkers(
+                    upright.pixels, upright.width, upright.height);
+            int markerCount = detection.count;
+            boolean perspectiveReady = false;
+            if (markerCount == 4) {
+                try {
+                    // Registration mark centers from the existing paired-sheet template:
+                    // 5 mm square marks with their centers 6.5 mm from each page edge.
+                    SheetPerspectiveTransform.fromControlPoints(
+                            new SheetPerspectiveTransform.Point[]{
+                                    new SheetPerspectiveTransform.Point(6.5, 6.5),
+                                    new SheetPerspectiveTransform.Point(203.5, 6.5),
+                                    new SheetPerspectiveTransform.Point(203.5, 290.5),
+                                    new SheetPerspectiveTransform.Point(6.5, 290.5)
+                            },
+                            detection.points, 210.0, 297.0);
+                    perspectiveReady = true;
+                } catch (IllegalArgumentException ignored) {
+                    perspectiveReady = false;
+                }
+            }
             long now = android.os.SystemClock.elapsedRealtime();
             if (now - lastStatusUpdate > 220) {
                 lastStatusUpdate = now;
                 final String message;
-                if (markerCount >= 4) {
-                    message = "چهار نشانهٔ مربعی در گوشه‌ها شناسایی شد؛ برگه را لحظه‌ای ثابت نگه دارید.";
+                if (perspectiveReady) {
+                    message = "چهار نشانه پیدا شد و هندسهٔ پرسپکتیو برگه قابل محاسبه است؛ تشخیص پاسخ هنوز فعال نیست."; 
+                } else if (markerCount >= 4) {
+                    message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
                     message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر و با نور یکنواخت نگه دارید.";
                 } else {
@@ -162,15 +186,49 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
+    private static final class UprightLuma {
+        final byte[] pixels; final int width; final int height;
+        UprightLuma(byte[] pixels, int width, int height) {
+            this.pixels = pixels; this.width = width; this.height = height;
+        }
+    }
+
+    private static final class MarkerDetection {
+        final int count;
+        // Ordered top-left, top-right, bottom-right, bottom-left.
+        final SheetPerspectiveTransform.Point[] points;
+        MarkerDetection(int count, SheetPerspectiveTransform.Point[] points) {
+            this.count = count; this.points = points;
+        }
+    }
+
+    private UprightLuma rotateToUpright(byte[] source, int width, int height, int degrees) {
+        int rotation = ((degrees % 360) + 360) % 360;
+        if (rotation != 90 && rotation != 180 && rotation != 270) {
+            return new UprightLuma(source, width, height);
+        }
+        int outWidth = (rotation == 180) ? width : height;
+        int outHeight = (rotation == 180) ? height : width;
+        byte[] output = new byte[source.length];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int dx, dy;
+                if (rotation == 90) { dx = height - 1 - y; dy = x; }
+                else if (rotation == 180) { dx = width - 1 - x; dy = height - 1 - y; }
+                else { dx = y; dy = width - 1 - x; }
+                output[dy * outWidth + dx] = source[y * width + x];
+            }
+        }
+        return new UprightLuma(output, outWidth, outHeight);
+    }
+
     /**
-     * Finds compact, nearly square, filled dark components in the four outer
-     * corner regions. A component must have plausible geometry; a dark patch,
-     * text line, carpet texture, or broad shadow alone is not enough.
-     *
-     * This is still a fast marker-candidate detector, not perspective
-     * rectification and not permission to score a sheet.
+     * Looks for a compact, filled, nearly-square dark component in each corner.
+     * The returned points are candidate mark centers, not proof that the sheet
+     * is a valid response form. Scoring stays disabled until layout calibration
+     * and bubble sampling are validated against printed sheets.
      */
-    private int countDarkCornerRegions(byte[] yPlane, int width, int height) {
+    private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
         final int sample = 2;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
@@ -178,49 +236,42 @@ public final class OmrScanActivity extends ComponentActivity {
         final int[] queue = new int[gw * gh];
         final int cornerW = Math.max(8, gw / 4);
         final int cornerH = Math.max(8, gh / 4);
+        // Ordered TL, TR, BR, BL to match the projective transform.
         final int[][] regions = {
                 {0, 0, cornerW, cornerH},
                 {gw - cornerW, 0, gw, cornerH},
-                {0, gh - cornerH, cornerW, gh},
-                {gw - cornerW, gh - cornerH, gw, gh}
+                {gw - cornerW, gh - cornerH, gw, gh},
+                {0, gh - cornerH, cornerW, gh}
         };
+        SheetPerspectiveTransform.Point[] points = new SheetPerspectiveTransform.Point[4];
         int foundCorners = 0;
 
-        for (int[] region : regions) {
-            boolean foundInThisCorner = false;
-            int x0 = Math.max(0, region[0]);
-            int y0 = Math.max(0, region[1]);
-            int x1 = Math.min(gw, region[2]);
-            int y1 = Math.min(gh, region[3]);
+        for (int corner = 0; corner < regions.length; corner++) {
+            int[] region = regions[corner];
+            int x0 = Math.max(0, region[0]), y0 = Math.max(0, region[1]);
+            int x1 = Math.min(gw, region[2]), y1 = Math.min(gh, region[3]);
+            double bestArea = -1;
+            SheetPerspectiveTransform.Point bestPoint = null;
 
-            for (int sy = y0; sy < y1 && !foundInThisCorner; sy++) {
-                for (int sx = x0; sx < x1 && !foundInThisCorner; sx++) {
+            for (int sy = y0; sy < y1; sy++) {
+                for (int sx = x0; sx < x1; sx++) {
                     int seed = sy * gw + sx;
-                    if (visited[seed] || lumaAt(yPlane, width, height, sx, sy, sample) >= 120) {
+                    if (visited[seed]) continue;
+                    if (lumaAt(yPlane, width, height, sx, sy, sample) >= 120) {
                         visited[seed] = true;
                         continue;
                     }
-
                     int head = 0, tail = 0;
                     queue[tail++] = seed;
                     visited[seed] = true;
-                    int minX = sx, maxX = sx, minY = sy, maxY = sy;
-                    int pixels = 0;
-
+                    int minX = sx, maxX = sx, minY = sy, maxY = sy, pixels = 0;
                     while (head < tail) {
                         int p = queue[head++];
-                        int px = p % gw;
-                        int py = p / gw;
+                        int px = p % gw, py = p / gw;
                         pixels++;
-                        if (px < minX) minX = px;
-                        if (px > maxX) maxX = px;
-                        if (py < minY) minY = py;
-                        if (py > maxY) maxY = py;
-
-                        // Components larger than a marker are not useful; keep
-                        // scanning bounded in cluttered backgrounds.
+                        minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py); maxY = Math.max(maxY, py);
                         if (pixels > 1800) break;
-
                         for (int dy = -1; dy <= 1; dy++) {
                             for (int dx = -1; dx <= 1; dx++) {
                                 if (dx == 0 && dy == 0) continue;
@@ -229,28 +280,32 @@ public final class OmrScanActivity extends ComponentActivity {
                                 int ni = ny * gw + nx;
                                 if (visited[ni]) continue;
                                 visited[ni] = true;
-                                if (lumaAt(yPlane, width, height, nx, ny, sample) < 120) {
-                                    if (tail < queue.length) queue[tail++] = ni;
-                                }
+                                if (lumaAt(yPlane, width, height, nx, ny, sample) < 120
+                                        && tail < queue.length) queue[tail++] = ni;
                             }
                         }
                     }
-
-                    int boxW = maxX - minX + 1;
-                    int boxH = maxY - minY + 1;
+                    int boxW = maxX - minX + 1, boxH = maxY - minY + 1;
                     double aspect = boxW / (double) Math.max(1, boxH);
                     double fill = pixels / (double) (boxW * boxH);
-                    boolean plausibleSquare = pixels >= 10
-                            && boxW >= 4 && boxH >= 4
+                    boolean square = pixels >= 10 && boxW >= 4 && boxH >= 4
                             && boxW <= 48 && boxH <= 48
-                            && aspect >= 0.68 && aspect <= 1.47
-                            && fill >= 0.42;
-                    if (plausibleSquare) foundInThisCorner = true;
+                            && aspect >= 0.68 && aspect <= 1.47 && fill >= 0.42;
+                    double area = boxW * (double) boxH;
+                    if (square && area > bestArea) {
+                        bestArea = area;
+                        bestPoint = new SheetPerspectiveTransform.Point(
+                                (minX + maxX) * 0.5 * sample,
+                                (minY + maxY) * 0.5 * sample);
+                    }
                 }
             }
-            if (foundInThisCorner) foundCorners++;
+            if (bestPoint != null) {
+                points[corner] = bestPoint;
+                foundCorners++;
+            }
         }
-        return foundCorners;
+        return new MarkerDetection(foundCorners, points);
     }
 
     private int lumaAt(byte[] yPlane, int width, int height, int sampleX, int sampleY, int sample) {
