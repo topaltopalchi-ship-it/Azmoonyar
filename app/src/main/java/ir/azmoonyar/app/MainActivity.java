@@ -1200,31 +1200,38 @@ public class MainActivity extends Activity {
             JSONObject variant = variants.optJSONObject(v);
             if (variant == null) continue;
             String model = variant.optString("model_id", "?");
-            details.append("\\nنسخه ").append(model)
+            details.append("نسخه ").append(model)
                 .append(" — تعداد سؤال: ").append(variant.optInt("question_count", 0))
-                .append("\\nشناسه QR: ").append(variant.optString("qr_payload", "ثبت نشده"))
-                .append("\\nکلید: ").append(variant.optString("answer_key", "ثبت نشده"))
-                .append("\\n");
+                .append("\nشناسه QR: ").append(variant.optString("qr_payload", "ثبت نشده"))
+                .append("\nکلید پاسخ: ").append(variant.optString("answer_key", "ثبت نشده"))
+                .append("\n\n");
             JSONArray questions = variant.optJSONArray("questions");
-            if (questions != null) for (int q = 0; q < questions.length(); q++) {
-                JSONObject item = questions.optJSONObject(q);
-                if (item == null) continue;
-                details.append(q + 1).append(". ").append(item.optString("text", ""))
-                    .append("\\n");
-                JSONArray options = item.optJSONArray("options");
-                if (options != null) for (int o = 0; o < options.length(); o++) {
-                    details.append((char)('A' + o)).append(") ")
-                        .append(options.optString(o, "")).append("   ");
+            if (questions != null) {
+                for (int q = 0; q < questions.length(); q++) {
+                    JSONObject item = questions.optJSONObject(q);
+                    if (item == null) continue;
+                    details.append("سؤال ").append(q + 1).append(": ")
+                        .append(item.optString("text", "").trim()).append("\n");
+                    JSONArray options = item.optJSONArray("options");
+                    if (options != null) {
+                        for (int o = 0; o < options.length(); o++) {
+                            details.append("   ").append((char)('A' + o)).append(") ")
+                                .append(options.optString(o, "").trim()).append("\n");
+                        }
+                    }
+                    details.append("\n");
                 }
-                details.append("\\n");
             }
-            details.append("\\n--------------------\\n");
+            details.append("--------------------------------\n\n");
         }
         ScrollView scroll = new ScrollView(this);
         TextView content = new TextView(this);
         content.setText(details.toString());
-        content.setTextSize(16);
-        content.setPadding(dp(16), dp(12), dp(16), dp(12));
+        content.setTextSize(17);
+        content.setTextDirection(View.TEXT_DIRECTION_RTL);
+        content.setGravity(Gravity.RIGHT);
+        content.setLineSpacing(dp(3), 1.05f);
+        content.setPadding(dp(16), dp(16), dp(16), dp(16));
         scroll.addView(content);
         new AlertDialog.Builder(this).setTitle("محتویات «" + batch.optString("exam_name", "آزمون") + "»")
             .setView(scroll).setPositiveButton("بستن", null)
