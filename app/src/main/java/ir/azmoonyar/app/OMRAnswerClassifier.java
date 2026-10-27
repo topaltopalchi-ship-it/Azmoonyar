@@ -38,12 +38,13 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     /**
-     * Higher-sensitivity defaults: faint marks are less likely to be discarded as blank.
-     * This intentionally increases REVIEW outcomes for weak marks rather than silently
-     * converting uncertain marks into a definitive answer.
+     * Detects faint but clearly isolated marks, while keeping weak or ambiguous marks
+     * in REVIEW. The blank threshold is high enough to classify lightly noisy paper
+     * as blank; the margin requirement prevents a moderate isolated score from being
+     * accepted without sufficient confidence.
      */
     public OMRAnswerClassifier() {
-        this(0.30, 0.12, 0.10);
+        this(0.30, 0.16, 0.25);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -88,10 +89,10 @@ public final class OMRAnswerClassifier {
         if (marks > 1) {
             return new Result(Status.MULTIPLE_MARKS, -1, 0, strongest);
         }
-        if (strongest < markThreshold || strongest - Math.max(0, second) < minimumMargin) {
-            return new Result(Status.REVIEW, -1, strongest - Math.max(0, second), strongest);
+        double margin = strongest - Math.max(0, second);
+        if (strongest < markThreshold || margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
         }
-        return new Result(Status.ANSWERED, strongestIndex,
-                strongest - Math.max(0, second), strongest);
+        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
     }
 }
