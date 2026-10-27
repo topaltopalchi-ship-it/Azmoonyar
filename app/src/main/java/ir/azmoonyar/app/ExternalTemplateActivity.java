@@ -129,7 +129,7 @@ public final class ExternalTemplateActivity extends Activity {
         page.addView(tableMode);
 
         page.addView(label("نمونهٔ خالی پاسخنامه"));
-        TextView sampleHelp = text("یک عکس واضح از کل برگهٔ خالی انتخاب کنید. فعلاً عکس برای مرجع کالیبراسیون ذخیره می‌شود؛ تشخیص خودکار حباب‌ها مرحلهٔ بعدی است.", 14, false);
+        TextView sampleHelp = text("یک عکس واضح از کل پاسخنامهٔ خالی انتخاب کنید؛ سپس محدودهٔ جدول و شبکهٔ حباب‌ها را تنظیم کنید. پس از کالیبراسیون می‌توانید یک عکس پرشده را آزمایشی بخوانید و نتیجهٔ بدون ابهام را ذخیره کنید.", 14, false);
         page.addView(sampleHelp);
         Button chooseSample = new Button(this);
         chooseSample.setText("انتخاب عکس پاسخنامهٔ خالی");
@@ -174,7 +174,7 @@ public final class ExternalTemplateActivity extends Activity {
         page.addView(explain);
         explain.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle("کالیبراسیون بدون علامت گوشه")
-                .setMessage("اگر برگه مربع‌های گوشه ندارد، روش مرجع‌یابی را روی «لبه‌های خود کاغذ» یا «کادر جدول پاسخ‌ها» بگذارید. برای جلوگیری از جابه‌جایی پاسخ‌ها باید ابتدا چهار گوشهٔ صفحه یا مرز جدول و سپس ردیف‌ها و ستون‌های حباب روی یک نمونهٔ واضح تأیید شوند. این صفحه فعلاً پروفایل تنظیمات را ذخیره می‌کند؛ تشخیص خودکار تصویر و نمره‌دهی برای این قالب هنوز اعتبارسنجی نشده است.")
+                .setMessage("اگر برگه مربع‌های گوشه ندارد، روش مرجع‌یابی را روی «لبه‌های خود کاغذ» یا «کادر جدول پاسخ‌ها» بگذارید. برای جلوگیری از جابه‌جایی پاسخ‌ها باید ابتدا چهار گوشهٔ صفحه یا مرز جدول و سپس ردیف‌ها و ستون‌های حباب روی یک نمونهٔ واضح تأیید شوند. این صفحه تنظیمات قالب را ذخیره می‌کند؛ تشخیص عمومی خودکارِ هر چیدمان پشتیبانی نمی‌شود. برای هر قالب باید محدوده و شبکهٔ حباب‌ها را دستی تنظیم کنید و نتایج را با نمونه‌های واقعی بررسی کنید.")
                 .setPositiveButton("متوجه شدم", null).show());
 
         loadProfile();
@@ -215,7 +215,7 @@ public final class ExternalTemplateActivity extends Activity {
                 .putString("sample_image_uri", sampleUri == null ? prefs.getString("sample_image_uri", "") : sampleUri.toString())
                 .putBoolean("profile_saved", true)
                 .apply();
-        savedStatus.setText(sampleUri == null ? "تنظیمات قالب ذخیره شد. هنوز عکس نمونه انتخاب نشده و تصحیح خودکار فعال نیست." : "تنظیمات و عکس نمونه ذخیره شد. مرحلهٔ بعد تعیین و تأیید محل حباب‌هاست؛ تصحیح خودکار هنوز فعال نیست.");
+        savedStatus.setText(sampleUri == null ? "تنظیمات قالب ذخیره شد. برای تصحیح عکس باید نمونهٔ خالی، محدودهٔ جدول و شبکهٔ حباب‌ها را تنظیم کنید." : "تنظیمات و عکس نمونه ذخیره شد. اکنون محدودهٔ جدول و شبکهٔ حباب‌ها را تعیین کنید؛ نتایج مبهم به‌عنوان نمرهٔ قطعی ذخیره نمی‌شوند.");
         Toast.makeText(this, "قالب خارجی ذخیره شد", Toast.LENGTH_SHORT).show();
     }
 
@@ -300,7 +300,7 @@ public final class ExternalTemplateActivity extends Activity {
                         prefs.edit().putInt("grid_questions", questions).putInt("grid_options", options)
                                 .putString("grid_option_order", options == 4 ? "D,C,B,A" : "custom")
                                 .putBoolean("grid_saved", true).apply();
-                        savedStatus.setText("شبکهٔ پیشنهادی " + questions + " ردیف و " + options + " ستون ذخیره شد. ترتیب پیش‌فرض چهارگزینه‌ای از چپ به راست D/C/B/A است؛ خواندن پاسخ‌ها هنوز باید آزمایش شود.");
+                        savedStatus.setText("شبکهٔ پیشنهادی " + questions + " ردیف و " + options + " ستون ذخیره شد. ترتیب پیش‌فرض چهارگزینه‌ای از چپ به راست D/C/B/A است؛ پیش از استفادهٔ رسمی آن را با چند پاسخنامهٔ واقعی بررسی کنید.");
                     }).show();
         } catch (Exception e) {
             Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
