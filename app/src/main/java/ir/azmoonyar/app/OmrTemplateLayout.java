@@ -50,8 +50,10 @@ public final class OmrTemplateLayout {
         double contentLeftInset = COLUMN_BORDER_MM + COLUMN_HORIZONTAL_PADDING_MM;
         double contentWidth = columnWidth - 2 * contentLeftInset;
         double optionWidth = (contentWidth - NUMBER_COLUMN_MM) / OPTIONS_PER_QUESTION;
-        double firstColumnLeft = PAGE_SIDE_PADDING_MM;
-        double secondColumnLeft = PAGE_SIDE_PADDING_MM + columnWidth + COLUMN_GAP_MM;
+        // The print page is RTL, so the first grid child (questions 1-50)
+        // is the right-hand column; questions 51-100 occupy the left column.
+        double firstColumnLeft = PAGE_SIDE_PADDING_MM + columnWidth + COLUMN_GAP_MM;
+        double secondColumnLeft = PAGE_SIDE_PADDING_MM;
         double firstBubbleCenterY = COLUMNS_TOP_MM + COLUMN_TOP_BORDER_MM
                 + COLUMN_TOP_PADDING_MM + TABLE_HEADER_MM + TABLE_ROW_MM / 2.0;
 
@@ -61,8 +63,10 @@ public final class OmrTemplateLayout {
             double columnLeft = column == 0 ? firstColumnLeft : secondColumnLeft;
             double contentLeft = columnLeft + contentLeftInset;
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
-                centers[question][option][0] = contentLeft + NUMBER_COLUMN_MM
-                        + (option + 0.5) * optionWidth;
+                // The table is RTL: the question-number column is at the
+                // right, and A/B/C/D progress from right to left.
+                centers[question][option][0] = contentLeft + contentWidth
+                        - NUMBER_COLUMN_MM - (option + 0.5) * optionWidth;
                 centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
             }
         }
