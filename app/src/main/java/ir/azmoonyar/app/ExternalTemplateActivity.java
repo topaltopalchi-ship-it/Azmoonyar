@@ -335,8 +335,11 @@ public final class ExternalTemplateActivity extends Activity {
             for (int q=0;q<questions;q++) {
                 double[] darkness = new double[options];
                 for (int o=0;o<options;o++) {
-                    double nx=left+(o+0.5)*(right-left)/options;
-                    double ny=top+(q+0.5)*(bottom-top)/questions;
+                    double[] center = ExternalSheetLayout.bubbleCenter(
+                            q, o, questions, options, prefs.getString("table_mode", "single"),
+                            left, top, right, bottom);
+                    double nx = center[0];
+                    double ny = center[1];
                     darkness[o]=sampleDarkness(bitmap,nx,ny,
                             Math.max(1,(right-left)*bitmap.getWidth()/options*0.17),
                             Math.max(1,(bottom-top)*bitmap.getHeight()/questions*0.17));
@@ -465,9 +468,11 @@ public final class ExternalTemplateActivity extends Activity {
             float t=imageRect.top+top*imageRect.height(), b=imageRect.top+bottom*imageRect.height();
             canvas.drawRect(l,t,r,b,gridPaint);
             for(int q=0;q<questions;q++) {
-                float y=t+(q+0.5f)*(b-t)/questions;
                 for(int o=0;o<options;o++) {
-                    float x=l+(o+0.5f)*(r-l)/options;
+                    double[] center = ExternalSheetLayout.bubbleCenter(q, o, questions, options,
+                            prefs.getString("table_mode", "single"), left, top, right, bottom);
+                    float x = imageRect.left + (float) center[0] * imageRect.width();
+                    float y = imageRect.top + (float) center[1] * imageRect.height();
                     canvas.drawCircle(x,y,Math.max(dp(2),Math.min(dp(8),(r-l)/options*0.22f)),gridPaint);
                 }
             }
