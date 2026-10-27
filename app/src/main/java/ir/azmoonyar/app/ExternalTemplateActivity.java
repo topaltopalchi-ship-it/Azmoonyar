@@ -40,6 +40,7 @@ public final class ExternalTemplateActivity extends Activity {
     private ImageView samplePreview;
     private Uri sampleUri;
     private static final int REQUEST_SAMPLE_IMAGE = 8402;
+    private static final int REQUEST_FILLED_IMAGE = 8403;
     private SharedPreferences prefs;
 
     @Override public void onCreate(Bundle state) {
@@ -137,6 +138,11 @@ public final class ExternalTemplateActivity extends Activity {
         gridCalibrate.setAllCaps(false);
         page.addView(gridCalibrate);
         gridCalibrate.setOnClickListener(v -> openGridCalibration());
+        Button readFilled = new Button(this);
+        readFilled.setText("خواندن آزمایشی پاسخ‌ها از عکس برگهٔ پرشده");
+        readFilled.setAllCaps(false);
+        page.addView(readFilled);
+        readFilled.setOnClickListener(v -> chooseFilledImage());
 
         Button save = new Button(this);
         save.setText("ذخیرهٔ تنظیمات قالب");
@@ -280,6 +286,87 @@ public final class ExternalTemplateActivity extends Activity {
         }
     }
 
+    private void chooseFilledImage() {
+        if (!prefs.getBoolean("table_bounds_saved", false)) {
+            Toast.makeText(this, "ابتدا عکس خالی را انتخاب و محدودهٔ جدول را ذخیره کنید", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_FILLED_IMAGE);
+    }
+
+    private void analyzeFilledImage(Uri uri) {
+        Bitmap bitmap = null;
+        try {
+            java.io.InputStream stream = getContentResolver().openInputStream(uri);
+            if (stream == null) throw new IllegalStateException("فایل عکس باز نشد");
+            try { bitmap = BitmapFactory.decodeStream(stream); } finally { stream.close(); }
+            if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            int questions = number(questionCount.getText().toString(), prefs.getInt("questions", 10));
+            int options = number(optionCount.getText().toString(), prefs.getInt("options", 4));
+            if (questions < 1 || questions > 100 || options < 2 || options > 6) throw new IllegalArgumentException("تعداد سؤال یا گزینه معتبر نیست");
+            float left=prefs.getFloat("table_left",0), top=prefs.getFloat("table_top",0);
+            float right=prefs.getFloat("table_right",1), bottom=prefs.getFloat("table_bottom",1);
+            if (!(left>=0 && top>=0 && right<=1 && bottom<=1 && right>left && bottom>top)) throw new IllegalStateException("محدودهٔ جدول معتبر نیست");
+            StringBuilder report = new StringBuilder();
+            int answered=0, blank=0, ambiguous=0;
+            for (int q=0;q<questions;q++) {
+                double[] darkness = new double[options];
+                for (int o=0;o<options;o++) {
+                    double nx=left+(o+0.5)*(right-left)/options;
+                    double ny=top+(q+0.5)*(bottom-top)/questions;
+                    darkness[o]=sampleDarkness(bitmap,nx,ny,
+                            Math.max(1,(right-left)*bitmap.getWidth()/options*0.17),
+                            Math.max(1,(bottom-top)*bitmap.getHeight()/questions*0.17));
+                }
+                int best=0, second=-1;
+                for(int o=1;o<options;o++) {
+                    if(darkness[o]<darkness[best]) { second=best; best=o; }
+                    else if(second<0 || darkness[o]<darkness[second]) second=o;
+                }
+                double next=second<0?255:darkness[second];
+                String answer;
+                if(darkness[best]>150) { answer="خالی/نامشخص"; blank++; }
+                else if(next<165 && next-darkness[best]<12) { answer="چندعلامتی/نیازمند بازبینی"; ambiguous++; }
+                else { answer=optionLabel(best,options); answered++; }
+                report.append("سؤال ").append(q+1).append(": ").append(answer)
+                        .append("  [تیرگی ").append(Math.round(darkness[best])).append("]").append("\n");
+            }
+            TextView resultView=text("پاسخ‌های پیشنهادی (آزمایشی)\nپاسخ خوانده‌شده: "+answered+" | خالی/نامشخص: "+blank+" | نیازمند بازبینی: "+ambiguous+"\n\n"+report,14,false);
+            resultView.setTextIsSelectable(true);
+            ScrollView resultScroll=new ScrollView(this); resultScroll.addView(resultView);
+            new AlertDialog.Builder(this).setTitle("نتیجهٔ خواندن آزمایشی")
+                    .setMessage("این روش از شبکهٔ منظم داخل محدودهٔ جدول نمونه‌برداری می‌کند؛ برای عکس چرخیده، جدول نامنظم یا شبکهٔ ناهماهنگ ممکن است اشتباه کند. هیچ نمره‌ای ذخیره نمی‌شود.")
+                    .setView(resultScroll).setPositiveButton("باشه",null).show();
+        } catch(Exception e) {
+            Toast.makeText(this,"خواندن عکس ناموفق بود: "+e.getMessage(),Toast.LENGTH_LONG).show();
+        } finally { if(bitmap!=null) bitmap.recycle(); }
+    }
+
+    private double sampleDarkness(Bitmap bitmap, double nx, double ny, double rx, double ry) {
+        int cx=(int)Math.round(nx*bitmap.getWidth()), cy=(int)Math.round(ny*bitmap.getHeight());
+        int radX=Math.max(2,(int)Math.round(rx)), radY=Math.max(2,(int)Math.round(ry));
+        long total=0; int count=0;
+        for(int y=Math.max(0,cy-radY);y<Math.min(bitmap.getHeight(),cy+radY+1);y+=2) {
+            for(int x=Math.max(0,cx-radX);x<Math.min(bitmap.getWidth(),cx+radX+1);x+=2) {
+                double dx=(x-cx)/(double)radX, dy=(y-cy)/(double)radY;
+                if(dx*dx+dy*dy>1) continue;
+                int pixel=bitmap.getPixel(x,y);
+                int luminance=(int)(0.299*Color.red(pixel)+0.587*Color.green(pixel)+0.114*Color.blue(pixel));
+                total+=luminance; count++;
+            }
+        }
+        return count==0?255:(double)total/count;
+    }
+
+    private String optionLabel(int index,int options) {
+        if(options==4) return new String[]{"D","C","B","A"}[index];
+        return "گزینهٔ "+(index+1);
+    }
+
     private void chooseSampleImage() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -290,7 +377,14 @@ public final class ExternalTemplateActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_SAMPLE_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQUEST_FILLED_IMAGE) {
+            Uri filledUri=data.getData();
+            try { getContentResolver().takePersistableUriPermission(filledUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
+            analyzeFilledImage(filledUri);
+            return;
+        }
+        if (requestCode != REQUEST_SAMPLE_IMAGE) return;
         sampleUri = data.getData();
         try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
         samplePreview.setImageURI(sampleUri);
