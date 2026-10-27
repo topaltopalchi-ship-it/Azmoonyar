@@ -420,8 +420,8 @@ public final class ExternalTemplateActivity extends Activity {
                     // do not make every option appear equally dark.
                     double cellWidth = (right-left) / (options + 1.0);
                     darkness[o]=sampleDarkness(bitmap,nx,ny,
-                            Math.max(2,cellWidth*bitmap.getWidth()*0.11),
-                            Math.max(2,(bottom-top)*bitmap.getHeight()/questions*0.16));
+                            Math.max(1.5,cellWidth*bitmap.getWidth()*0.075),
+                            Math.max(1.5,(bottom-top)*bitmap.getHeight()/questions*0.11));
                 }
                 int best=0, second=-1;
                 for(int o=1;o<options;o++) {
@@ -612,7 +612,7 @@ public final class ExternalTemplateActivity extends Activity {
                             prefs.getString("table_mode", "single"), left, top, right, bottom);
                     float x = imageRect.left + (float) center[0] * imageRect.width();
                     float y = imageRect.top + (float) center[1] * imageRect.height();
-                    canvas.drawCircle(x,y,Math.max(dp(2),Math.min(dp(8),(r-l)/options*0.22f)),gridPaint);
+                    canvas.drawCircle(x,y,Math.max(dp(1.5f),Math.min(dp(4),(r-l)/(options+1.0f)*0.12f)),gridPaint);
                 }
             }
             canvas.drawText("ردیف‌ها: "+questions+" | ستون‌ها: "+options,(l+r)/2f,Math.max(dp(14),t-dp(5)),labelPaint);
