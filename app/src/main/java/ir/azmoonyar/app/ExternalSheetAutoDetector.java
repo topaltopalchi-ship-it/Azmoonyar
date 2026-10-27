@@ -76,43 +76,54 @@ final class ExternalSheetAutoDetector {
      * compact, dark, approximately square fiducials are independently found. */
     static float[] findCornerMarkerCenters(Bitmap source) {
         if (source == null || source.getWidth() < 200 || source.getHeight() < 200) return null;
-        int scale = Math.max(1, Math.max(source.getWidth(), source.getHeight()) / 1000);
+        // Do not assume the sheet fills the photo. Phone previews often include desk/rug
+        // around the A4 page, so search the whole image for the four printed fiducials.
+        int scale = Math.max(1, Math.max(source.getWidth(), source.getHeight()) / 1400);
         int w = source.getWidth() / scale, h = source.getHeight() / scale;
         boolean[] dark = new boolean[w*h];
         for (int y=0; y<h; y++) for (int x=0; x<w; x++) {
             int p = source.getPixel(Math.min(source.getWidth()-1,x*scale), Math.min(source.getHeight()-1,y*scale));
             int lum=(int)(0.299*Color.red(p)+0.587*Color.green(p)+0.114*Color.blue(p));
-            dark[y*w+x]=lum<90;
+            dark[y*w+x]=lum<115;
         }
         boolean[] seen=new boolean[w*h]; int[] queue=new int[w*h];
-        float[] result=new float[8];
-        int[][] regions={{0,0,w/4,h/4},{w*3/4,0,w,h/4},{0,h*3/4,w/4,h},{w*3/4,h*3/4,w,h}};
-        for(int region=0;region<4;region++) {
-            int[] r=regions[region]; double best=-1; float bx=0,by=0;
-            for(int y=r[1];y<r[3];y++) for(int x=r[0];x<r[2];x++) {
-                int start=y*w+x; if(!dark[start]||seen[start]) continue;
-                int head=0,tail=0; queue[tail++]=start; seen[start]=true;
-                int minX=x,maxX=x,minY=y,maxY=y,count=0;
-                while(head<tail) {
-                    int at=queue[head++], px=at%w,py=at/w; count++;
-                    minX=Math.min(minX,px);maxX=Math.max(maxX,px);minY=Math.min(minY,py);maxY=Math.max(maxY,py);
-                    if(px>0)tail=enqueue(at-1,dark,seen,queue,tail);
-                    if(px+1<w)tail=enqueue(at+1,dark,seen,queue,tail);
-                    if(py>0)tail=enqueue(at-w,dark,seen,queue,tail);
-                    if(py+1<h)tail=enqueue(at+w,dark,seen,queue,tail);
-                }
-                int bw=maxX-minX+1,bh=maxY-minY+1;
-                double ratio=bw/(double)Math.max(1,bh), fill=count/(double)(bw*bh);
-                double size=bw/(double)w;
-                if(size<0.004||size>0.055||bh/(double)h<0.004||bh/(double)h>0.055
-                        ||ratio<0.65||ratio>1.5||fill<0.35) continue;
-                double score=count/(1.0+Math.abs(1.0-ratio)*3.0);
-                if(score>best) {best=score;bx=(minX+maxX+1)/(2f*w);by=(minY+maxY+1)/(2f*h);}
+        java.util.ArrayList<float[]> candidates = new java.util.ArrayList<>();
+        for (int y=0;y<h;y++) for (int x=0;x<w;x++) {
+            int start=y*w+x; if(!dark[start]||seen[start]) continue;
+            int head=0,tail=0; queue[tail++]=start; seen[start]=true;
+            int minX=x,maxX=x,minY=y,maxY=y,count=0;
+            while(head<tail) {
+                int at=queue[head++], px=at%w,py=at/w; count++;
+                minX=Math.min(minX,px);maxX=Math.max(maxX,px);minY=Math.min(minY,py);maxY=Math.max(maxY,py);
+                if(px>0)tail=enqueue(at-1,dark,seen,queue,tail);
+                if(px+1<w)tail=enqueue(at+1,dark,seen,queue,tail);
+                if(py>0)tail=enqueue(at-w,dark,seen,queue,tail);
+                if(py+1<h)tail=enqueue(at+w,dark,seen,queue,tail);
             }
-            if(best<0)return null;
-            result[region*2]=bx;result[region*2+1]=by;
+            int bw=maxX-minX+1,bh=maxY-minY+1;
+            double ratio=bw/(double)Math.max(1,bh), fill=count/(double)(bw*bh);
+            double wf=bw/(double)w,hf=bh/(double)h;
+            // Larger printed marker; small companion square is allowed to be a separate component.
+            if(wf<0.008||wf>0.065||hf<0.006||hf>0.05
+                    ||ratio<0.65||ratio>1.5||fill<0.48||count<12) continue;
+            candidates.add(new float[]{(minX+maxX+1)/(2f*w),(minY+maxY+1)/(2f*h),(float)count});
         }
-        return result;
+        if(candidates.size()<4) return null;
+        // Infer the page's four extreme markers from candidates, rather than the photo's corners.
+        float minSum=Float.MAX_VALUE,maxSum=-Float.MAX_VALUE,minDiff=Float.MAX_VALUE,maxDiff=-Float.MAX_VALUE;
+        float[] tl=null,tr=null,bl=null,br=null;
+        for(float[] p:candidates) {
+            float sum=p[0]+p[1], diff=p[0]-p[1];
+            if(sum<minSum){minSum=sum;tl=p;}
+            if(sum>maxSum){maxSum=sum;br=p;}
+            if(diff>maxDiff){maxDiff=diff;tr=p;}
+            if(diff<minDiff){minDiff=diff;bl=p;}
+        }
+        if(tl==null||tr==null||bl==null||br==null) return null;
+        // Distinct corners must span a substantial portion of the image.
+        if(tr[0]-tl[0]<0.25f || bl[1]-tl[1]<0.25f
+                || br[0]-bl[0]<0.25f || br[1]-tr[1]<0.25f) return null;
+        return new float[]{tl[0],tl[1],tr[0],tr[1],bl[0],bl[1],br[0],br[1]};
     }
 
     private static int enqueue(int index, boolean[] dark, boolean[] seen, int[] queue, int tail) {
