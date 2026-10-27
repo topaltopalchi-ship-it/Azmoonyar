@@ -62,7 +62,7 @@ public final class ExternalTemplateActivity extends Activity {
         TextView title = text("تعریف قالب پاسخنامهٔ خارجی", 23, true);
         title.setGravity(Gravity.CENTER);
         page.addView(title);
-        TextView intro = text("این تنظیمات برای هر نوع پاسخنامهٔ خارجی جداگانه ذخیره می‌شود و قالب استاندارد ۱۰۰ سؤالی آزمون‌یار را تغییر نمی‌دهد.", 15, false);
+        TextView intro = text("یک‌بار عکس کامل A4 خالی را به‌عنوان الگو انتخاب و محدودهٔ جدول و شبکهٔ حباب‌ها را تنظیم کنید. برای برگه‌های بعدی از کل A4 عکس بگیرید؛ لازم نیست محدوده را دوباره انتخاب کنید. برای تطبیق درست، کل صفحه و جهت عکس باید مشابه الگو باشد.", 15, false);
         intro.setPadding(0, dp(10), 0, dp(16));
         page.addView(intro);
 
@@ -129,7 +129,7 @@ public final class ExternalTemplateActivity extends Activity {
         page.addView(tableMode);
 
         page.addView(label("نمونهٔ خالی پاسخنامه"));
-        TextView sampleHelp = text("یک عکس واضح از کل پاسخنامهٔ خالی انتخاب کنید؛ سپس محدودهٔ جدول و شبکهٔ حباب‌ها را تنظیم کنید. پس از کالیبراسیون می‌توانید یک عکس پرشده را آزمایشی بخوانید و نتیجهٔ بدون ابهام را ذخیره کنید.", 14, false);
+        TextView sampleHelp = text("تنظیم فقط یک‌بار برای هر قالب: عکس کامل A4 خالی را انتخاب کنید، کادر جدول و شبکه را دقیق تنظیم و ذخیره کنید. در تصحیح‌های بعدی فقط عکس کامل A4 پرشده را انتخاب کنید؛ کادر برای هر برگه دوباره کشیده نمی‌شود.", 14, false);
         page.addView(sampleHelp);
         Button chooseSample = new Button(this);
         chooseSample.setText("انتخاب عکس پاسخنامهٔ خالی");
@@ -143,17 +143,17 @@ public final class ExternalTemplateActivity extends Activity {
         previewParams.topMargin = dp(8);
         page.addView(samplePreview, previewParams);
         Button calibrate = new Button(this);
-        calibrate.setText("تعیین محدودهٔ جدول روی عکس");
+        calibrate.setText("تنظیم یک‌بارهٔ محدودهٔ جدول");
         calibrate.setAllCaps(false);
         page.addView(calibrate);
         calibrate.setOnClickListener(v -> openTableCalibration());
         Button gridCalibrate = new Button(this);
-        gridCalibrate.setText("تنظیم ردیف سؤال‌ها و ستون گزینه‌ها");
+        gridCalibrate.setText("تنظیم یک‌بارهٔ شبکهٔ حباب‌ها");
         gridCalibrate.setAllCaps(false);
         page.addView(gridCalibrate);
         gridCalibrate.setOnClickListener(v -> openGridCalibration());
         Button readFilled = new Button(this);
-        readFilled.setText("خواندن آزمایشی پاسخ‌ها از عکس برگهٔ پرشده");
+        readFilled.setText("تصحیح عکس کامل A4 پرشده");
         readFilled.setAllCaps(false);
         page.addView(readFilled);
         readFilled.setOnClickListener(v -> chooseFilledImage());
@@ -391,6 +391,25 @@ public final class ExternalTemplateActivity extends Activity {
             if (stream == null) throw new IllegalStateException("فایل عکس باز نشد");
             try { bitmap = BitmapFactory.decodeStream(stream); } finally { stream.close(); }
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            // The stored table geometry is normalized to the full reference-page image.
+            // Reject differently cropped/oriented images instead of silently applying the
+            // saved grid to unrelated pixel locations and producing misleading scores.
+            Bitmap referenceBitmap = null;
+            String referenceUriText = prefs.getString("sample_image_uri", "");
+            if (!referenceUriText.isEmpty()) {
+                java.io.InputStream referenceStream = getContentResolver().openInputStream(Uri.parse(referenceUriText));
+                if (referenceStream != null) {
+                    try { referenceBitmap = BitmapFactory.decodeStream(referenceStream); }
+                    finally { referenceStream.close(); }
+                }
+            }
+            if (referenceBitmap == null) throw new IllegalStateException("عکس الگوی کامل A4 پیدا نشد؛ دوباره الگوی خالی را انتخاب و ذخیره کنید");
+            double refRatio = referenceBitmap.getWidth() / (double) referenceBitmap.getHeight();
+            double filledRatio = bitmap.getWidth() / (double) bitmap.getHeight();
+            referenceBitmap.recycle();
+            if (Math.abs(filledRatio-refRatio) / refRatio > 0.04) {
+                throw new IllegalStateException("کادر عکس با الگوی A4 یکسان نیست. از کل برگه، با همان جهت و بدون بریدن لبه‌ها عکس بگیرید؛ این برگه برای جلوگیری از نمرهٔ اشتباه تصحیح نشد.");
+            }
             String participantName = participantNameInput.getText().toString().trim();
             if (participantName.isEmpty()) throw new IllegalStateException("نام شرکت‌کننده را وارد کنید");
             int questions = number(questionCount.getText().toString(), prefs.getInt("questions", 10));
@@ -468,7 +487,7 @@ public final class ExternalTemplateActivity extends Activity {
             resultView.setTextIsSelectable(true);
             ScrollView resultScroll=new ScrollView(this); resultScroll.addView(resultView);
             new AlertDialog.Builder(this).setTitle("نتیجهٔ تصحیح")
-                    .setMessage("این تصحیح بر اساس قالبی است که دستی کالیبره شده است. اگر عکس چرخیده، تار، دارای سایه یا شبکهٔ نامنظم باشد ممکن است پاسخ اشتباه خوانده شود؛ قبل از استفادهٔ رسمی، چند نمونه را بررسی کنید.")
+                    .setMessage("شبکهٔ ذخیره‌شده یک‌بار از روی الگوی کامل A4 استفاده شده است. این نسخه عکس‌ها را با الگو از نظر نسبت ابعاد بررسی می‌کند، اما هنوز اصلاح پرسپکتیو خودکار ندارد؛ برگه را کاملاً در کادر، با جهت مشابه و بدون برش بگیرید و نتایج را پیش از استفادهٔ رسمی بررسی کنید.")
                     .setView(resultScroll).setPositiveButton("باشه",null).show();
         } catch(Exception e) {
             Toast.makeText(this,"خواندن عکس ناموفق بود: "+e.getMessage(),Toast.LENGTH_LONG).show();
