@@ -5,6 +5,12 @@ on:
   push:
     paths:
       - '.github/workflows/android-signed-release.yml'
+      - 'app/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle/**'
+      - 'README.md'
+      - 'docs/**'
 
 permissions:
   contents: read
