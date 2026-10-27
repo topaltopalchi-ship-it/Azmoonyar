@@ -343,7 +343,7 @@ public final class ExternalTemplateActivity extends Activity {
             return;
         }
         try {
-            Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(sampleUri));
+            Bitmap bitmap = decodeOrientedBitmap(sampleUri);
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
             GridCalibrationView grid = new GridCalibrationView(bitmap, questions, options,
                     prefs.getFloat("table_left", 0), prefs.getFloat("table_top", 0),
