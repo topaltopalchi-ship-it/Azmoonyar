@@ -23,8 +23,8 @@ public class OmrTemplateLayoutTest {
         assertEquals(56.575, centers[50][0][1], EPSILON);
     }
 
-    @Test public void returnsOnlyQuestionsPresentOnFinalPartialPage() {
-        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(123, 1);
+    @Test public void returnsOnlyQuestionsRequestedForVariableLengthSheet() {
+        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(23, 0);
         assertEquals(23, centers.length);
         assertEquals(173.8625, centers[0][0][0], EPSILON);
         assertEquals(56.575, centers[0][0][1], EPSILON);
@@ -34,6 +34,11 @@ public class OmrTemplateLayoutTest {
     @Test(expected = IllegalArgumentException.class)
     public void rejectsPageOutsidePrintedQuestionRange() {
         OmrTemplateLayout.bubbleCentersForPage(20, 1);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsMoreThanOneHundredQuestions() {
+        OmrTemplateLayout.bubbleCentersForPage(101, 0);
     }
 
     @Test(expected = IllegalArgumentException.class)
