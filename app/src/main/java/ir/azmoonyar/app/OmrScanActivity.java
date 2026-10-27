@@ -265,13 +265,17 @@ public final class OmrScanActivity extends ComponentActivity {
                     queue[tail++] = seed;
                     visited[seed] = true;
                     int minX = sx, maxX = sx, minY = sy, maxY = sy, pixels = 0;
+                    boolean tooLarge = false;
                     while (head < tail) {
                         int p = queue[head++];
                         int px = p % gw, py = p / gw;
                         pixels++;
                         minX = Math.min(minX, px); maxX = Math.max(maxX, px);
                         minY = Math.min(minY, py); maxY = Math.max(maxY, py);
-                        if (pixels > 1800) break;
+                        if (pixels > 1800) {
+                            tooLarge = true;
+                            break;
+                        }
                         for (int dy = -1; dy <= 1; dy++) {
                             for (int dx = -1; dx <= 1; dx++) {
                                 if (dx == 0 && dy == 0) continue;
@@ -288,8 +292,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     int boxW = maxX - minX + 1, boxH = maxY - minY + 1;
                     double aspect = boxW / (double) Math.max(1, boxH);
                     double fill = pixels / (double) (boxW * boxH);
-                    boolean square = pixels >= 10 && boxW >= 4 && boxH >= 4
-                            && boxW <= 48 && boxH <= 48
+                    boolean square = !tooLarge && pixels >= 10 && boxW >= 4 && boxH >= 4
+                            && boxW <= 20 && boxH <= 20
                             && aspect >= 0.68 && aspect <= 1.47 && fill >= 0.42;
                     double area = boxW * (double) boxH;
                     if (square && area > bestArea) {
