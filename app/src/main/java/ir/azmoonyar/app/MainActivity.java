@@ -901,8 +901,19 @@ public class MainActivity extends Activity {
                 .append(".col{border:0.3mm solid #111;padding:2mm 1.5mm;border-radius:1mm}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
-                .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:4mm;height:4mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".mark{position:absolute;width:5mm;height:5mm;background:#000}.tl{top:4mm;left:4mm}.tr{top:4mm;right:4mm}.bl{bottom:4mm;left:4mm}.br{bottom:4mm;right:4mm}")
+                .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
+                .append(".mark{position:absolute;width:16mm;height:16mm;background:#000}.tl{top:5mm;left:5mm}.tr{top:5mm;right:5mm}.bl{bottom:5mm;left:5mm}.br{bottom:5mm;right:5mm}")
+                .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
+                .append(".answer-page .meta{position:absolute;top:24mm;left:12mm;right:12mm;font-size:10px;margin:0;height:5mm}")
+                .append(".answer-page .instructions{position:absolute;top:32mm;left:12mm;right:12mm;height:10mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
+                .append(".answer-page .cols{position:absolute;top:46mm;left:12mm;right:12mm;display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin:0}")
+                .append(".answer-page .col{border:0.35mm solid #111;border-radius:1mm;padding:2mm 1.5mm;min-width:0}")
+                .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
+                .append(".answer-page th{font-size:9px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0}")
+                .append(".answer-page td{height:4.45mm;text-align:center;padding:0;border:0;font-size:8px}")
+                .append(".answer-page td.num{width:13mm;font-weight:bold;text-align:center}")
+                .append(".answer-page td.opt{width:18.575mm}")
+
                 .append("</style></head><body>");
 
             for (int v = 0; v < variants.length(); v++) {
@@ -955,7 +966,7 @@ public class MainActivity extends Activity {
                 for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
                     int last = printLayoutQuestionCount;
-                    html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
+                    html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
                         .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
@@ -969,7 +980,7 @@ public class MainActivity extends Activity {
                         html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                         for (int q = colFirst; q < colLast; q++) {
                             html.append("<tr><td class='num'>").append(q + 1).append("</td>");
-                            for (int option = 0; option < 4; option++) html.append("<td><span class='bubble'></span></td>");
+                            for (int option = 0; option < 4; option++) html.append("<td class='opt'><span class='bubble'></span></td>");
                             html.append("</tr>");
                         }
                         html.append("</tbody></table></div>");
