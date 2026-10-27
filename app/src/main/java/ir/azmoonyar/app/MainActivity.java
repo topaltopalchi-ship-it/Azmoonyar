@@ -1043,7 +1043,8 @@ public class MainActivity extends Activity {
                 .append("td.num{width:13mm;font-weight:bold;text-align:center}")
                 .append("td.opt{width:18.575mm}")
                 .append(".bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".marks{position:absolute;width:3mm;height:3mm;border:0.4mm solid #111}")
+                .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
+                .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
                 .append(".foot{position:absolute;bottom:7mm;left:12mm;right:12mm;text-align:center;font-size:7px}")
                 .append("</style></head><body>");
