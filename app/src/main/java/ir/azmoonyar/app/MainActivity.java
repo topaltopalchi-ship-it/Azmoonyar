@@ -361,7 +361,7 @@ public class MainActivity extends Activity {
         externalParams.topMargin = dp(6);
         externalParams.bottomMargin = dp(8);
         root.addView(externalCorrection, externalParams);
-        externalCorrection.setOnClickListener(v -> showExternalAnswerSheetEntry());
+        externalCorrection.setOnClickListener(v -> startActivity(new Intent(this, ExternalTemplateActivity.class)));
 
         TextView note = new TextView(this);
         note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
