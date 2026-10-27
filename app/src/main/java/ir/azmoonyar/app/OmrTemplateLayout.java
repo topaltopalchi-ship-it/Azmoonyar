@@ -15,6 +15,12 @@ public final class OmrTemplateLayout {
     public static final int QUESTIONS_PER_COLUMN = 50;
     public static final int OPTIONS_PER_QUESTION = 4;
 
+    // New print generation uses solid 16 mm markers; scanner also accepts
+    // legacy 3 mm outlined markers at the old center coordinates.
+    public static final double NEW_MARKER_SIZE_MM = 16.0;
+    public static final double NEW_MARKER_CENTER_INSET_MM = 13.0;
+    public static final double LEGACY_MARKER_CENTER_INSET_MM = 6.5;
+
     private static final double PAGE_SIDE_PADDING_MM = 12.0;
     private static final double COLUMN_GAP_MM = 4.0;
     private static final double COLUMN_BORDER_MM = 0.35;
