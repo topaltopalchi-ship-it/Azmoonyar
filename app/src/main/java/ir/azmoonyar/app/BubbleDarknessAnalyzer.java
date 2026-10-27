@@ -27,6 +27,7 @@ public final class BubbleDarknessAnalyzer {
                                double centerX, double centerY, double radius) {
         if (luminance == null || width <= 0 || height <= 0
                 || (long) width * height > luminance.length
+                || !finite(radius) || !finite(centerX) || !finite(centerY)
                 || radius < 2 || centerX < 0 || centerY < 0
                 || centerX >= width || centerY >= height) {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
@@ -49,9 +50,9 @@ public final class BubbleDarknessAnalyzer {
         double ringOut2 = (double) ringOuter * ringOuter;
 
         for (int y = minY; y <= maxY; y++) {
-            int dy = y - (int) Math.round(centerY);
+            double dy = y - centerY;
             for (int x = minX; x <= maxX; x++) {
-                int dx = x - (int) Math.round(centerX);
+                double dx = x - centerX;
                 double d2 = (double) dx * dx + (double) dy * dy;
                 int value = luminance[y * width + x] & 0xff;
                 if (d2 <= innerR2) {
@@ -74,5 +75,9 @@ public final class BubbleDarknessAnalyzer {
         // global threshold. Clamp so the downstream classifier receives [0,1].
         double relativeDarkness = (paperMean - innerMean) / Math.max(48.0, paperMean);
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
+    }
+
+    private static boolean finite(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value);
     }
 }
