@@ -554,7 +554,8 @@ public class MainActivity extends Activity {
                 }
             });
         });
-        if (voiceMode) form.addView(voice, new LinearLayout.LayoutParams(-1, -2));\n        else voiceStatus.setVisibility(View.GONE);
+        if (voiceMode) form.addView(voice, new LinearLayout.LayoutParams(-1, -2));
+        else voiceStatus.setVisibility(View.GONE);
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت شرکت‌کننده")
                 .setView(form)
