@@ -69,8 +69,9 @@ public final class SheetPerspectiveTransform {
         // Reject nearly collapsed or self-crossing corner orderings. The
         // determinant is checked by solve(); this area check catches flat pages.
         double area = polygonArea(topLeft, topRight, bottomRight, bottomLeft);
-        if (Math.abs(area) < 16.0) {
-            throw new IllegalArgumentException("چهار گوشه برای اصلاح پرسپکتیو به‌اندازه کافی از هم فاصله ندارند.");
+        if (Math.abs(area) < 16.0 || !isConvexQuadrilateral(
+                topLeft, topRight, bottomRight, bottomLeft)) {
+            throw new IllegalArgumentException("چهار گوشه برای اصلاح پرسپکتیو معتبر یا به‌اندازه کافی از هم فاصله ندارند.");
         }
         return new SheetPerspectiveTransform(coefficients, pageWidth, pageHeight);
     }
@@ -107,8 +108,12 @@ public final class SheetPerspectiveTransform {
                 templatePoints[2], templatePoints[3]);
         double imageArea = polygonArea(imagePoints[0], imagePoints[1],
                 imagePoints[2], imagePoints[3]);
-        if (Math.abs(sourceArea) < 1e-6 || Math.abs(imageArea) < 16.0) {
-            throw new IllegalArgumentException("نقاط ثبت برای محاسبهٔ پرسپکتیو به‌اندازه کافی فاصله ندارند.");
+        if (Math.abs(sourceArea) < 1e-6 || Math.abs(imageArea) < 16.0
+                || !isConvexQuadrilateral(imagePoints[0], imagePoints[1],
+                        imagePoints[2], imagePoints[3])
+                || !isConvexQuadrilateral(templatePoints[0], templatePoints[1],
+                        templatePoints[2], templatePoints[3])) {
+            throw new IllegalArgumentException("نقاط ثبت برای محاسبهٔ پرسپکتیو معتبر یا به‌اندازه کافی فاصله ندارند.");
         }
         return new SheetPerspectiveTransform(coefficients, pageWidth, pageHeight);
     }
@@ -164,6 +169,23 @@ public final class SheetPerspectiveTransform {
     private static double polygonArea(Point a, Point b, Point c, Point d) {
         return (a.x * b.y - b.x * a.y) + (b.x * c.y - c.x * b.y)
                 + (c.x * d.y - d.x * c.y) + (d.x * a.y - a.x * d.y);
+    }
+
+    /** Rejects crossed or concave point orderings before using them as a page. */
+    private static boolean isConvexQuadrilateral(Point a, Point b, Point c, Point d) {
+        Point[] p = {a, b, c, d};
+        double sign = 0.0;
+        for (int i = 0; i < 4; i++) {
+            Point first = p[i];
+            Point second = p[(i + 1) % 4];
+            Point third = p[(i + 2) % 4];
+            double cross = (second.x - first.x) * (third.y - second.y)
+                    - (second.y - first.y) * (third.x - second.x);
+            if (Math.abs(cross) < 1e-8) return false;
+            if (sign == 0.0) sign = Math.signum(cross);
+            else if (Math.signum(cross) != sign) return false;
+        }
+        return true;
     }
 
     private static boolean finite(double value) {
