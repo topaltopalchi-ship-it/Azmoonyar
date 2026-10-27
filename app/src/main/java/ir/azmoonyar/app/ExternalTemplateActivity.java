@@ -62,7 +62,7 @@ public final class ExternalTemplateActivity extends Activity {
         TextView title = text("تعریف قالب پاسخنامهٔ خارجی", 23, true);
         title.setGravity(Gravity.CENTER);
         page.addView(title);
-        TextView intro = text("یک‌بار عکس کامل A4 خالی را به‌عنوان الگو انتخاب و محدودهٔ جدول و شبکهٔ حباب‌ها را تنظیم کنید. برای برگه‌های بعدی از کل A4 عکس بگیرید؛ لازم نیست محدوده را دوباره انتخاب کنید. برای تطبیق درست، کل صفحه و جهت عکس باید مشابه الگو باشد.", 15, false);
+        TextView intro = text("یک‌بار عکس کامل A4 خالی را انتخاب کنید و «تنظیم یک‌بارهٔ قالب پاسخنامه» را بزنید. محدودهٔ جدول و شبکهٔ حباب‌ها در همان راهنما تنظیم می‌شوند؛ برای برگه‌های بعدی فقط عکس کامل A4 را انتخاب کنید و دیگر این مراحل را تکرار نکنید.", 15, false);
         intro.setPadding(0, dp(10), 0, dp(16));
         page.addView(intro);
 
@@ -143,15 +143,10 @@ public final class ExternalTemplateActivity extends Activity {
         previewParams.topMargin = dp(8);
         page.addView(samplePreview, previewParams);
         Button calibrate = new Button(this);
-        calibrate.setText("تنظیم یک‌بارهٔ محدودهٔ جدول");
+        calibrate.setText("تنظیم یک‌بارهٔ قالب پاسخنامه");
         calibrate.setAllCaps(false);
         page.addView(calibrate);
         calibrate.setOnClickListener(v -> openTableCalibration());
-        Button gridCalibrate = new Button(this);
-        gridCalibrate.setText("تنظیم یک‌بارهٔ شبکهٔ حباب‌ها");
-        gridCalibrate.setAllCaps(false);
-        page.addView(gridCalibrate);
-        gridCalibrate.setOnClickListener(v -> openGridCalibration());
         Button readFilled = new Button(this);
         readFilled.setText("تصحیح عکس کامل A4 پرشده");
         readFilled.setAllCaps(false);
@@ -168,14 +163,7 @@ public final class ExternalTemplateActivity extends Activity {
         savedStatus.setPadding(0, dp(12), 0, 0);
         page.addView(savedStatus);
 
-        Button explain = new Button(this);
-        explain.setText("روش کالیبراسیون بدون گوشه‌نشان");
-        explain.setAllCaps(false);
-        page.addView(explain);
-        explain.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("کالیبراسیون بدون علامت گوشه")
-                .setMessage("اگر برگه مربع‌های گوشه ندارد، روش مرجع‌یابی را روی «لبه‌های خود کاغذ» یا «کادر جدول پاسخ‌ها» بگذارید. برای جلوگیری از جابه‌جایی پاسخ‌ها باید ابتدا چهار گوشهٔ صفحه یا مرز جدول و سپس ردیف‌ها و ستون‌های حباب روی یک نمونهٔ واضح تأیید شوند. این صفحه تنظیمات قالب را ذخیره می‌کند؛ تشخیص عمومی خودکارِ هر چیدمان پشتیبانی نمی‌شود. برای هر قالب باید محدوده و شبکهٔ حباب‌ها را دستی تنظیم کنید و نتایج را با نمونه‌های واقعی بررسی کنید.")
-                .setPositiveButton("متوجه شدم", null).show());
+
 
         loadProfile();
         setContentView(scroll);
@@ -332,8 +320,9 @@ public final class ExternalTemplateActivity extends Activity {
                 savedStatus.setText(String.format(java.util.Locale.US,
                         "محدودهٔ جدول ذخیره شد: چپ %.2f، بالا %.2f، راست %.2f، پایین %.2f. مرحلهٔ بعد تعیین مراکز حباب‌هاست.",
                         rect.left, rect.top, rect.right, rect.bottom));
-                Toast.makeText(this, "محدودهٔ جدول ذخیره شد", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "محدودهٔ جدول ذخیره شد؛ شبکهٔ حباب‌ها را یک‌بار بررسی کنید", Toast.LENGTH_SHORT).show();
                 calibrationDialog.dismiss();
+                openGridCalibration();
             });
             calibrationDialog.show();
         } catch (Exception e) {
