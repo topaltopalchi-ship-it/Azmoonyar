@@ -9,12 +9,7 @@ package ir.azmoonyar.app;
  * Weak or ambiguous evidence is sent for review instead of guessed.
  */
 public final class OMRAnswerClassifier {
-    public enum Status {
-        ANSWERED,
-        BLANK,
-        MULTIPLE_MARKS,
-        REVIEW
-    }
+    public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
     public static final class Result {
         public final Status status;
@@ -37,12 +32,6 @@ public final class OMRAnswerClassifier {
     private final double blankThreshold;
     private final double minimumMargin;
 
-    /**
-     * Detects faint but clearly isolated marks, while keeping weak or ambiguous marks
-     * in REVIEW. The blank threshold is high enough to classify lightly noisy paper
-     * as blank; the margin requirement prevents a moderate isolated score from being
-     * accepted without sufficient confidence.
-     */
     public OMRAnswerClassifier() {
         this(0.30, 0.16, 0.25);
     }
@@ -83,13 +72,18 @@ public final class OMRAnswerClassifier {
             }
         }
 
+        double margin = strongest - Math.max(0, second);
         if (strongest < blankThreshold) {
             return new Result(Status.BLANK, -1, 0, strongest);
         }
         if (marks > 1) {
-            return new Result(Status.MULTIPLE_MARKS, -1, 0, strongest);
+            // Two moderately dark, close options are ambiguous rather than a confirmed
+            // double-mark. Reserve MULTIPLE_MARKS for evidence of two clearly dark fills.
+            if (strongest < 0.60) {
+                return new Result(Status.REVIEW, -1, margin, strongest);
+            }
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
         }
-        double margin = strongest - Math.max(0, second);
         if (strongest < markThreshold || margin < minimumMargin) {
             return new Result(Status.REVIEW, -1, margin, strongest);
         }
