@@ -6,6 +6,11 @@ import android.content.SharedPreferences;
 import android.content.Intent;
 import android.net.Uri;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -122,6 +127,11 @@ public final class ExternalTemplateActivity extends Activity {
         LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, dp(260));
         previewParams.topMargin = dp(8);
         page.addView(samplePreview, previewParams);
+        Button calibrate = new Button(this);
+        calibrate.setText("تعیین محدودهٔ جدول روی عکس");
+        calibrate.setAllCaps(false);
+        page.addView(calibrate);
+        calibrate.setOnClickListener(v -> openTableCalibration());
 
         Button save = new Button(this);
         save.setText("ذخیرهٔ تنظیمات قالب");
@@ -202,6 +212,38 @@ public final class ExternalTemplateActivity extends Activity {
         savedStatus.setText("یک قالب ذخیره‌شده پیدا شد؛ با ذخیرهٔ دوباره می‌توانید تنظیماتش را به‌روزرسانی کنید.");
     }
 
+    private void openTableCalibration() {
+        if (sampleUri == null) {
+            Toast.makeText(this, "ابتدا عکس پاسخنامهٔ خالی را انتخاب کنید", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(sampleUri));
+            if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            TableCalibrationView calibrationView = new TableCalibrationView(bitmap);
+            new AlertDialog.Builder(this)
+                    .setTitle("محدودهٔ جدول پاسخ‌ها")
+                    .setMessage("دو گوشهٔ روبه‌روی جدول را لمس کنید: ابتدا بالا-چپ، سپس پایین-راست. این روش به مربع‌های گوشهٔ صفحه وابسته نیست.")
+                    .setView(calibrationView)
+                    .setNegativeButton("انصراف", null)
+                    .setPositiveButton("ذخیرهٔ محدوده", (dialog, which) -> {
+                        if (!calibrationView.hasRectangle()) {
+                            Toast.makeText(this, "برای ذخیره باید هر دو گوشه را مشخص کنید", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        RectF rect = calibrationView.normalizedRect();
+                        prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
+                                .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
+                                .putBoolean("table_bounds_saved", true).apply();
+                        savedStatus.setText(String.format(java.util.Locale.US,
+                                "محدودهٔ جدول ذخیره شد: چپ %.2f، بالا %.2f، راست %.2f، پایین %.2f. مرحلهٔ بعد تعیین مراکز حباب‌هاست.",
+                                rect.left, rect.top, rect.right, rect.bottom));
+                    }).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void chooseSampleImage() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -217,6 +259,37 @@ public final class ExternalTemplateActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
         samplePreview.setImageURI(sampleUri);
         savedStatus.setText("عکس نمونه انتخاب شد؛ برای ذخیرهٔ دائمی، «ذخیرهٔ تنظیمات قالب» را بزنید.");
+    }
+
+    private final class TableCalibrationView extends View {
+        private final Bitmap bitmap;
+        private final Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float[] points = new float[4];
+        private int pointCount = 0;
+        private RectF imageRect = new RectF();
+        TableCalibrationView(Bitmap bitmap) { super(ExternalTemplateActivity.this); this.bitmap = bitmap; setLayoutParams(new LinearLayout.LayoutParams(-1, dp(380))); linePaint.setColor(Color.RED); linePaint.setStrokeWidth(dp(3)); linePaint.setStyle(Paint.Style.STROKE); }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float scale = Math.min((float)getWidth()/bitmap.getWidth(), (float)getHeight()/bitmap.getHeight());
+            float w=bitmap.getWidth()*scale, h=bitmap.getHeight()*scale;
+            imageRect.set((getWidth()-w)/2f,(getHeight()-h)/2f,(getWidth()+w)/2f,(getHeight()+h)/2f);
+            canvas.drawBitmap(bitmap, null, imageRect, imagePaint);
+            if(pointCount>0) canvas.drawCircle(points[0],points[1],dp(6),linePaint);
+            if(pointCount>1) { canvas.drawCircle(points[2],points[3],dp(6),linePaint); canvas.drawRect(Math.min(points[0],points[2]),Math.min(points[1],points[3]),Math.max(points[0],points[2]),Math.max(points[1],points[3]),linePaint); }
+        }
+        @Override public boolean onTouchEvent(android.view.MotionEvent event) {
+            if(event.getAction()!=android.view.MotionEvent.ACTION_UP) return true;
+            if(!imageRect.contains(event.getX(),event.getY())) return true;
+            if(pointCount>=2) pointCount=0;
+            points[pointCount*2]=event.getX(); points[pointCount*2+1]=event.getY(); pointCount++; invalidate(); return true;
+        }
+        boolean hasRectangle() { return pointCount==2 && points[2]!=points[0] && points[3]!=points[1]; }
+        RectF normalizedRect() {
+            float l=Math.min(points[0],points[2]), r=Math.max(points[0],points[2]);
+            float t=Math.min(points[1],points[3]), b=Math.max(points[1],points[3]);
+            return new RectF((l-imageRect.left)/imageRect.width(),(t-imageRect.top)/imageRect.height(),(r-imageRect.left)/imageRect.width(),(b-imageRect.top)/imageRect.height());
+        }
     }
 
     private RadioButton radio(String value, String tag) {
