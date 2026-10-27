@@ -13,6 +13,10 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
+            android:name="ir.azmoonyar.app.OmrScanActivity"
+            android:exported="false" />
+
+        <activity
             android:name="ir.azmoonyar.app.MainActivity"
             android:exported="true">
             <intent-filter>
