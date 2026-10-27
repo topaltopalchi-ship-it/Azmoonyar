@@ -253,66 +253,71 @@ public final class ExternalTemplateActivity extends Activity {
             Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(sampleUri));
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
             TableCalibrationView calibrationView = new TableCalibrationView(bitmap);
+
+            // Put the controls inside the custom dialog content. Android can hide standard
+            // AlertDialog action buttons when the image/content is tall on some screen sizes.
+            LinearLayout panel = new LinearLayout(this);
+            panel.setOrientation(LinearLayout.VERTICAL);
+            panel.setPadding(dp(12), dp(4), dp(12), dp(8));
+
+            TextView instruction = new TextView(this);
+            instruction.setText("از گوشهٔ بالا-چپ جدول تا پایین-راست بکشید؛ سپس ذخیره را بزنید.");
+            instruction.setTextSize(14);
+            instruction.setPadding(dp(4), dp(4), dp(4), dp(8));
+            panel.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
+
+            panel.addView(calibrationView, new LinearLayout.LayoutParams(-1, dp(190)));
+
+            LinearLayout controls = new LinearLayout(this);
+            controls.setOrientation(LinearLayout.HORIZONTAL);
+            controls.setGravity(Gravity.CENTER);
+            controls.setPadding(0, dp(8), 0, dp(2));
+
+            Button cancelButton = new Button(this);
+            cancelButton.setText("انصراف");
+            Button resetButton = new Button(this);
+            resetButton.setText("پاک‌کردن کادر");
+            Button saveButton = new Button(this);
+            saveButton.setText("ذخیرهٔ محدوده");
+            for (Button b : new Button[]{cancelButton, resetButton, saveButton}) {
+                b.setAllCaps(false);
+                b.setTextSize(12);
+                b.setMinHeight(dp(44));
+                b.setPadding(dp(6), dp(4), dp(6), dp(4));
+                controls.addView(b, new LinearLayout.LayoutParams(0, dp(48), 1f));
+            }
+            saveButton.setTextColor(Color.WHITE);
+            android.graphics.drawable.GradientDrawable saveBg = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{Color.rgb(255, 90, 185), Color.rgb(220, 0, 110)});
+            saveBg.setCornerRadius(dp(28));
+            saveBg.setStroke(dp(2), Color.rgb(255, 140, 210));
+            saveButton.setBackground(saveBg);
+            saveButton.setElevation(dp(4));
+
+            panel.addView(controls, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog calibrationDialog = new AlertDialog.Builder(this)
                     .setTitle("محدودهٔ جدول پاسخ‌ها")
-                    .setMessage("از گوشهٔ بالا-چپ جدول تا پایین-راست بکشید. سپس «ذخیرهٔ محدوده» را بزنید.")
-                    .setView(calibrationView)
-                    .setNeutralButton("پاک‌کردن کادر", (dialog, which) -> calibrationView.resetSelection())
-                    .setNegativeButton("انصراف", null)
-                    .setPositiveButton("ذخیرهٔ محدوده", (dialog, which) -> {
-                        if (!calibrationView.hasRectangle()) {
-                            Toast.makeText(this, "برای ذخیره باید هر دو گوشه را مشخص کنید", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        RectF rect = calibrationView.normalizedRect();
-                        prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
-                                .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
-                                .putBoolean("table_bounds_saved", true).apply();
-                        savedStatus.setText(String.format(java.util.Locale.US,
-                                "محدودهٔ جدول ذخیره شد: چپ %.2f، بالا %.2f، راست %.2f، پایین %.2f. مرحلهٔ بعد تعیین مراکز حباب‌هاست.",
-                                rect.left, rect.top, rect.right, rect.bottom));
-                    }).create();
-            calibrationDialog.setOnShowListener(ignored -> {
-                Button saveButton = calibrationDialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                if (saveButton != null) {
-                    saveButton.setText("ذخیرهٔ محدوده");
-                    saveButton.setTextSize(16);
-                    saveButton.setTextColor(Color.WHITE);
-                    saveButton.setMinHeight(dp(48));
-                    android.graphics.drawable.GradientDrawable saveBg = new android.graphics.drawable.GradientDrawable(
-                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                            new int[]{Color.rgb(255, 90, 185), Color.rgb(220, 0, 110)});
-                    saveBg.setCornerRadius(dp(28));
-                    saveBg.setStroke(dp(2), Color.rgb(255, 140, 210));
-                    saveButton.setBackground(saveBg);
-                    saveButton.setPadding(dp(16), dp(8), dp(16), dp(8));
+                    .setView(panel)
+                    .create();
+            cancelButton.setOnClickListener(v -> calibrationDialog.dismiss());
+            resetButton.setOnClickListener(v -> calibrationView.resetSelection());
+            saveButton.setOnClickListener(v -> {
+                if (!calibrationView.hasRectangle()) {
+                    Toast.makeText(this, "ابتدا با کشیدن انگشت محدودهٔ جدول را مشخص کنید", Toast.LENGTH_LONG).show();
+                    return;
                 }
-                Button resetButton = calibrationDialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-                if (resetButton != null) {
-                    resetButton.setText("پاک‌کردن کادر");
-                    resetButton.setTextSize(14);
-                }
+                RectF rect = calibrationView.normalizedRect();
+                prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
+                        .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
+                        .putBoolean("table_bounds_saved", true).apply();
+                savedStatus.setText(String.format(java.util.Locale.US,
+                        "محدودهٔ جدول ذخیره شد: چپ %.2f، بالا %.2f، راست %.2f، پایین %.2f. مرحلهٔ بعد تعیین مراکز حباب‌هاست.",
+                        rect.left, rect.top, rect.right, rect.bottom));
+                Toast.makeText(this, "محدودهٔ جدول ذخیره شد", Toast.LENGTH_SHORT).show();
+                calibrationDialog.dismiss();
             });
             calibrationDialog.show();
-            // Keep the dialog open if the user tries to save before drawing a valid rectangle.
-            Button saveButton = calibrationDialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            if (saveButton != null) {
-                saveButton.setOnClickListener(v -> {
-                    if (!calibrationView.hasRectangle()) {
-                        Toast.makeText(this, "ابتدا با کشیدن انگشت محدودهٔ جدول را مشخص کنید", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    RectF rect = calibrationView.normalizedRect();
-                    prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
-                            .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
-                            .putBoolean("table_bounds_saved", true).apply();
-                    savedStatus.setText(String.format(java.util.Locale.US,
-                            "محدودهٔ جدول ذخیره شد؛ اکنون مراکز حباب‌ها را تنظیم کنید.",
-                            rect.left, rect.top, rect.right, rect.bottom));
-                    Toast.makeText(this, "محدودهٔ جدول ذخیره شد", Toast.LENGTH_SHORT).show();
-                    calibrationDialog.dismiss();
-                });
-            }
         } catch (Exception e) {
             Toast.makeText(this, "باز کردن عکس ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
