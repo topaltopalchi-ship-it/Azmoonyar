@@ -365,20 +365,24 @@ public class MainActivity extends Activity {
             b.setMinHeight(dp(66));
             b.setPadding(dp(7), dp(8), dp(7), dp(8));
             b.setMaxLines(2);
-            // Subtle glass-style buttons: consistent palette avoids visual noise from competing gradients.
-            int[][] palette = {
-                {Color.argb(226, 255, 255, 255), Color.argb(238, 235, 243, 255)},
-                {Color.argb(226, 255, 255, 255), Color.argb(238, 229, 245, 255)},
-                {Color.argb(226, 255, 255, 255), Color.argb(238, 225, 247, 245)}
-            };
-            int colorIndex = Math.abs(labels[i].hashCode()) % palette.length;
+            // Glossy raised wave-style buttons (design #9): alternating electric blue and emerald green.
+            int blue = Color.rgb(0, 105, 255);
+            int blueDeep = Color.rgb(0, 48, 190);
+            int green = Color.rgb(0, 220, 80);
+            int greenDeep = Color.rgb(0, 125, 48);
+            boolean useBlue = (i % 2 == 0);
+            int top = useBlue ? Color.rgb(0, 190, 255) : Color.rgb(80, 255, 90);
+            int middle = useBlue ? blue : green;
+            int bottom = useBlue ? blueDeep : greenDeep;
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
-                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR, palette[colorIndex]);
+                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                    new int[]{top, middle, bottom});
             bg.setCornerRadius(dp(22));
-            bg.setStroke(dp(1), Color.argb(210, 155, 177, 225));
+            bg.setStroke(dp(2), useBlue ? Color.rgb(100, 220, 255) : Color.rgb(155, 255, 120));
             b.setBackground(bg);
-            b.setTextColor(Color.rgb(30, 64, 130));
-            b.setElevation(dp(5));
+            b.setTextColor(Color.WHITE);
+            b.setShadowLayer(dp(1), 0, dp(1), Color.WHITE);
+            b.setElevation(dp(10));
             b.setOnTouchListener((view, event) -> {
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                     view.animate().translationY(dp(3)).setDuration(70).start();
