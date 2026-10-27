@@ -50,8 +50,6 @@ dependencies {
     implementation 'net.java.dev.jna:jna:5.18.1@aar'
 
     // Pure-Java QR decoding; no network or Google Play service is required at scan time.
-    implementation 'com.google.zxing:core:3.5.3'
-
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }
