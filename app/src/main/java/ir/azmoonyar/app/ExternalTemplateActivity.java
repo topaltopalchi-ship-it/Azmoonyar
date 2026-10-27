@@ -495,16 +495,19 @@ public final class ExternalTemplateActivity extends Activity {
             String key = normalizeAnswerKey(prefs.getString("answer_key", answerKeyInput.getText().toString()), questions, options);
             if (key == null) throw new IllegalStateException("ابتدا کلید صحیح تمام سؤال‌ها را وارد و ذخیره کنید");
             String[] correct = key.split(",");
+            org.json.JSONArray storedCenters;
+            try { storedCenters = new org.json.JSONArray(prefs.getString("bubble_centers", "[]")); }
+            catch (Exception badCenters) { throw new IllegalStateException("مراکز حباب‌ها ذخیره نشده‌اند؛ قالب را دوباره تشخیص دهید"); }
+            if (!prefs.getBoolean("grid_saved", false) || storedCenters.length() != questions * options)
+                throw new IllegalStateException("قالب مراکز حباب‌ها کامل نیست؛ ابتدا تشخیص خودکار قالب را اجرا و شبکه را ذخیره کنید");
             StringBuilder report = new StringBuilder();
             int answered=0, blank=0, ambiguous=0, correctCount=0, wrongCount=0;
             for (int q=0;q<questions;q++) {
                 double[] darkness = new double[options];
                 for (int o=0;o<options;o++) {
-                    double[] center = ExternalSheetLayout.bubbleCenter(
-                            q, o, questions, options, prefs.getString("table_mode", "single"),
-                            left, top, right, bottom);
-                    double nx = center[0];
-                    double ny = center[1];
+                    org.json.JSONObject savedCenter = storedCenters.getJSONObject(q * options + o);
+                    double nx = savedCenter.getDouble("x");
+                    double ny = savedCenter.getDouble("y");
                     // The selected table includes the question-number column as well as answer bubbles.
                     // Sample only the inner center of each bubble cell so printed outlines/grid lines
                     // do not make every option appear equally dark.
