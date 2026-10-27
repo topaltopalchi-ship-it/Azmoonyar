@@ -1798,7 +1798,7 @@ public class MainActivity extends Activity {
             info("هنوز نتیجه‌ای ثبت نشده است.");
             return;
         }
-        showResultList("نتایج آزمون اخیر", results, results.length() - 1, results.length() - 1);
+        showResultList("نتایج آزمون اخیر — همهٔ شرکت‌کنندگان", results, 0, results.length() - 1);
     }
 
     private void showPreviousExamResults() {
