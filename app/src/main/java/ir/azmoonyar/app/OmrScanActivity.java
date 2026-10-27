@@ -167,7 +167,7 @@ public final class OmrScanActivity extends ComponentActivity {
             long now = android.os.SystemClock.elapsedRealtime();
             if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
-                final String message;
+                String message;
                 if (transform != null) {
                     try {
                         // Diagnostic-only live sampling. No answers or scores are saved.
