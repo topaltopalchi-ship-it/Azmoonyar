@@ -75,6 +75,44 @@ public final class SheetPerspectiveTransform {
         return new SheetPerspectiveTransform(coefficients, pageWidth, pageHeight);
     }
 
+    /**
+     * Builds a mapping from four known template coordinates (for example,
+     * registration-mark centers) to their measured image coordinates.
+     */
+    public static SheetPerspectiveTransform fromControlPoints(
+            Point[] templatePoints, Point[] imagePoints, double pageWidth, double pageHeight) {
+        if (templatePoints == null || imagePoints == null
+                || templatePoints.length != 4 || imagePoints.length != 4
+                || !finite(pageWidth) || !finite(pageHeight)
+                || pageWidth <= 0 || pageHeight <= 0) {
+            throw new IllegalArgumentException("چهار نقطهٔ متناظر و ابعاد برگه لازم است.");
+        }
+        double[][] equations = new double[8][9];
+        for (int i = 0; i < 4; i++) {
+            Point src = templatePoints[i], dst = imagePoints[i];
+            if (src == null || dst == null || src.x < 0 || src.y < 0
+                    || src.x > pageWidth || src.y > pageHeight) {
+                throw new IllegalArgumentException("نقطهٔ متناظر خارج از محدوده یا نامعتبر است.");
+            }
+            double x = src.x, y = src.y, u = dst.x, v = dst.y;
+            int r = i * 2;
+            equations[r][0] = x; equations[r][1] = y; equations[r][2] = 1;
+            equations[r][6] = -u * x; equations[r][7] = -u * y; equations[r][8] = u;
+            equations[r + 1][3] = x; equations[r + 1][4] = y; equations[r + 1][5] = 1;
+            equations[r + 1][6] = -v * x; equations[r + 1][7] = -v * y;
+            equations[r + 1][8] = v;
+        }
+        double[] coefficients = solve(equations);
+        double sourceArea = polygonArea(templatePoints[0], templatePoints[1],
+                templatePoints[2], templatePoints[3]);
+        double imageArea = polygonArea(imagePoints[0], imagePoints[1],
+                imagePoints[2], imagePoints[3]);
+        if (Math.abs(sourceArea) < 1e-6 || Math.abs(imageArea) < 16.0) {
+            throw new IllegalArgumentException("نقاط ثبت برای محاسبهٔ پرسپکتیو به‌اندازه کافی فاصله ندارند.");
+        }
+        return new SheetPerspectiveTransform(coefficients, pageWidth, pageHeight);
+    }
+
     /** Maps a point in the printed template coordinate system into the image. */
     public Point toImage(double pageX, double pageY) {
         if (!finite(pageX) || !finite(pageY)
