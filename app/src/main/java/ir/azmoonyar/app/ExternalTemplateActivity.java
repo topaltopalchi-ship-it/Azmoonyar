@@ -80,7 +80,7 @@ public final class ExternalTemplateActivity extends Activity {
         page.addView(optionCount);
 
         page.addView(label("کلید پاسخ صحیح (با ویرگول جدا کنید)"));
-        answerKeyInput = edit("D,B,A,C");
+        answerKeyInput = edit("");
         answerKeyInput.setSingleLine(false);
         answerKeyInput.setMinLines(2);
         answerKeyInput.setHint("مثال: D,B,A,C,D");
