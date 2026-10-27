@@ -250,12 +250,20 @@ public final class ExternalTemplateActivity extends Activity {
                         .setPositiveButton("تنظیم دستی", (d, w) -> openTableCalibration()).show();
                 return;
             }
+            // This workflow relies on the four printed page fiducials to avoid accepting
+            // a random dark component as the table on a cluttered photo.
+            if (hasCornerMarks.isChecked() && detection.cornerMarks != 4) {
+                new AlertDialog.Builder(this).setTitle("علامت‌های گوشه کامل نیستند")
+                        .setMessage("فقط " + detection.cornerMarks + " ناحیه از ۴ ناحیهٔ گوشه شناسایی شد. برای جلوگیری از ذخیرهٔ محدودهٔ اشتباه، قالب ذخیره نشد. از کل برگهٔ A4 عکس بگیرید و هر چهار مربع سیاه داخل تصویر باشد.")
+                        .setPositiveButton("باشه", null).show();
+                return;
+            }
             RectF rect = detection.table;
             prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
                     .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
                     .putBoolean("table_bounds_saved", true).putBoolean("grid_saved", false).apply();
-            savedStatus.setText("جدول به‌طور خودکار پیدا شد. علامت‌های گوشهٔ تشخیص‌داده‌شده: "
-                    + detection.cornerMarks + " از ۴. محدوده را در پیش‌نمایش شبکه بررسی کنید؛ هنوز اصلاح پرسپکتیو خودکار فعال نیست.");
+            savedStatus.setText("محدودهٔ پیشنهادی جدول پیدا شد. علامت‌های گوشهٔ تشخیص‌داده‌شده: "
+                    + detection.cornerMarks + " از ۴. هنوز اصلاح پرسپکتیو خودکار فعال نیست؛ شبکه را قبل از ذخیره بررسی کنید.");
             Toast.makeText(this, "محدودهٔ پیشنهادی جدول پیدا شد؛ پیش‌نمایش را بررسی کنید", Toast.LENGTH_LONG).show();
             openGridCalibration();
         } catch (Exception e) {
