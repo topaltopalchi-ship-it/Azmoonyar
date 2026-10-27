@@ -34,8 +34,8 @@ public final class OmrTemplateLayout {
      * top-left corner. A final partial page returns only its actual questions.
      */
     public static double[][][] bubbleCentersForPage(int totalQuestions, int pageIndex) {
-        if (totalQuestions < 1 || totalQuestions > 1000) {
-            throw new IllegalArgumentException("تعداد سؤال باید بین ۱ تا ۱۰۰۰ باشد.");
+        if (totalQuestions < 1 || totalQuestions > 100) {
+            throw new IllegalArgumentException("تعداد سؤال باید بین ۱ تا ۱۰۰ باشد.");
         }
         int pageCount = (totalQuestions + QUESTIONS_PER_PAGE - 1) / QUESTIONS_PER_PAGE;
         if (pageIndex < 0 || pageIndex >= pageCount) {
