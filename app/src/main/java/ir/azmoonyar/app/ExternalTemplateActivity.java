@@ -144,10 +144,10 @@ public final class ExternalTemplateActivity extends Activity {
         previewParams.topMargin = dp(8);
         page.addView(samplePreview, previewParams);
         Button calibrate = new Button(this);
-        calibrate.setText("تنظیم یک‌بارهٔ قالب پاسخنامه");
+        calibrate.setText("تشخیص خودکار جدول از روی عکس");
         calibrate.setAllCaps(false);
         page.addView(calibrate);
-        calibrate.setOnClickListener(v -> openTableCalibration());
+        calibrate.setOnClickListener(v -> autoDetectTemplateTable());
         Button readFilled = new Button(this);
         readFilled.setText("تصحیح عکس کامل A4 پرشده");
         readFilled.setAllCaps(false);
@@ -231,6 +231,38 @@ public final class ExternalTemplateActivity extends Activity {
             if (layout.equals(String.valueOf(b.getTag()))) tableMode.check(b.getId());
         }
         savedStatus.setText("یک قالب ذخیره‌شده پیدا شد؛ با ذخیرهٔ دوباره می‌توانید تنظیماتش را به‌روزرسانی کنید.");
+    }
+
+    private void autoDetectTemplateTable() {
+        if (sampleUri == null) {
+            Toast.makeText(this, "ابتدا عکس پاسخنامهٔ خالی را انتخاب کنید", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Bitmap bitmap = null;
+        try {
+            bitmap = decodeOrientedBitmap(sampleUri);
+            if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
+            ExternalSheetAutoDetector.Detection detection = ExternalSheetAutoDetector.detect(bitmap);
+            if (detection == null) {
+                new AlertDialog.Builder(this).setTitle("جدول خودکار پیدا نشد")
+                        .setMessage("از این عکس نتوانستم کادر جدول را با اطمینان تشخیص بدهم. برای جلوگیری از ذخیرهٔ محدودهٔ اشتباه، تشخیص خودکار متوقف شد. می‌توانید روش دستی را باز کنید.")
+                        .setNegativeButton("بستن", null)
+                        .setPositiveButton("تنظیم دستی", (d, w) -> openTableCalibration()).show();
+                return;
+            }
+            RectF rect = detection.table;
+            prefs.edit().putFloat("table_left", rect.left).putFloat("table_top", rect.top)
+                    .putFloat("table_right", rect.right).putFloat("table_bottom", rect.bottom)
+                    .putBoolean("table_bounds_saved", true).putBoolean("grid_saved", false).apply();
+            savedStatus.setText("جدول به‌طور خودکار پیدا شد. علامت‌های گوشهٔ تشخیص‌داده‌شده: "
+                    + detection.cornerMarks + " از ۴. محدوده را در پیش‌نمایش شبکه بررسی کنید؛ هنوز اصلاح پرسپکتیو خودکار فعال نیست.");
+            Toast.makeText(this, "محدودهٔ پیشنهادی جدول پیدا شد؛ پیش‌نمایش را بررسی کنید", Toast.LENGTH_LONG).show();
+            openGridCalibration();
+        } catch (Exception e) {
+            Toast.makeText(this, "تشخیص خودکار ناموفق بود: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            if (bitmap != null) bitmap.recycle();
+        }
     }
 
     private void openTableCalibration() {
