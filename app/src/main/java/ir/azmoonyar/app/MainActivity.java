@@ -347,7 +347,23 @@ public class MainActivity extends Activity {
         pink.setCornerRadius(dp(48));
         pink.setStroke(dp(3), Color.rgb(255, 90, 190));
         scanCorrection.setBackground(pink);
-        scanCorrection.setElevation(dp(9));
+        scanCorrection.setElevation(dp(12));
+        scanCorrection.setStateListAnimator(null);
+        scanCorrection.setContentDescription("دکمهٔ اصلی اسکن و تصحیح پاسخنامه");
+        scanCorrection.setOnTouchListener((view, event) -> {
+            switch (event.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    view.animate().translationY(dp(4)).setDuration(70).start();
+                    view.setElevation(dp(3));
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    view.animate().translationY(0).setDuration(110).start();
+                    view.setElevation(dp(12));
+                    break;
+            }
+            return false;
+        });
         LinearLayout.LayoutParams scanParams = new LinearLayout.LayoutParams(-1, -2);
         scanParams.topMargin = dp(12);
         scanParams.bottomMargin = dp(8);
