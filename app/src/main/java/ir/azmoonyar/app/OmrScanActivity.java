@@ -135,7 +135,7 @@ public final class OmrScanActivity extends ComponentActivity {
             // Keep the preview responsive while preserving enough pixels for the
             // small 3 mm outlined registration marks on the current A4 template.
             long frameNow = android.os.SystemClock.elapsedRealtime();
-            if (frameNow - lastFrameAnalysis < 80) return;
+            if (frameNow - lastFrameAnalysis < 55) return;
             lastFrameAnalysis = frameNow;
             ImageProxy.PlaneProxy plane = image.getPlanes()[0];
             ByteBuffer buffer = plane.getBuffer().duplicate();
@@ -183,7 +183,7 @@ public final class OmrScanActivity extends ComponentActivity {
             if (transform != null && markerCount == 4) {
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
-                if (!sheetConsumed && stableMarkerFrames >= 3) {
+                if (!sheetConsumed && stableMarkerFrames >= 2) {
                     sheetConsumed = true;
                     processRecognizedSheet(upright.pixels, upright.width, upright.height, transform);
                 }
@@ -191,7 +191,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 stableMarkerFrames = 0;
                 if (sheetConsumed && markerCount < 2) {
                     missingMarkerFrames++;
-                    if (missingMarkerFrames >= 5 && !waitingForNextName) {
+                    if (missingMarkerFrames >= 3 && !waitingForNextName) {
                         waitingForNextName = true;
                         showNextParticipantDialog();
                     }
