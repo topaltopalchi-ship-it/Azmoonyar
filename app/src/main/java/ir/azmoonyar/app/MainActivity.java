@@ -1832,15 +1832,81 @@ public class MainActivity extends Activity {
     private void showExamResultsMenu() {
         new AlertDialog.Builder(this)
             .setTitle("نتایج آزمون")
-            .setItems(new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون"},
+            .setItems(new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی"},
                 (dialog, which) -> {
                     if (which == 0) showRecentExamResults();
                     else if (which == 1) showPreviousExamResults();
                     else if (which == 2) showParticipantAnalysis();
-                    else showExamAnalysis();
+                    else if (which == 3) showExamAnalysis();
+                    else showReviewQueue();
                 })
             .setNegativeButton("بازگشت", (d, w) -> showReportsCenter())
             .show();
+    }
+
+    private JSONArray readReviewQueue() {
+        try { return new JSONArray(prefs.getString("grading_review_queue", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showReviewQueue() {
+        JSONArray queue = readReviewQueue();
+        if (queue.length() == 0) {
+            new AlertDialog.Builder(this).setTitle("صف بازبینی")
+                .setMessage("هیچ برگه‌ای در صف بازبینی نیست.")
+                .setPositiveButton("باشه", null)
+                .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+            return;
+        }
+        String[] labels = new String[queue.length()];
+        for (int i = 0; i < queue.length(); i++) {
+            JSONObject item = queue.optJSONObject(i);
+            if (item == null) item = new JSONObject();
+            labels[i] = (i + 1) + ". " + item.optString("name", "بدون نام")
+                + " — " + item.optString("examName", "آزمون بدون نام")
+                + " — سؤال مبهم: " + item.optInt("needsReview", 0);
+        }
+        new AlertDialog.Builder(this).setTitle("برگه‌های نیازمند بازبینی")
+            .setItems(labels, (d, which) -> showReviewQueueItem(which))
+            .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private void showReviewQueueItem(int index) {
+        JSONArray queue = readReviewQueue();
+        if (index < 0 || index >= queue.length()) { showReviewQueue(); return; }
+        JSONObject item = queue.optJSONObject(index);
+        if (item == null) { showReviewQueue(); return; }
+        StringBuilder detail = new StringBuilder();
+        detail.append("شرکت‌کننده: ").append(item.optString("name", "بدون نام"))
+            .append("\\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
+            .append("\\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
+            .append("\\n\\nوضعیت خواندن سؤال‌ها:\\n");
+        JSONArray questions = item.optJSONArray("questions");
+        if (questions != null) {
+            for (int i = 0; i < questions.length(); i++) {
+                JSONObject q = questions.optJSONObject(i);
+                if (q == null) continue;
+                int option = q.optInt("optionIndex", -1);
+                detail.append("سؤال ").append(q.optInt("question", i + 1)).append(": ")
+                    .append(q.optString("status", "نامشخص"));
+                if (option >= 0) detail.append(" (گزینهٔ ").append("ABCD".charAt(Math.min(3, option))).append(")");
+                detail.append("\\n");
+            }
+        }
+        detail.append("\\nاین مورد نمرهٔ قطعی ندارد. برای نمره‌دهی، پاسخ‌های مبهم باید با خود برگه تطبیق داده شوند.");
+        new AlertDialog.Builder(this).setTitle("جزئیات برگهٔ بازبینی").setMessage(detail.toString())
+            .setPositiveButton("حذف از صف", (d, w) -> {
+                JSONArray current = readReviewQueue();
+                JSONArray kept = new JSONArray();
+                for (int i = 0; i < current.length(); i++) {
+                    if (i == index) continue;
+                    JSONObject entry = current.optJSONObject(i);
+                    if (entry != null) kept.put(entry);
+                }
+                prefs.edit().putString("grading_review_queue", kept.toString()).apply();
+                showReviewQueue();
+            })
+            .setNegativeButton("بازگشت", (d, w) -> showReviewQueue()).show();
     }
 
     private void showRecentExamResults() {
