@@ -43,6 +43,29 @@ public class SheetPerspectiveTransformTest {
         }
     }
 
+
+    @Test public void mapsFromRegistrationMarkCenters() {
+        SheetPerspectiveTransform.Point[] template = {
+                new SheetPerspectiveTransform.Point(6.5, 6.5),
+                new SheetPerspectiveTransform.Point(203.5, 6.5),
+                new SheetPerspectiveTransform.Point(203.5, 290.5),
+                new SheetPerspectiveTransform.Point(6.5, 290.5)
+        };
+        SheetPerspectiveTransform.Point[] image = {
+                new SheetPerspectiveTransform.Point(40, 25),
+                new SheetPerspectiveTransform.Point(430, 55),
+                new SheetPerspectiveTransform.Point(390, 600),
+                new SheetPerspectiveTransform.Point(15, 560)
+        };
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromControlPoints(
+                template, image, 210, 297);
+        for (int i = 0; i < 4; i++) {
+            SheetPerspectiveTransform.Point actual = transform.toImage(
+                    template[i].x, template[i].y);
+            assertPoint(image[i], actual);
+        }
+    }
+
     private static void assertPoint(SheetPerspectiveTransform.Point expected,
                                     SheetPerspectiveTransform.Point actual) {
         assertEquals(expected.x, actual.x, 1e-5);
