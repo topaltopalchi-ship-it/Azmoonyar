@@ -171,6 +171,7 @@ public final class ExternalTemplateActivity extends Activity {
                 .putBoolean("has_corner_marks", hasCornerMarks.isChecked())
                 .putString("anchor_mode", selectedAnchor == null ? "edges" : String.valueOf(selectedAnchor.getTag()))
                 .putString("table_mode", selectedTable == null ? "single" : String.valueOf(selectedTable.getTag()))
+                .putString("sample_image_uri", sampleUri == null ? prefs.getString("sample_image_uri", "") : sampleUri.toString())
                 .putBoolean("profile_saved", true)
                 .apply();
         savedStatus.setText(sampleUri == null ? "تنظیمات قالب ذخیره شد. هنوز عکس نمونه انتخاب نشده و تصحیح خودکار فعال نیست." : "تنظیمات و عکس نمونه ذخیره شد. مرحلهٔ بعد تعیین و تأیید محل حباب‌هاست؛ تصحیح خودکار هنوز فعال نیست.");
@@ -178,7 +179,11 @@ public final class ExternalTemplateActivity extends Activity {
     }
 
     private void loadProfile() {
-        String savedUri = prefs.getString("sample_image_uri", "");\n        if (!savedUri.isEmpty()) {\n            try { sampleUri = Uri.parse(savedUri); samplePreview.setImageURI(sampleUri); } catch (Exception ignored) { }\n        }\n        if (!prefs.getBoolean("profile_saved", false)) return;
+        String savedUri = prefs.getString("sample_image_uri", "");
+        if (!savedUri.isEmpty()) {
+            try { sampleUri = Uri.parse(savedUri); samplePreview.setImageURI(sampleUri); } catch (Exception ignored) { }
+        }
+        if (!prefs.getBoolean("profile_saved", false)) return;
         templateName.setText(prefs.getString("name", ""));
         questionCount.setText(String.valueOf(prefs.getInt("questions", 10)));
         optionCount.setText(String.valueOf(prefs.getInt("options", 4)));
@@ -197,7 +202,24 @@ public final class ExternalTemplateActivity extends Activity {
         savedStatus.setText("یک قالب ذخیره‌شده پیدا شد؛ با ذخیرهٔ دوباره می‌توانید تنظیماتش را به‌روزرسانی کنید.");
     }
 
-    private void chooseSampleImage() {\n        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);\n        intent.addCategory(Intent.CATEGORY_OPENABLE);\n        intent.setType("image/*");\n        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);\n        startActivityForResult(intent, REQUEST_SAMPLE_IMAGE);\n    }\n\n    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {\n        super.onActivityResult(requestCode, resultCode, data);\n        if (requestCode != REQUEST_SAMPLE_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;\n        sampleUri = data.getData();\n        try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }\n        samplePreview.setImageURI(sampleUri);\n        savedStatus.setText("عکس نمونه انتخاب شد؛ برای ذخیرهٔ دائمی، «ذخیرهٔ تنظیمات قالب» را بزنید.");\n    }\n\n    private RadioButton radio(String value, String tag) {
+    private void chooseSampleImage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_SAMPLE_IMAGE);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_SAMPLE_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        sampleUri = data.getData();
+        try { getContentResolver().takePersistableUriPermission(sampleUri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
+        samplePreview.setImageURI(sampleUri);
+        savedStatus.setText("عکس نمونه انتخاب شد؛ برای ذخیرهٔ دائمی، «ذخیرهٔ تنظیمات قالب» را بزنید.");
+    }
+
+    private RadioButton radio(String value, String tag) {
         RadioButton b = new RadioButton(this);
         b.setText(value);
         b.setTag(tag);
