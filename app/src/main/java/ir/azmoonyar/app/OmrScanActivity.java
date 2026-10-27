@@ -140,11 +140,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 lastStatusUpdate = now;
                 final String message;
                 if (markerCount >= 4) {
-                    message = "چهار ناحیهٔ تیره دیده شد؛ برگه را ثابت نگه دارید.";
+                    message = "چهار نشانهٔ مربعی در گوشه‌ها شناسایی شد؛ برگه را لحظه‌ای ثابت نگه دارید.";
                 } else if (markerCount >= 2) {
-                    message = "نشانه‌های گوشه پیدا می‌شوند؛ برگه را کامل‌تر و صاف‌تر داخل تصویر بگیرید.";
+                    message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر و با نور یکنواخت نگه دارید.";
                 } else {
-                    message = "در حال جست‌وجوی سریع‌تر گوشه‌ها… برگه را نزدیک‌تر و با نور یکنواخت بگیرید.";
+                    message = "در حال جست‌وجوی مربع‌های گوشه… چهار گوشهٔ برگه را داخل تصویر نگه دارید.";
                 }
                 updateStatus(message);
             }
@@ -156,30 +156,100 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /**
-     * More tolerant coarse cue: larger corner windows and a lower dark-pixel
-     * ratio. These are image-corner regions, not validated printed squares.
+     * Finds compact, nearly square, filled dark components in the four outer
+     * corner regions. A component must have plausible geometry; a dark patch,
+     * text line, carpet texture, or broad shadow alone is not enough.
+     *
+     * This is still a fast marker-candidate detector, not perspective
+     * rectification and not permission to score a sheet.
      */
     private int countDarkCornerRegions(byte[] yPlane, int width, int height) {
-        int windowW = Math.max(16, width / 5);
-        int windowH = Math.max(16, height / 5);
-        int[][] boxes = {
-                {0, 0, windowW, windowH},
-                {width - windowW, 0, width, windowH},
-                {0, height - windowH, windowW, height},
-                {width - windowW, height - windowH, width, height}
+        final int sample = 2;
+        final int gw = (width + sample - 1) / sample;
+        final int gh = (height + sample - 1) / sample;
+        final boolean[] visited = new boolean[gw * gh];
+        final int[] queue = new int[gw * gh];
+        final int cornerW = Math.max(8, gw / 4);
+        final int cornerH = Math.max(8, gh / 4);
+        final int[][] regions = {
+                {0, 0, cornerW, cornerH},
+                {gw - cornerW, 0, gw, cornerH},
+                {0, gh - cornerH, cornerW, gh},
+                {gw - cornerW, gh - cornerH, gw, gh}
         };
-        int found = 0;
-        for (int[] box : boxes) {
-            int dark = 0, total = 0;
-            for (int y = box[1]; y < box[3]; y += 2) {
-                for (int x = box[0]; x < box[2]; x += 2) {
-                    total++;
-                    if ((yPlane[y * width + x] & 0xff) < 100) dark++;
+        int foundCorners = 0;
+
+        for (int[] region : regions) {
+            boolean foundInThisCorner = false;
+            int x0 = Math.max(0, region[0]);
+            int y0 = Math.max(0, region[1]);
+            int x1 = Math.min(gw, region[2]);
+            int y1 = Math.min(gh, region[3]);
+
+            for (int sy = y0; sy < y1 && !foundInThisCorner; sy++) {
+                for (int sx = x0; sx < x1 && !foundInThisCorner; sx++) {
+                    int seed = sy * gw + sx;
+                    if (visited[seed] || lumaAt(yPlane, width, height, sx, sy, sample) >= 120) {
+                        visited[seed] = true;
+                        continue;
+                    }
+
+                    int head = 0, tail = 0;
+                    queue[tail++] = seed;
+                    visited[seed] = true;
+                    int minX = sx, maxX = sx, minY = sy, maxY = sy;
+                    int pixels = 0;
+
+                    while (head < tail) {
+                        int p = queue[head++];
+                        int px = p % gw;
+                        int py = p / gw;
+                        pixels++;
+                        if (px < minX) minX = px;
+                        if (px > maxX) maxX = px;
+                        if (py < minY) minY = py;
+                        if (py > maxY) maxY = py;
+
+                        // Components larger than a marker are not useful; keep
+                        // scanning bounded in cluttered backgrounds.
+                        if (pixels > 1800) break;
+
+                        for (int dy = -1; dy <= 1; dy++) {
+                            for (int dx = -1; dx <= 1; dx++) {
+                                if (dx == 0 && dy == 0) continue;
+                                int nx = px + dx, ny = py + dy;
+                                if (nx < x0 || nx >= x1 || ny < y0 || ny >= y1) continue;
+                                int ni = ny * gw + nx;
+                                if (visited[ni]) continue;
+                                visited[ni] = true;
+                                if (lumaAt(yPlane, width, height, nx, ny, sample) < 120) {
+                                    if (tail < queue.length) queue[tail++] = ni;
+                                }
+                            }
+                        }
+                    }
+
+                    int boxW = maxX - minX + 1;
+                    int boxH = maxY - minY + 1;
+                    double aspect = boxW / (double) Math.max(1, boxH);
+                    double fill = pixels / (double) (boxW * boxH);
+                    boolean plausibleSquare = pixels >= 10
+                            && boxW >= 4 && boxH >= 4
+                            && boxW <= 48 && boxH <= 48
+                            && aspect >= 0.68 && aspect <= 1.47
+                            && fill >= 0.42;
+                    if (plausibleSquare) foundInThisCorner = true;
                 }
             }
-            if (total > 0 && dark / (double) total > 0.06) found++;
+            if (foundInThisCorner) foundCorners++;
         }
-        return found;
+        return foundCorners;
+    }
+
+    private int lumaAt(byte[] yPlane, int width, int height, int sampleX, int sampleY, int sample) {
+        int x = Math.min(width - 1, sampleX * sample);
+        int y = Math.min(height - 1, sampleY * sample);
+        return yPlane[y * width + x] & 0xff;
     }
 
     private void updateStatus(String message) {
