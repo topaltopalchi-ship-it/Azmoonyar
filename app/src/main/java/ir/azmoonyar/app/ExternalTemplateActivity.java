@@ -395,7 +395,7 @@ public final class ExternalTemplateActivity extends Activity {
     private String normalizeAnswerKey(String raw, int questions, int options) {
         if (raw == null) return null;
         String cleaned = raw.trim().toUpperCase(java.util.Locale.ROOT).replace('؛', ',').replace('，', ',').replace(';', ',');
-        cleaned = cleaned.replace(" ", "").replace("\\n", "").replace("\\t", "");
+        cleaned = cleaned.replaceAll("\\s+", "");
         if (cleaned.isEmpty()) return null;
         String[] parts = cleaned.split(",");
         if (parts.length != questions) return null;
