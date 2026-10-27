@@ -367,27 +367,30 @@ public class MainActivity extends Activity {
             b.setMinHeight(dp(66));
             b.setPadding(dp(7), dp(8), dp(7), dp(8));
             b.setMaxLines(2);
-            // Glossy raised wave-style buttons (design #9): alternating electric blue and emerald green.
-            int blue = Color.rgb(0, 105, 255);
-            int blueDeep = Color.rgb(0, 48, 190);
-            int green = Color.rgb(0, 220, 80);
-            int greenDeep = Color.rgb(0, 125, 48);
+            // Glossy, deeply raised electric button with layered wave ribbons like the selected reference.
             boolean useBlue = (i % 2 == 0);
-            int top = useBlue ? Color.rgb(0, 190, 255) : Color.rgb(80, 255, 90);
-            int middle = useBlue ? blue : green;
-            int bottom = useBlue ? blueDeep : greenDeep;
-            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
+            int c1 = useBlue ? Color.rgb(0, 174, 255) : Color.rgb(0, 238, 78);
+            int c2 = useBlue ? Color.rgb(0, 91, 255) : Color.rgb(0, 190, 55);
+            int c3 = useBlue ? Color.rgb(0, 35, 160) : Color.rgb(0, 105, 38);
+            android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{c1, c2, c2, c3});
+            base.setCornerRadius(dp(34));
+            base.setStroke(dp(3), useBlue ? Color.rgb(0, 210, 255) : Color.rgb(0, 255, 115));
+            android.graphics.drawable.GradientDrawable wave = new android.graphics.drawable.GradientDrawable(
                     android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                    new int[]{top, middle, bottom});
-            bg.setCornerRadius(dp(22));
-            bg.setStroke(dp(2), useBlue ? Color.rgb(100, 220, 255) : Color.rgb(155, 255, 120));
-            // Android ripple wave on touch, over the glossy raised gradient.
+                    new int[]{Color.argb(75,255,255,255), Color.argb(12,255,255,255), Color.argb(85,0,20,90)});
+            wave.setCornerRadius(dp(34));
+            android.graphics.drawable.LayerDrawable layered = new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{base, wave});
+            layered.setLayerInset(1, dp(3), dp(3), dp(3), dp(5));
             RippleDrawable waveBg = new RippleDrawable(
-                    ColorStateList.valueOf(Color.argb(115, 255, 255, 255)), bg, null);
+                    ColorStateList.valueOf(Color.argb(145,255,255,255)), layered, null);
             b.setBackground(waveBg);
             b.setTextColor(Color.WHITE);
-            b.setShadowLayer(dp(1), 0, dp(1), Color.WHITE);
-            b.setElevation(dp(10));
+            b.setShadowLayer(dp(2), 0, dp(2), Color.argb(150,0,25,70));
+            b.setElevation(dp(14));
+            b.setTranslationZ(dp(2));
             b.setOnTouchListener((view, event) -> {
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                     view.animate().translationY(dp(3)).setDuration(70).start();
