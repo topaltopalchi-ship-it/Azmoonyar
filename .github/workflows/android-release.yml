@@ -1,8 +1,6 @@
 name: Android Release APK and AAB
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
