@@ -854,7 +854,8 @@ public class MainActivity extends Activity {
                 return;
             }
             final int total = questionCount();
-            final int pageCount = (total + 99) / 100;
+            final int printLayoutQuestionCount = 100;
+            final int pageCount = 1;
             String encodedExamName = Base64.encodeToString(examName().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                     Base64.URL_SAFE | Base64.NO_WRAP);
             String safeExam = escapeHtml(examName());
@@ -898,24 +899,28 @@ public class MainActivity extends Activity {
                 // belong only on answer sheets, so scanning a question page cannot be counted
                 // as a scanned answer sheet.
                 final int questionsPerPage = 25;
-                final int questionPageCount = (total + questionsPerPage - 1) / questionsPerPage;
+                final int questionPageCount = 4;
                 for (int questionPage = 1; questionPage <= questionPageCount; questionPage++) {
                     int questionFirst = (questionPage - 1) * questionsPerPage;
-                    int questionLast = Math.min(questionPage * questionsPerPage, total);
+                    int questionLast = Math.min(questionPage * questionsPerPage, printLayoutQuestionCount);
                     html.append("<section class='page'><h1 class='head'>").append(safeExam)
                         .append(" — برگه سؤال‌ها</h1>")
                         .append("<div class='meta'>صفحه ").append(questionPage).append(" از ")
                         .append(questionPageCount).append(" | سؤال‌های ").append(questionFirst + 1)
                         .append(" تا ").append(questionLast).append("</div><hr/>");
                     for (int i = questionFirst; i < questionLast; i++) {
-                        JSONObject q = questions.optJSONObject(i);
-                        if (q == null) continue;
+                        JSONObject q = i < questions.length() ? questions.optJSONObject(i) : null;
                         html.append("<article class='question'><b>").append(i + 1).append(". ")
-                            .append(escapeHtml(q.optString("text", ""))).append("</b><div class='options'>");
-                        JSONArray options = q.optJSONArray("options");
-                        if (options != null) for (int j = 0; j < Math.min(4, options.length()); j++)
-                            html.append("<div>").append((char)('A' + j)).append(") ")
-                                .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                            .append(q == null ? "........................................................" : escapeHtml(q.optString("text", "")))
+                            .append("</b><div class='options'>");
+                        JSONArray options = q == null ? null : q.optJSONArray("options");
+                        if (options != null) {
+                            for (int j = 0; j < Math.min(4, options.length()); j++)
+                                html.append("<div>").append((char)('A' + j)).append(") ")
+                                    .append(escapeHtml(options.optString(j, ""))).append("</div>");
+                        } else {
+                            for (int j = 0; j < 4; j++) html.append("<div>").append((char)('A' + j)).append(") ........</div>");
+                        }
                         html.append("</div></article>");
                     }
                     html.append("</section>");
@@ -923,7 +928,7 @@ public class MainActivity extends Activity {
 
                 for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
-                    int last = Math.min(page * 100, total);
+                    int last = printLayoutQuestionCount;
                     html.append("<section class='page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
@@ -1045,7 +1050,7 @@ public class MainActivity extends Activity {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
-        final int total = questionCount();
+        final int total = 100;
         if (total < 1 || total > 100) {
             info("تعداد سؤال باید بین ۱ تا ۱۰۰ باشد.");
             return;
@@ -1638,8 +1643,15 @@ public class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
+        JSONArray existingBank = readQuestionBank();
+        TextView numberLabel = new TextView(this);
+        numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1));
+        numberLabel.setTextSize(16);
+        numberLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        numberLabel.setPadding(0, 0, 0, dp(8));
+        form.addView(numberLabel);
         EditText question = new EditText(this); styleInput(question);
-        question.setHint("متن سؤال");
+        question.setHint("متن سؤال شمارهٔ " + (existingBank.length() + 1));
         form.addView(question);
         EditText topic = new EditText(this); styleInput(topic);
         topic.setHint("مبحث (اختیاری؛ مثل نوار قلب یا رادیکال)");
@@ -1681,7 +1693,9 @@ public class MainActivity extends Activity {
                 int correctIndex = (Integer) selected.getTag();
                 try {
                     JSONArray bank = readQuestionBank();
+                    int questionNumber = bank.length() + 1;
                     JSONObject item = new JSONObject();
+                    item.put("question_number", questionNumber);
                     item.put("id", UUID.randomUUID().toString());
                     item.put("text", qText);
                     item.put("topic", topic.getText().toString().trim());
@@ -1689,7 +1703,7 @@ public class MainActivity extends Activity {
                     item.put("correct_index", correctIndex);
                     bank.put(item);
                     prefs.edit().putString("question_bank_json", bank.toString()).apply();
-                    info("سؤال در بانک محلی ذخیره شد.");
+                    info("سؤال شمارهٔ " + questionNumber + " در بانک محلی ذخیره شد.");
                 } catch (Exception e) {
                     info("ذخیره سؤال ناموفق بود.");
                 }
