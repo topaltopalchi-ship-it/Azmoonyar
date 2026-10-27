@@ -153,10 +153,14 @@ public final class OmrScanActivity extends ComponentActivity {
                     // Existing template registration-mark centers.
                     transform = SheetPerspectiveTransform.fromControlPoints(
                             new SheetPerspectiveTransform.Point[]{
-                                    new SheetPerspectiveTransform.Point(6.5, 6.5),
-                                    new SheetPerspectiveTransform.Point(203.5, 6.5),
-                                    new SheetPerspectiveTransform.Point(203.5, 290.5),
-                                    new SheetPerspectiveTransform.Point(6.5, 290.5)
+                                    new SheetPerspectiveTransform.Point(detection.markerSizeMm > 8 ? 13.0 : 6.5,
+                                            detection.markerSizeMm > 8 ? 13.0 : 6.5),
+                                    new SheetPerspectiveTransform.Point(detection.markerSizeMm > 8 ? 197.0 : 203.5,
+                                            detection.markerSizeMm > 8 ? 13.0 : 6.5),
+                                    new SheetPerspectiveTransform.Point(detection.markerSizeMm > 8 ? 197.0 : 203.5,
+                                            detection.markerSizeMm > 8 ? 284.0 : 290.5),
+                                    new SheetPerspectiveTransform.Point(detection.markerSizeMm > 8 ? 13.0 : 6.5,
+                                            detection.markerSizeMm > 8 ? 284.0 : 290.5)
                             },
                             detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
                             OmrTemplateLayout.PAGE_HEIGHT_MM);
@@ -218,8 +222,11 @@ public final class OmrScanActivity extends ComponentActivity {
         final int count;
         // Ordered top-left, top-right, bottom-right, bottom-left.
         final SheetPerspectiveTransform.Point[] points;
-        MarkerDetection(int count, SheetPerspectiveTransform.Point[] points) {
-            this.count = count; this.points = points;
+        // Approximate physical marker size inferred from component size: old 3 mm
+        // outlined marks remain supported alongside the new 16 mm solid marks.
+        final double markerSizeMm;
+        MarkerDetection(int count, SheetPerspectiveTransform.Point[] points, double markerSizeMm) {
+            this.count = count; this.points = points; this.markerSizeMm = markerSizeMm;
         }
     }
 
@@ -250,14 +257,15 @@ public final class OmrScanActivity extends ComponentActivity {
      * and bubble sampling are validated against printed sheets.
      */
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
+        // Work on a half-resolution luma image. Accept both the legacy 3 mm
+        // outlined marks and new 16 mm solid vector marks.
         final int sample = 2;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
         final int[] queue = new int[gw * gh];
-        final int cornerW = Math.max(8, gw / 4);
-        final int cornerH = Math.max(8, gh / 4);
-        // Ordered TL, TR, BR, BL to match the projective transform.
+        final int cornerW = Math.max(12, gw / 4);
+        final int cornerH = Math.max(12, gh / 4);
         final int[][] regions = {
                 {0, 0, cornerW, cornerH},
                 {gw - cornerW, 0, gw, cornerH},
@@ -265,20 +273,23 @@ public final class OmrScanActivity extends ComponentActivity {
                 {0, gh - cornerH, cornerW, gh}
         };
         SheetPerspectiveTransform.Point[] points = new SheetPerspectiveTransform.Point[4];
-        int foundCorners = 0;
+        double[] sizes = new double[4];
+        int found = 0;
+        int threshold = adaptiveDarkThreshold(yPlane, width, height);
 
         for (int corner = 0; corner < regions.length; corner++) {
             int[] region = regions[corner];
             int x0 = Math.max(0, region[0]), y0 = Math.max(0, region[1]);
             int x1 = Math.min(gw, region[2]), y1 = Math.min(gh, region[3]);
-            double bestArea = -1;
+            double bestScore = -Double.MAX_VALUE;
             SheetPerspectiveTransform.Point bestPoint = null;
+            double bestSize = 0;
 
             for (int sy = y0; sy < y1; sy++) {
                 for (int sx = x0; sx < x1; sx++) {
                     int seed = sy * gw + sx;
                     if (visited[seed]) continue;
-                    if (lumaAt(yPlane, width, height, sx, sy, sample) >= 120) {
+                    if (lumaAt(yPlane, width, height, sx, sy, sample) >= threshold) {
                         visited[seed] = true;
                         continue;
                     }
@@ -293,10 +304,7 @@ public final class OmrScanActivity extends ComponentActivity {
                         pixels++;
                         minX = Math.min(minX, px); maxX = Math.max(maxX, px);
                         minY = Math.min(minY, py); maxY = Math.max(maxY, py);
-                        if (pixels > 1800) {
-                            tooLarge = true;
-                            break;
-                        }
+                        if (pixels > 6000) { tooLarge = true; break; }
                         for (int dy = -1; dy <= 1; dy++) {
                             for (int dx = -1; dx <= 1; dx++) {
                                 if (dx == 0 && dy == 0) continue;
@@ -305,20 +313,37 @@ public final class OmrScanActivity extends ComponentActivity {
                                 int ni = ny * gw + nx;
                                 if (visited[ni]) continue;
                                 visited[ni] = true;
-                                if (lumaAt(yPlane, width, height, nx, ny, sample) < 120
+                                if (lumaAt(yPlane, width, height, nx, ny, sample) < threshold
                                         && tail < queue.length) queue[tail++] = ni;
                             }
                         }
                     }
+
                     int boxW = maxX - minX + 1, boxH = maxY - minY + 1;
                     double aspect = boxW / (double) Math.max(1, boxH);
-                    double fill = pixels / (double) (boxW * boxH);
-                    boolean square = !tooLarge && pixels >= 10 && boxW >= 4 && boxH >= 4
-                            && boxW <= 20 && boxH <= 20
-                            && aspect >= 0.68 && aspect <= 1.47 && fill >= 0.18;
-                    double area = boxW * (double) boxH;
-                    if (square && area > bestArea) {
-                        bestArea = area;
+                    double fill = pixels / (double) Math.max(1, boxW * boxH);
+                    int size = Math.max(boxW, boxH);
+                    // Marker geometry is scale tolerant: tiny outlined legacy marks
+                    // and larger filled marks both pass, while thin text strokes do not.
+                    boolean compactSquare = !tooLarge && pixels >= 8
+                            && boxW >= 4 && boxH >= 4 && size <= Math.min(90, Math.max(20, gw / 5))
+                            && aspect >= 0.68 && aspect <= 1.47
+                            && fill >= 0.12;
+                    if (!compactSquare) continue;
+
+                    double estimatedMm = size * 210.0 / Math.max(1.0, gw);
+                    boolean legacySize = estimatedMm >= 1.2 && estimatedMm <= 7.5;
+                    boolean newSize = estimatedMm >= 7.5 && estimatedMm <= 25.0;
+                    if (!legacySize && !newSize) continue;
+
+                    // Prefer near-square, compact components and plausible marker size.
+                    double sizePenalty = Math.abs(Math.log(Math.max(0.1, estimatedMm)
+                            / (newSize ? 16.0 : 3.0)));
+                    double score = 2.0 - Math.abs(1.0 - aspect) * 1.4
+                            + Math.min(1.0, fill) * 0.5 - sizePenalty * 0.25;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestSize = estimatedMm;
                         bestPoint = new SheetPerspectiveTransform.Point(
                                 (minX + maxX) * 0.5 * sample,
                                 (minY + maxY) * 0.5 * sample);
@@ -327,10 +352,36 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             if (bestPoint != null) {
                 points[corner] = bestPoint;
-                foundCorners++;
+                sizes[corner] = bestSize;
+                found++;
             }
         }
-        return new MarkerDetection(foundCorners, points);
+
+        double markerSizeMm = 0;
+        if (found > 0) {
+            double sum = 0;
+            for (double size : sizes) if (size > 0) sum += size;
+            markerSizeMm = sum / found;
+        }
+        return new MarkerDetection(found, points, markerSizeMm);
+    }
+
+    /** Estimate a local black/white split from sparse luma samples. */
+    private int adaptiveDarkThreshold(byte[] yPlane, int width, int height) {
+        long sum = 0;
+        int count = 0;
+        int stepX = Math.max(1, width / 48);
+        int stepY = Math.max(1, height / 48);
+        for (int y = 0; y < height; y += stepY) {
+            for (int x = 0; x < width; x += stepX) {
+                sum += yPlane[y * width + x] & 0xff;
+                count++;
+            }
+        }
+        int mean = count == 0 ? 128 : (int) (sum / count);
+        // Keep the threshold permissive for shadows, but never so high that
+        // ordinary mid-gray paper texture becomes a black registration mark.
+        return Math.max(65, Math.min(145, mean - 35));
     }
 
     private int lumaAt(byte[] yPlane, int width, int height, int sampleX, int sampleY, int sample) {
