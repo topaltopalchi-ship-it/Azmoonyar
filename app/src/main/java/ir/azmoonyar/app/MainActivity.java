@@ -1878,9 +1878,9 @@ public class MainActivity extends Activity {
         if (item == null) { showReviewQueue(); return; }
         StringBuilder detail = new StringBuilder();
         detail.append("شرکت‌کننده: ").append(item.optString("name", "بدون نام"))
-            .append("\\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
-            .append("\\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
-            .append("\\n\\nوضعیت خواندن سؤال‌ها:\\n");
+            .append("\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
+            .append("\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
+            .append("\n\nوضعیت خواندن سؤال‌ها:\n");
         JSONArray questions = item.optJSONArray("questions");
         if (questions != null) {
             for (int i = 0; i < questions.length(); i++) {
@@ -1890,10 +1890,10 @@ public class MainActivity extends Activity {
                 detail.append("سؤال ").append(q.optInt("question", i + 1)).append(": ")
                     .append(q.optString("status", "نامشخص"));
                 if (option >= 0) detail.append(" (گزینهٔ ").append("ABCD".charAt(Math.min(3, option))).append(")");
-                detail.append("\\n");
+                detail.append("\n");
             }
         }
-        detail.append("\\nاین مورد نمرهٔ قطعی ندارد. برای نمره‌دهی، پاسخ‌های مبهم باید با خود برگه تطبیق داده شوند.");
+        detail.append("\nاین مورد نمرهٔ قطعی ندارد. برای نمره‌دهی، پاسخ‌های مبهم باید با خود برگه تطبیق داده شوند.");
         new AlertDialog.Builder(this).setTitle("جزئیات برگهٔ بازبینی").setMessage(detail.toString())
             .setPositiveButton("حذف از صف", (d, w) -> {
                 JSONArray current = readReviewQueue();
