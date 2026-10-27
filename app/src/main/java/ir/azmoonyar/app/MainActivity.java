@@ -1763,53 +1763,154 @@ public class MainActivity extends Activity {
     }
 
     private void showReportsCenter() {
+        new AlertDialog.Builder(this)
+            .setTitle("آنالیز و آمار")
+            .setItems(new String[]{"نتایج آزمون", "صندوق گزارش‌ها و حریم خصوصی"}, (dialog, which) -> {
+                if (which == 0) showExamResultsMenu();
+                else showReportsPrivacyDetails();
+            })
+            .setNegativeButton("بستن", null)
+            .show();
+    }
+
+    private JSONArray readGradingResults() {
+        try { return new JSONArray(prefs.getString("grading_results", "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showExamResultsMenu() {
+        new AlertDialog.Builder(this)
+            .setTitle("نتایج آزمون")
+            .setItems(new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون"},
+                (dialog, which) -> {
+                    if (which == 0) showRecentExamResults();
+                    else if (which == 1) showPreviousExamResults();
+                    else if (which == 2) showParticipantAnalysis();
+                    else showExamAnalysis();
+                })
+            .setNegativeButton("بازگشت", (d, w) -> showReportsCenter())
+            .show();
+    }
+
+    private void showRecentExamResults() {
+        JSONArray results = readGradingResults();
+        if (results.length() == 0) {
+            info("هنوز نتیجه‌ای ثبت نشده است.");
+            return;
+        }
+        showResultList("نتایج آزمون اخیر", results, results.length() - 1, results.length() - 1);
+    }
+
+    private void showPreviousExamResults() {
+        JSONArray results = readGradingResults();
+        if (results.length() <= 1) {
+            info("نتیجهٔ قبلی برای نمایش وجود ندارد.");
+            return;
+        }
+        showResultList("نتایج قبلی", results, 0, results.length() - 2);
+    }
+
+    private void showResultList(String title, JSONArray results, int first, int last) {
+        StringBuilder message = new StringBuilder();
+        for (int i = last; i >= first; i--) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            message.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام"))
+                .append("\nآزمون: ").append(result.optString("examName", "—"))
+                .append("\nنمره: ").append(String.format(Locale.US, "%.1f", result.optDouble("score", 0.0))).append(" از 100")
+                .append("\nدرست: ").append(result.optInt("correct", 0))
+                .append(" | غلط: ").append(result.optInt("wrong", 0))
+                .append(" | سفید: ").append(result.optInt("blank", 0))
+                .append("\n\n--------------------\n\n");
+        }
+        ScrollView scroll = new ScrollView(this);
+        TextView text = new TextView(this);
+        text.setText(message.toString());
+        text.setTextSize(16);
+        text.setTextDirection(View.TEXT_DIRECTION_RTL);
+        text.setGravity(Gravity.RIGHT);
+        text.setPadding(dp(16), dp(12), dp(16), dp(12));
+        scroll.addView(text);
+        new AlertDialog.Builder(this).setTitle(title).setView(scroll)
+            .setPositiveButton("بستن", null)
+            .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private void showParticipantAnalysis() {
+        JSONArray results = readGradingResults();
+        if (results.length() == 0) { info("برای آنالیز، هنوز نتیجه‌ای ثبت نشده است."); return; }
+        java.util.LinkedHashMap<String, double[]> totals = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject r = results.optJSONObject(i);
+            if (r == null) continue;
+            String name = r.optString("name", "بدون نام");
+            double[] t = totals.get(name);
+            if (t == null) { t = new double[2]; totals.put(name, t); }
+            t[0] += r.optDouble("score", 0.0); t[1]++;
+        }
+        StringBuilder out = new StringBuilder();
+        for (java.util.Map.Entry<String, double[]> e : totals.entrySet())
+            out.append(e.getKey()).append("\nتعداد آزمون: ").append((int)e.getValue()[1])
+                .append("\nمیانگین نمره: ").append(String.format(Locale.US, "%.1f", e.getValue()[0] / e.getValue()[1]))
+                .append(" از 100\n\n");
+        showAnalysisText("آنالیز شرکت‌کننده", out.toString());
+    }
+
+    private void showExamAnalysis() {
+        JSONArray results = readGradingResults();
+        if (results.length() == 0) { info("برای آنالیز، هنوز نتیجه‌ای ثبت نشده است."); return; }
+        java.util.LinkedHashMap<String, double[]> totals = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject r = results.optJSONObject(i);
+            if (r == null) continue;
+            String name = r.optString("examName", "آزمون بدون نام");
+            double[] t = totals.get(name);
+            if (t == null) { t = new double[2]; totals.put(name, t); }
+            t[0] += r.optDouble("score", 0.0); t[1]++;
+        }
+        StringBuilder out = new StringBuilder();
+        for (java.util.Map.Entry<String, double[]> e : totals.entrySet())
+            out.append(e.getKey()).append("\nتعداد نتایج: ").append((int)e.getValue()[1])
+                .append("\nمیانگین نمره: ").append(String.format(Locale.US, "%.1f", e.getValue()[0] / e.getValue()[1]))
+                .append(" از 100\n\n");
+        showAnalysisText("آنالیز هر آزمون", out.toString());
+    }
+
+    private void showAnalysisText(String title, String value) {
+        ScrollView scroll = new ScrollView(this);
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextSize(16);
+        text.setTextDirection(View.TEXT_DIRECTION_RTL);
+        text.setGravity(Gravity.RIGHT);
+        text.setPadding(dp(16), dp(12), dp(16), dp(12));
+        scroll.addView(text);
+        new AlertDialog.Builder(this).setTitle(title).setView(scroll)
+            .setPositiveButton("بستن", null)
+            .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private void showReportsPrivacyDetails() {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
-        StringBuilder message = new StringBuilder();
-        message.append("نتایج تصحیح پاسخنامه‌ها\n");
-        JSONArray gradingResults;
-        try { gradingResults = new JSONArray(prefs.getString("grading_results", "[]")); }
-        catch (Exception e) { gradingResults = new JSONArray(); }
-        if (gradingResults.length() == 0) {
-            message.append("هنوز نتیجهٔ تصحیحی ذخیره نشده است.\n\n");
-        } else {
-            for (int i = gradingResults.length() - 1; i >= 0; i--) {
-                JSONObject result = gradingResults.optJSONObject(i);
-                if (result == null) continue;
-                double score = result.optDouble("score", 0.0);
-                message.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام")).append("\n")
-                    .append("آزمون: ").append(result.optString("examName", "—")).append("\n")
-                    .append("نمره: ").append(String.format(Locale.US, "%.1f", score)).append(" از 100").append("\n")
-                    .append("درست: ").append(result.optInt("correct", 0))
-                    .append(" | غلط: ").append(result.optInt("wrong", 0))
-                    .append(" | سفید: ").append(result.optInt("blank", 0)).append("\n\n");
-            }
+        StringBuilder message = new StringBuilder("صندوق گزارش‌های محلی\\n");
+        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\\n\\n");
+        if (inbox.length() == 0) message.append("هنوز گزارشی ثبت نشده است.\\n\\n");
+        else for (int i = inbox.length() - 1; i >= 0; i--) {
+            JSONObject item = inbox.optJSONObject(i);
+            if (item == null) continue;
+            message.append(item.optString("title", "گزارش ارزیابی")).append("\\n")
+                .append(item.optString("body", "")).append("\\n")
+                .append(item.optString("created_at", "")).append("\\n\\n");
+            reportStore.markRead(item.optString("id", ""));
         }
-        message.append("صندوق گزارش‌های محلی\n");
-        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\n\n");
-        if (inbox.length() == 0) {
-            message.append("هنوز گزارشی ثبت نشده است. گزارش واقعی پس از پیاده‌سازی تصحیح و تحلیل خودکار ساخته می‌شود.\n\n");
-        } else {
-            for (int i = inbox.length() - 1; i >= 0; i--) {
-                JSONObject item = inbox.optJSONObject(i);
-                if (item == null) continue;
-                message.append(item.optString("title", "گزارش ارزیابی")).append("\n")
-                    .append(item.optString("body", "")).append("\n")
-                    .append(item.optString("created_at", "")).append("\n")
-                    .append(item.optBoolean("read", false) ? "خوانده‌شده" : "خوانده‌نشده")
-                    .append("\n\n");
-                reportStore.markRead(item.optString("id", ""));
-            }
-        }
-        message.append("حریم خصوصی و رضایت\n")
-            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\n")
-            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\n")
-            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\n")
+        message.append("حریم خصوصی و رضایت\\n")
+            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\\n")
+            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\\n")
+            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\\n")
             .append("• تحلیل و تصحیح خودکار هنوز تکمیل نشده؛ هیچ نتیجهٔ ساختگی ارسال نمی‌شود.");
-        new AlertDialog.Builder(this).setTitle("گزارش‌ها و حریم خصوصی")
-            .setMessage(message.toString())
-            .setPositiveButton("باشه", null)
-            .show();
+        new AlertDialog.Builder(this).setTitle("صندوق گزارش‌ها و حریم خصوصی")
+            .setMessage(message.toString()).setPositiveButton("باشه", null).show();
     }
 
     private void info(String message) {
