@@ -66,6 +66,21 @@ public class SheetPerspectiveTransformTest {
         }
     }
 
+
+    @Test public void rejectsCrossedCornerOrder() {
+        try {
+            SheetPerspectiveTransform.fromPageCorners(
+                    new SheetPerspectiveTransform.Point(10, 10),
+                    new SheetPerspectiveTransform.Point(200, 10),
+                    new SheetPerspectiveTransform.Point(10, 200),
+                    new SheetPerspectiveTransform.Point(200, 200),
+                    210, 297);
+            fail("Expected crossed corner order to be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Wrongly ordered marker candidates must not be accepted as a page.
+        }
+    }
+
     private static void assertPoint(SheetPerspectiveTransform.Point expected,
                                     SheetPerspectiveTransform.Point actual) {
         assertEquals(expected.x, actual.x, 1e-5);
