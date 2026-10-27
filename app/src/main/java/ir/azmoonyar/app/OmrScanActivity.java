@@ -101,7 +101,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new android.util.Size(640, 480))
+                        .setTargetResolution(new android.util.Size(1280, 960))
                         .build();
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
@@ -119,8 +119,8 @@ public final class OmrScanActivity extends ComponentActivity {
             if (image.getFormat() != android.graphics.ImageFormat.YUV_420_888
                     || image.getPlanes().length == 0) return;
             // Avoid allocating image-sized buffers on every camera frame.
-            // Sampling at up to ~12 fps keeps the live preview responsive while
-            // leaving enough time to detect a sheet as it enters the frame.
+            // Keep the preview responsive while preserving enough pixels for the
+            // small 3 mm outlined registration marks on the current A4 template.
             long frameNow = android.os.SystemClock.elapsedRealtime();
             if (frameNow - lastFrameAnalysis < 80) return;
             lastFrameAnalysis = frameNow;
