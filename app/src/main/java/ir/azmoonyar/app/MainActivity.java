@@ -1082,8 +1082,6 @@ public class MainActivity extends Activity {
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
         Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); clearBank.setAllCaps(false);
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
-        Button clearPdf = new Button(this); clearPdf.setText("پاک کردن نمونه PDF (فرم‌های A و B)"); clearPdf.setAllCaps(false);
-        clearPdf.setOnClickListener(v -> confirmClearPdfSample()); panel.addView(clearPdf);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); saved.setAllCaps(false);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
         Button generate = new Button(this); generate.setText("آماده‌سازی فرم واحد و کلید پاسخ"); generate.setAllCaps(false);
@@ -1105,32 +1103,6 @@ public class MainActivity extends Activity {
                     .apply();
                 refreshSummary();
                 info("بانک سؤال و کلید فرم واحد پاک شدند.");
-            }).show();
-    }
-
-    private void confirmClearPdfSample() {
-        new AlertDialog.Builder(this).setTitle("پاک کردن نمونه PDF")
-            .setMessage("اطلاعات نمونهٔ PDF ریاضی و فرم‌های A و B از این دستگاه پاک شوند؟ بانک سؤال عمومی و مجموعه‌های دیگر حذف نمی‌شوند.")
-            .setNegativeButton("انصراف", null)
-            .setPositiveButton("پاک کردن", (d, w) -> {
-                SharedPreferences.Editor edit = prefs.edit()
-                    .remove("pdf_original_version_A").remove("pdf_original_version_B")
-                    .remove("answer_key_model_A").remove("answer_key_model_B")
-                    .remove("model_questions_A").remove("model_questions_B")
-                    .remove("pdf_original_version_A").remove("pdf_original_version_B")
-                    .remove("qr_payload_model_A").remove("qr_payload_model_B")
-                    .remove("original_forms_corrected_v2");
-                try {
-                    for (String keyName : prefs.getAll().keySet()) {
-                        if (keyName.startsWith("issued_exam_") || keyName.startsWith("saved_variant_")) {
-                            String value = prefs.getString(keyName, "");
-                            if (value.contains("ریاضی (۱)") || value.contains("fixed_original_order")) edit.remove(keyName);
-                        }
-                    }
-                } catch (Exception ignored) {}
-                edit.apply();
-                refreshSummary();
-                info("داده‌های نمونه PDF پاک شدند.");
             }).show();
     }
 
