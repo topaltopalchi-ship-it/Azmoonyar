@@ -36,6 +36,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private TextView statusView;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
+    private volatile long lastFrameAnalysis;
     private volatile boolean finished;
 
     @Override public void onCreate(Bundle state) {
@@ -117,6 +118,12 @@ public final class OmrScanActivity extends ComponentActivity {
         try {
             if (image.getFormat() != android.graphics.ImageFormat.YUV_420_888
                     || image.getPlanes().length == 0) return;
+            // Avoid allocating image-sized buffers on every camera frame.
+            // Sampling at up to ~12 fps keeps the live preview responsive while
+            // leaving enough time to detect a sheet as it enters the frame.
+            long frameNow = android.os.SystemClock.elapsedRealtime();
+            if (frameNow - lastFrameAnalysis < 80) return;
+            lastFrameAnalysis = frameNow;
             ImageProxy.PlaneProxy plane = image.getPlanes()[0];
             ByteBuffer buffer = plane.getBuffer().duplicate();
             int width = image.getWidth();
