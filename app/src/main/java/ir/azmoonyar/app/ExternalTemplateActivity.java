@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Bundle;
@@ -238,7 +239,7 @@ public final class ExternalTemplateActivity extends Activity {
             return;
         }
         try {
-            Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(sampleUri));
+            Bitmap bitmap = decodeOrientedBitmap(sampleUri);
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
             TableCalibrationView calibrationView = new TableCalibrationView(bitmap);
 
@@ -376,9 +377,7 @@ public final class ExternalTemplateActivity extends Activity {
     private void analyzeFilledImage(Uri uri) {
         Bitmap bitmap = null;
         try {
-            java.io.InputStream stream = getContentResolver().openInputStream(uri);
-            if (stream == null) throw new IllegalStateException("فایل عکس باز نشد");
-            try { bitmap = BitmapFactory.decodeStream(stream); } finally { stream.close(); }
+            bitmap = decodeOrientedBitmap(uri);
             if (bitmap == null) throw new IllegalStateException("تصویر قابل خواندن نیست");
             // The stored table geometry is normalized to the full reference-page image.
             // Reject differently cropped/oriented images instead of silently applying the
@@ -386,11 +385,7 @@ public final class ExternalTemplateActivity extends Activity {
             Bitmap referenceBitmap = null;
             String referenceUriText = prefs.getString("sample_image_uri", "");
             if (!referenceUriText.isEmpty()) {
-                java.io.InputStream referenceStream = getContentResolver().openInputStream(Uri.parse(referenceUriText));
-                if (referenceStream != null) {
-                    try { referenceBitmap = BitmapFactory.decodeStream(referenceStream); }
-                    finally { referenceStream.close(); }
-                }
+                referenceBitmap = decodeOrientedBitmap(Uri.parse(referenceUriText));
             }
             if (referenceBitmap == null) throw new IllegalStateException("عکس الگوی کامل A4 پیدا نشد؛ دوباره الگوی خالی را انتخاب و ذخیره کنید");
             double refRatio = referenceBitmap.getWidth() / (double) referenceBitmap.getHeight();
@@ -481,6 +476,41 @@ public final class ExternalTemplateActivity extends Activity {
         } catch(Exception e) {
             Toast.makeText(this,"خواندن عکس ناموفق بود: "+e.getMessage(),Toast.LENGTH_LONG).show();
         } finally { if(bitmap!=null) bitmap.recycle(); }
+    }
+
+    // Honor the camera/gallery EXIF orientation before comparing A4 dimensions or sampling bubbles.
+    // BitmapFactory alone ignores EXIF rotation on many Android versions, causing false A4 mismatch errors.
+    private Bitmap decodeOrientedBitmap(Uri uri) throws java.io.IOException {
+        int orientation = androidx.exifinterface.media.ExifInterface.ORIENTATION_UNDEFINED;
+        try (java.io.InputStream exifStream = getContentResolver().openInputStream(uri)) {
+            if (exifStream != null) {
+                androidx.exifinterface.media.ExifInterface exif =
+                        new androidx.exifinterface.media.ExifInterface(exifStream);
+                orientation = exif.getAttributeInt(
+                        androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                        androidx.exifinterface.media.ExifInterface.ORIENTATION_UNDEFINED);
+            }
+        }
+        Bitmap source;
+        try (java.io.InputStream imageStream = getContentResolver().openInputStream(uri)) {
+            if (imageStream == null) throw new java.io.IOException("فایل عکس باز نشد");
+            source = BitmapFactory.decodeStream(imageStream);
+        }
+        if (source == null) throw new java.io.IOException("تصویر قابل خواندن نیست");
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90: matrix.postRotate(90); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180: matrix.postRotate(180); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270: matrix.postRotate(270); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL: matrix.setScale(-1, 1); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_FLIP_VERTICAL: matrix.setScale(1, -1); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_TRANSPOSE: matrix.setRotate(90); matrix.postScale(-1, 1); break;
+            case androidx.exifinterface.media.ExifInterface.ORIENTATION_TRANSVERSE: matrix.setRotate(270); matrix.postScale(-1, 1); break;
+            default: return source;
+        }
+        Bitmap oriented = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
+        if (oriented != source) source.recycle();
+        return oriented;
     }
 
     private double sampleDarkness(Bitmap bitmap, double nx, double ny, double rx, double ry) {
