@@ -33,6 +33,7 @@ public final class ExternalTemplateActivity extends Activity {
     private EditText templateName;
     private EditText questionCount;
     private EditText optionCount;
+    private EditText answerKeyInput;
     private CheckBox hasCornerMarks;
     private RadioGroup anchorMode;
     private RadioGroup tableMode;
@@ -77,6 +78,14 @@ public final class ExternalTemplateActivity extends Activity {
         optionCount = edit("4");
         optionCount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         page.addView(optionCount);
+
+        page.addView(label("کلید پاسخ صحیح (با ویرگول جدا کنید)"));
+        answerKeyInput = edit("D,B,A,C");
+        answerKeyInput.setSingleLine(false);
+        answerKeyInput.setMinLines(2);
+        answerKeyInput.setHint("مثال: D,B,A,C,D");
+        page.addView(answerKeyInput);
+        page.addView(text("برای قالب چهارگزینه‌ای پیش‌فرض، گزینه‌ها از چپ به راست D/C/B/A هستند.", 13, false));
 
         hasCornerMarks = new CheckBox(this);
         hasCornerMarks.setText("برگه چهار مربع/علامت کالیبراسیون در گوشه‌ها دارد");
@@ -183,12 +192,18 @@ public final class ExternalTemplateActivity extends Activity {
             optionCount.setError("تعداد گزینه باید بین ۲ تا ۶ باشد");
             return;
         }
+        String normalizedKey = normalizeAnswerKey(answerKeyInput.getText().toString(), questions, options);
+        if (normalizedKey == null) {
+            answerKeyInput.setError("کلید باید دقیقاً به تعداد سؤال‌ها و با پاسخ‌های معتبرِ جداشده با ویرگول وارد شود");
+            return;
+        }
         RadioButton selectedAnchor = findViewById(anchorMode.getCheckedRadioButtonId());
         RadioButton selectedTable = findViewById(tableMode.getCheckedRadioButtonId());
         prefs.edit()
                 .putString("name", name)
                 .putInt("questions", questions)
                 .putInt("options", options)
+                .putString("answer_key", normalizedKey)
                 .putBoolean("has_corner_marks", hasCornerMarks.isChecked())
                 .putString("anchor_mode", selectedAnchor == null ? "edges" : String.valueOf(selectedAnchor.getTag()))
                 .putString("table_mode", selectedTable == null ? "single" : String.valueOf(selectedTable.getTag()))
@@ -208,6 +223,7 @@ public final class ExternalTemplateActivity extends Activity {
         templateName.setText(prefs.getString("name", ""));
         questionCount.setText(String.valueOf(prefs.getInt("questions", 10)));
         optionCount.setText(String.valueOf(prefs.getInt("options", 4)));
+        answerKeyInput.setText(prefs.getString("answer_key", ""));
         boolean marks = prefs.getBoolean("has_corner_marks", true);
         hasCornerMarks.setChecked(marks);
         String anchor = prefs.getString("anchor_mode", marks ? "marks" : "edges");
@@ -311,8 +327,11 @@ public final class ExternalTemplateActivity extends Activity {
             float left=prefs.getFloat("table_left",0), top=prefs.getFloat("table_top",0);
             float right=prefs.getFloat("table_right",1), bottom=prefs.getFloat("table_bottom",1);
             if (!(left>=0 && top>=0 && right<=1 && bottom<=1 && right>left && bottom>top)) throw new IllegalStateException("محدودهٔ جدول معتبر نیست");
+            String key = normalizeAnswerKey(prefs.getString("answer_key", answerKeyInput.getText().toString()), questions, options);
+            if (key == null) throw new IllegalStateException("ابتدا کلید صحیح تمام سؤال‌ها را وارد و ذخیره کنید");
+            String[] correct = key.split(",");
             StringBuilder report = new StringBuilder();
-            int answered=0, blank=0, ambiguous=0;
+            int answered=0, blank=0, ambiguous=0, correctCount=0, wrongCount=0;
             for (int q=0;q<questions;q++) {
                 double[] darkness = new double[options];
                 for (int o=0;o<options;o++) {
@@ -331,11 +350,17 @@ public final class ExternalTemplateActivity extends Activity {
                 String answer;
                 if(darkness[best]>150) { answer="خالی/نامشخص"; blank++; }
                 else if(next<165 && next-darkness[best]<12) { answer="چندعلامتی/نیازمند بازبینی"; ambiguous++; }
-                else { answer=optionLabel(best,options); answered++; }
+                else {
+                    answer=optionLabel(best,options); answered++;
+                    if (answer.equals(correct[q])) { correctCount++; answer += " ✓"; }
+                    else { wrongCount++; answer += " ✗ (صحیح: " + correct[q] + ")"; }
+                }
                 report.append("سؤال ").append(q+1).append(": ").append(answer)
                         .append("  [تیرگی ").append(Math.round(darkness[best])).append("]").append("\n");
             }
-            TextView resultView=text("پاسخ‌های پیشنهادی (آزمایشی)\nپاسخ خوانده‌شده: "+answered+" | خالی/نامشخص: "+blank+" | نیازمند بازبینی: "+ambiguous+"\n\n"+report,14,false);
+            int scored = correctCount + wrongCount;
+            String scoreSummary = "صحیح: "+correctCount+" | غلط: "+wrongCount+" | خالی: "+blank+" | بازبینی: "+ambiguous + (scored > 0 ? " | درصد پاسخ‌های قطعی: "+Math.round(100.0*correctCount/scored)+"٪" : "");
+            TextView resultView=text("نتیجهٔ آزمایشی تصحیح\n"+scoreSummary+"\n\n"+report,14,false);
             resultView.setTextIsSelectable(true);
             ScrollView resultScroll=new ScrollView(this); resultScroll.addView(resultView);
             new AlertDialog.Builder(this).setTitle("نتیجهٔ خواندن آزمایشی")
@@ -364,7 +389,31 @@ public final class ExternalTemplateActivity extends Activity {
 
     private String optionLabel(int index,int options) {
         if(options==4) return new String[]{"D","C","B","A"}[index];
-        return "گزینهٔ "+(index+1);
+        return String.valueOf((char)('A' + index));
+    }
+
+    private String normalizeAnswerKey(String raw, int questions, int options) {
+        if (raw == null) return null;
+        String cleaned = raw.trim().toUpperCase(java.util.Locale.ROOT).replace('؛', ',').replace('，', ',').replace(';', ',');
+        cleaned = cleaned.replace(" ", "").replace("\\n", "").replace("\\t", "");
+        if (cleaned.isEmpty()) return null;
+        String[] parts = cleaned.split(",");
+        if (parts.length != questions) return null;
+        StringBuilder normalized = new StringBuilder();
+        for (String part : parts) {
+            String value = part.trim();
+            if (value.matches("[1-6]")) {
+                int n = Integer.parseInt(value);
+                if (n > options) return null;
+                value = options == 4 ? new String[]{"D","C","B","A"}[n-1] : String.valueOf((char)('A'+n-1));
+            }
+            boolean valid = false;
+            for (int i=0;i<options;i++) if (value.equals(optionLabel(i, options))) valid = true;
+            if (!valid) return null;
+            if (normalized.length()>0) normalized.append(',');
+            normalized.append(value);
+        }
+        return normalized.toString();
     }
 
     private void chooseSampleImage() {
