@@ -3,6 +3,8 @@ package ir.azmoonyar.app;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.RippleDrawable;
 import android.graphics.Bitmap;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
@@ -379,7 +381,10 @@ public class MainActivity extends Activity {
                     new int[]{top, middle, bottom});
             bg.setCornerRadius(dp(22));
             bg.setStroke(dp(2), useBlue ? Color.rgb(100, 220, 255) : Color.rgb(155, 255, 120));
-            b.setBackground(bg);
+            // Android ripple wave on touch, over the glossy raised gradient.
+            RippleDrawable waveBg = new RippleDrawable(
+                    ColorStateList.valueOf(Color.argb(115, 255, 255, 255)), bg, null);
+            b.setBackground(waveBg);
             b.setTextColor(Color.WHITE);
             b.setShadowLayer(dp(1), 0, dp(1), Color.WHITE);
             b.setElevation(dp(10));
