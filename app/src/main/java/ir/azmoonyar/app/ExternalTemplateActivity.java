@@ -394,9 +394,13 @@ public final class ExternalTemplateActivity extends Activity {
                             left, top, right, bottom);
                     double nx = center[0];
                     double ny = center[1];
+                    // The selected table includes the question-number column as well as answer bubbles.
+                    // Sample only the inner center of each bubble cell so printed outlines/grid lines
+                    // do not make every option appear equally dark.
+                    double cellWidth = (right-left) / (options + 1.0);
                     darkness[o]=sampleDarkness(bitmap,nx,ny,
-                            Math.max(1,(right-left)*bitmap.getWidth()/options*0.17),
-                            Math.max(1,(bottom-top)*bitmap.getHeight()/questions*0.17));
+                            Math.max(2,cellWidth*bitmap.getWidth()*0.11),
+                            Math.max(2,(bottom-top)*bitmap.getHeight()/questions*0.16));
                 }
                 int best=0, second=-1;
                 for(int o=1;o<options;o++) {
