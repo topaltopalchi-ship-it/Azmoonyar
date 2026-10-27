@@ -1,12 +1,12 @@
 package ir.azmoonyar.app;
 
 /**
- * Conservative classifier for four normalized bubble-darkness measurements.
+ * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
  *
  * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
  * and 1 is fully dark. Geometry detection, perspective correction, local background
  * normalization and image-quality checks must happen before calling this class.
- * This class deliberately never guesses when evidence is weak.
+ * Weak or ambiguous evidence is sent for review instead of guessed.
  */
 public final class OMRAnswerClassifier {
     public enum Status {
@@ -37,8 +37,13 @@ public final class OMRAnswerClassifier {
     private final double blankThreshold;
     private final double minimumMargin;
 
+    /**
+     * Higher-sensitivity defaults: faint marks are less likely to be discarded as blank.
+     * This intentionally increases REVIEW outcomes for weak marks rather than silently
+     * converting uncertain marks into a definitive answer.
+     */
     public OMRAnswerClassifier() {
-        this(0.42, 0.22, 0.12);
+        this(0.30, 0.12, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
