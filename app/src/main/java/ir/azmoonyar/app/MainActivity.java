@@ -364,7 +364,7 @@ public class MainActivity extends Activity {
         panel.setPadding(dp(18), dp(10), dp(18), dp(4));
 
         TextView help = new TextView(this);
-        help.setText("ابتدا کلید پاسخ آزمون را ثبت کنید. سپس نام شرکت‌کننده را وارد کنید. خواندن حباب‌ها با دوربین هنوز نیاز به تکمیل و آزمایش عملی دارد.");
+        help.setText("نام شرکت‌کننده را وارد کنید یا با صدا بگویید، سپس دوربین زنده را باز کنید. تشخیص حباب و نمره‌دهی نهایی تا تکمیل کالیبراسیون برگه فعال نمی‌شود.");
         help.setTextSize(15);
         help.setTextColor(Color.rgb(45, 58, 86));
         help.setGravity(Gravity.CENTER);
@@ -416,8 +416,9 @@ public class MainActivity extends Activity {
                         return;
                     }
                     prefs.edit().putString("pending_scan_participant", name).apply();
-                    info("نام شرکت‌کننده ثبت شد: " + name
-                            + "\nبرای تصحیح نهایی، خواندن حباب‌های پاسخ با دوربین هنوز باید تکمیل شود.");
+                    Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
+                    scanIntent.putExtra("participant_name", name);
+                    startActivity(scanIntent);
                 })
                 .setNegativeButton("انصراف", (dialog, which) -> {
                     if (recognizer[0] != null) recognizer[0].stop();
