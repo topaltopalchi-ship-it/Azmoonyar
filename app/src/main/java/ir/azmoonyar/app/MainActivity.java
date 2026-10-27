@@ -63,7 +63,6 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-        seedOriginalPdfVersionsIfMissing();
         getWindow().setStatusBarColor(Color.rgb(7,27,114));
         getWindow().setNavigationBarColor(Color.rgb(7,27,114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -1438,118 +1437,6 @@ public class MainActivity extends Activity {
         });
         dialog.show();
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
-    }
-
-    /** Seeds the two photographed forms on first launch so they are already in the app. */
-    private void seedOriginalPdfVersionsIfMissing() {
-        if (prefs.getBoolean("original_forms_corrected_v2", false)) return;
-        try {
-            JSONArray a = new JSONArray();
-            addPdfQuestion(a, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "فرم A");
-            addPdfQuestion(a, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "فرم A");
-            addPdfQuestion(a, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
-            addPdfQuestion(a, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
-            addPdfQuestion(a, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
-            addPdfQuestion(a, "54+12 = ?", new String[]{"67","69","66","68"}, 2, "فرم A؛ گزینه C اصلاح شد به ۶۶");
-            addPdfQuestion(a, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
-            addPdfQuestion(a, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
-            addPdfQuestion(a, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
-            addPdfQuestion(a, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "فرم A");
-
-            JSONArray b = new JSONArray();
-            addPdfQuestion(b, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
-            addPdfQuestion(b, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
-            addPdfQuestion(b, "54+12 = ?", new String[]{"67","69","66","56"}, 2, "فرم B؛ گزینه C اصلاح شد به ۶۶");
-            addPdfQuestion(b, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
-            addPdfQuestion(b, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
-            addPdfQuestion(b, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
-            addPdfQuestion(b, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "فرم B");
-            addPdfQuestion(b, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "فرم B");
-            addPdfQuestion(b, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "فرم B");
-            addPdfQuestion(b, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "فرم B");
-
-            JSONObject fixedA = makeFixedPdfVariant("A", a);
-            JSONObject fixedB = makeFixedPdfVariant("B", b);
-            String masterKey = fixedA.optString("answer_key");
-            prefs.edit().putString("exam_name", "ریاضی")
-                .putInt("question_count", 10)
-                .putString("question_bank_json", a.toString())
-                .putString("answer_key", masterKey)
-                .putString("pdf_original_version_A", fixedA.toString())
-                .putString("pdf_original_version_B", fixedB.toString())
-                .putString("model_questions_A", a.toString())
-                .putString("model_questions_B", b.toString())
-                .putString("answer_key_model_A", fixedA.optString("answer_key"))
-                .putString("answer_key_model_B", fixedB.optString("answer_key"))
-                .putString("answer_key_master", masterKey)
-                .putString("model_questions_master", a.toString())
-                .putInt("issued_model_count", 2).putBoolean("original_forms_corrected_v2", true).apply();
-            registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
-        } catch (Exception ignored) {
-            // The manual import action remains available if first-launch seeding fails.
-        }
-    }
-
-    /** Imports the two photographed original forms, preserving printed order and options exactly. */
-    private void importPdfMathSample() {
-        new AlertDialog.Builder(this)
-            .setTitle("ثبت دو فرم اصلی A و B")
-            .setMessage("سؤال‌ها مطابق دو عکس ثبت می‌شوند؛ برای سؤال ۵۴+۱۲، گزینه C به ۶۶ اصلاح و در کلید پاسخ ثبت می‌شود.")
-            .setNegativeButton("انصراف", null)
-            .setPositiveButton("ثبت فرم‌های A و B", (dialog, which) -> {
-                try {
-                    // Form A: second photo, preserving printed option order A/B/C/D.
-                    JSONArray versionA = new JSONArray();
-                    addPdfQuestion(versionA, "5×5 = ?", new String[]{"28","85","32","25"}, 3, "فرم A");
-                    addPdfQuestion(versionA, "12−4 = ?", new String[]{"7","8","6","0"}, 1, "فرم A");
-                    addPdfQuestion(versionA, "8×6 = ?", new String[]{"76","48","49","45"}, 1, "فرم A");
-                    addPdfQuestion(versionA, "8×4 = ?", new String[]{"65","31","65","32"}, 3, "فرم A");
-                    addPdfQuestion(versionA, "7×7 = ?", new String[]{"65","43","49","80"}, 2, "فرم A");
-                    addPdfQuestion(versionA, "54+12 = ?", new String[]{"67","56","66","69"}, 2, "فرم A؛ گزینه C اصلاح شد به ۶۶");
-                    addPdfQuestion(versionA, "21÷3 = ?", new String[]{"9","7","8","6"}, 1, "فرم A");
-                    addPdfQuestion(versionA, "8÷2 = ?", new String[]{"8","5","4","3"}, 2, "فرم A");
-                    addPdfQuestion(versionA, "4+4 = ?", new String[]{"7","9","2","8"}, 3, "فرم A");
-                    addPdfQuestion(versionA, "18÷3 = ?", new String[]{"9","6","7","5"}, 1, "فرم A");
-
-                    // Form B: first photo, preserving printed option order A/B/C/D.
-                    JSONArray versionB = new JSONArray();
-                    addPdfQuestion(versionB, "7×7 = ?", new String[]{"49","65","80","43"}, 0, "فرم B");
-                    addPdfQuestion(versionB, "8×4 = ?", new String[]{"31","65","65","32"}, 3, "فرم B");
-                    addPdfQuestion(versionB, "54+12 = ?", new String[]{"67","56","66","69"}, 2, "فرم B؛ گزینه C اصلاح شد به ۶۶");
-                    addPdfQuestion(versionB, "12−4 = ?", new String[]{"6","7","8","0"}, 2, "فرم B");
-                    addPdfQuestion(versionB, "8×6 = ?", new String[]{"49","48","45","76"}, 1, "فرم B");
-                    addPdfQuestion(versionB, "21÷3 = ?", new String[]{"8","6","9","7"}, 3, "فرم B");
-                    addPdfQuestion(versionB, "4+4 = ?", new String[]{"7","8","9","2"}, 1, "فرم B");
-                    addPdfQuestion(versionB, "18÷3 = ?", new String[]{"7","5","6","9"}, 2, "فرم B");
-                    addPdfQuestion(versionB, "5×5 = ?", new String[]{"28","32","85","25"}, 3, "فرم B");
-                    addPdfQuestion(versionB, "8÷2 = ?", new String[]{"4","8","5","3"}, 1, "فرم B");
-
-                    JSONObject fixedA = makeFixedPdfVariant("A", versionA);
-                    JSONObject fixedB = makeFixedPdfVariant("B", versionB);
-                    // Keep only the two supplied forms as printable/scannable variants.
-                    // The master key is based on the original question bank, not a third form.
-                    String masterKey = fixedA.optString("answer_key");
-                    prefs.edit().putString("exam_name", "ریاضی (۱)")
-                        .putInt("question_count", 10)
-                        .putString("question_bank_json", versionA.toString())
-                        .putString("answer_key", masterKey)
-                        .putString("pdf_original_version_A", fixedA.toString())
-                        .putString("pdf_original_version_B", fixedB.toString())
-                        .putString("model_questions_A", versionA.toString())
-                        .putString("model_questions_B", versionB.toString())
-                        .putString("answer_key_model_A", fixedA.optString("answer_key"))
-                        .putString("answer_key_model_B", fixedB.optString("answer_key"))
-                        .putString("answer_key_master", masterKey)
-                        .putString("model_questions_master", versionA.toString())
-                        .putInt("issued_model_count", 2).apply();
-                    registerImportedQrVariants(new JSONObject[]{fixedA, fixedB});
-                    refreshSummary();
-                    info("دو نسخهٔ A و B ثبت شدند؛ پاسخ سؤال ۵۴+۱۲ گزینه C=۶۶ است و کلیدها به‌روزرسانی شدند. نسخهٔ C ساخته نمی‌شود. کلید اصلی: "
-                        + masterKey + ".");
-                } catch (Exception e) {
-                    info("ثبت نسخه‌های اصلی PDF ناموفق بود؛ دوباره تلاش کن.");
-                }
-            }).show();
     }
 
     private void registerImportedQrVariants(JSONObject[] variants) throws Exception {
