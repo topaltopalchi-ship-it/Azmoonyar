@@ -612,7 +612,7 @@ public final class ExternalTemplateActivity extends Activity {
                             prefs.getString("table_mode", "single"), left, top, right, bottom);
                     float x = imageRect.left + (float) center[0] * imageRect.width();
                     float y = imageRect.top + (float) center[1] * imageRect.height();
-                    canvas.drawCircle(x,y,Math.max(dp(1.5f),Math.min(dp(4),(r-l)/(options+1.0f)*0.12f)),gridPaint);
+                    canvas.drawCircle(x,y,Math.max(1.5f,Math.min(4.0f,(r-l)/(options+1.0f)*0.12f)),gridPaint);
                 }
             }
             canvas.drawText("ردیف‌ها: "+questions+" | ستون‌ها: "+options,(l+r)/2f,Math.max(dp(14),t-dp(5)),labelPaint);
