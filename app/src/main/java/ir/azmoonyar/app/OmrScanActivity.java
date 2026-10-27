@@ -27,9 +27,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Isolated live-camera stage for answer-sheet alignment.
- * It deliberately does not save grades: reliable sheet rectification and bubble
- * coordinate calibration must be completed before automatic scoring is enabled.
+ * Live-camera alignment cue only. Corner-window detection is intentionally not
+ * treated as validated marker geometry or as permission to score a sheet.
  */
 public final class OmrScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 8402;
@@ -71,7 +70,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("برگه را کامل داخل کادر دوربین بگیرید و از نور یکنواخت استفاده کنید. این مرحله فقط هم‌ترازی اولیه را بررسی می‌کند؛ هنوز نمره‌ای ذخیره نمی‌شود.");
+        guidance.setText("برگه را تا حد امکان کامل داخل تصویر بگیرید؛ مربع‌های گوشه باید واضح باشند. تشخیص فعلی راهنمای اولیه است و هنوز نمره‌ای ذخیره نمی‌شود.");
         guidance.setTextColor(Color.rgb(80, 90, 110));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -106,7 +105,6 @@ public final class OmrScanActivity extends ComponentActivity {
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
                 provider.unbindAll();
-                // ComponentActivity implements LifecycleOwner, as required by CameraX.
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,
                         preview, analysis);
             } catch (Exception error) {
@@ -138,11 +136,16 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int markerCount = countDarkCornerRegions(luma, width, height);
             long now = android.os.SystemClock.elapsedRealtime();
-            if (now - lastStatusUpdate > 350) {
+            if (now - lastStatusUpdate > 220) {
                 lastStatusUpdate = now;
-                final String message = markerCount >= 4
-                        ? "چهار ناحیهٔ تیره در گوشه‌ها دیده شد؛ برگه را ثابت نگه دارید."
-                        : "در حال یافتن نشانه‌های گوشهٔ برگه…";
+                final String message;
+                if (markerCount >= 4) {
+                    message = "چهار ناحیهٔ تیره دیده شد؛ برگه را ثابت نگه دارید.";
+                } else if (markerCount >= 2) {
+                    message = "نشانه‌های گوشه پیدا می‌شوند؛ برگه را کامل‌تر و صاف‌تر داخل تصویر بگیرید.";
+                } else {
+                    message = "در حال جست‌وجوی سریع‌تر گوشه‌ها… برگه را نزدیک‌تر و با نور یکنواخت بگیرید.";
+                }
                 updateStatus(message);
             }
         } catch (RuntimeException ignored) {
@@ -153,12 +156,12 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /**
-     * Coarse cue only: counts dark pixels in four image-corner windows, not
-     * validated printed square markers. It must never be used for grading.
+     * More tolerant coarse cue: larger corner windows and a lower dark-pixel
+     * ratio. These are image-corner regions, not validated printed squares.
      */
     private int countDarkCornerRegions(byte[] yPlane, int width, int height) {
-        int windowW = Math.max(12, width / 7);
-        int windowH = Math.max(12, height / 7);
+        int windowW = Math.max(16, width / 5);
+        int windowH = Math.max(16, height / 5);
         int[][] boxes = {
                 {0, 0, windowW, windowH},
                 {width - windowW, 0, width, windowH},
@@ -171,10 +174,10 @@ public final class OmrScanActivity extends ComponentActivity {
             for (int y = box[1]; y < box[3]; y += 2) {
                 for (int x = box[0]; x < box[2]; x += 2) {
                     total++;
-                    if ((yPlane[y * width + x] & 0xff) < 70) dark++;
+                    if ((yPlane[y * width + x] & 0xff) < 100) dark++;
                 }
             }
-            if (total > 0 && dark / (double) total > 0.12) found++;
+            if (total > 0 && dark / (double) total > 0.06) found++;
         }
         return found;
     }
