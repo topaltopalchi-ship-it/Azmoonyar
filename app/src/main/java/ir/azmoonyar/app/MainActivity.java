@@ -1803,11 +1803,55 @@ public class MainActivity extends Activity {
 
     private void showPreviousExamResults() {
         JSONArray results = readGradingResults();
-        if (results.length() <= 1) {
-            info("نتیجهٔ قبلی برای نمایش وجود ندارد.");
+        if (results.length() == 0) {
+            info("هنوز نتیجه‌ای برای نمایش وجود ندارد.");
             return;
         }
-        showResultList("نتایج قبلی", results, 0, results.length() - 2);
+
+        // Group saved results by exam name and calendar date. Selecting a group
+        // opens the participants and their scores for that exam session.
+        java.util.LinkedHashMap<String, JSONArray> sessions = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        java.text.SimpleDateFormat dateFormat =
+                new java.text.SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
+
+        for (int i = results.length() - 1; i >= 0; i--) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            long createdAt = result.optLong("createdAt", 0L);
+            String date = createdAt > 0 ? dateFormat.format(new java.util.Date(createdAt)) : "تاریخ نامشخص";
+            String name = result.optString("examName", "آزمون بدون نام");
+            String sessionKey = name + "|" + date;
+            if (!sessions.containsKey(sessionKey)) {
+                sessions.put(sessionKey, new JSONArray());
+                labels.put(sessionKey, name + " — " + date);
+            }
+            sessions.get(sessionKey).put(result);
+        }
+
+        if (sessions.isEmpty()) {
+            info("نتیجهٔ آزمونی برای نمایش وجود ندارد.");
+            return;
+        }
+
+        String[] keys = sessions.keySet().toArray(new String[0]);
+        String[] items = new String[keys.length];
+        for (int i = 0; i < keys.length; i++) {
+            JSONArray sessionResults = sessions.get(keys[i]);
+            items[i] = (i + 1) + ". " + labels.get(keys[i]) +
+                    "  (" + sessionResults.length() + " شرکت‌کننده)";
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("نتایج قبلی — انتخاب آزمون")
+                .setItems(items, (dialog, which) -> {
+                    JSONArray selected = sessions.get(keys[which]);
+                    if (selected != null && selected.length() > 0) {
+                        showResultList(labels.get(keys[which]), selected, 0, selected.length() - 1);
+                    }
+                })
+                .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu())
+                .show();
     }
 
     private void showResultList(String title, JSONArray results, int first, int last) {
