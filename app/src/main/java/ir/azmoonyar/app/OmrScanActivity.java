@@ -203,9 +203,13 @@ public final class OmrScanActivity extends ComponentActivity {
             if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
                 String message;
-                if (transform != null) {
+                if (sheetConsumed) {
+                    message = waitingForNextName
+                            ? "برگهٔ قبلی کنار رفت؛ نام شرکت‌کنندهٔ بعدی را ثبت کنید."
+                            : "برگه بررسی شد؛ آن را کنار ببرید تا اسکنر برای برگهٔ بعدی آماده شود.";
+                } else if (transform != null) {
                     try {
-                        // Diagnostic-only live sampling. No answers or scores are saved.
+                        // Live preview while a new sheet is being aligned.
                         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(
                                 OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
                         List<OMRSheetReader.QuestionResult> results =
