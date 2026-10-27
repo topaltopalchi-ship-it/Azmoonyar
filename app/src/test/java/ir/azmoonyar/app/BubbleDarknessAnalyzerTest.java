@@ -47,5 +47,11 @@ public class BubbleDarknessAnalyzerTest {
         } catch (IllegalArgumentException expected) {
             // Expected.
         }
+        try {
+            BubbleDarknessAnalyzer.score(image, 41, 41, 3, 20, 8);
+            fail("A bubble with a clipped local reference ring must be rejected");
+        } catch (IllegalArgumentException expected) {
+            // Expected: partially visible bubbles must go to review, not scoring.
+        }
     }
 }
