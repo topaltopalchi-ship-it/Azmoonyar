@@ -778,49 +778,6 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
-    private void showPrintStudentDialog() {
-        // Original PDF versions are printed from their immutable stored order when available.
-        if (prefs.contains("pdf_original_version_A") && prefs.contains("pdf_original_version_B")) {
-            new AlertDialog.Builder(this)
-                .setTitle("چاپ پرسشنامه و پاسخنامه")
-                .setItems(new String[]{"چاپ دو نسخهٔ اصلی PDF ثبت‌شده", "ساخت نسخه‌های تصادفی جدید"}, (dialog, which) -> {
-                    if (which == 0) previewAndPrintOriginalPdfVersions();
-                    else generateRandomVariants();
-                })
-                .setNegativeButton("انصراف", null)
-                .show();
-        } else {
-            generateRandomVariants();
-        }
-    }
-
-    private void previewAndPrintOriginalPdfVersions() {
-        try {
-            JSONArray variants = new JSONArray();
-            variants.put(new JSONObject(prefs.getString("pdf_original_version_A", "{}")));
-            variants.put(new JSONObject(prefs.getString("pdf_original_version_B", "{}")));
-            StringBuilder preview = new StringBuilder("نسخه‌ها دقیقاً با ترتیب سؤال‌ها و گزینه‌های فایل اصلی چاپ می‌شوند.\\n");
-            for (int i = 0; i < variants.length(); i++) {
-                JSONObject variant = variants.optJSONObject(i);
-                preview.append("\\nنسخه ").append(i == 0 ? "۱" : "۲").append(" — کلید: ")
-                    .append(variant == null ? "" : variant.optString("answer_key", "")).append("\\n");
-                JSONArray questions = variant == null ? null : variant.optJSONArray("questions");
-                if (questions != null) for (int q = 0; q < questions.length(); q++) {
-                    JSONObject item = questions.optJSONObject(q);
-                    if (item != null) preview.append(q + 1).append(". ").append(item.optString("text", "")).append("\\n");
-                }
-            }
-            new AlertDialog.Builder(this).setTitle("پیش‌نمایش نسخه‌های اصلی")
-                .setMessage(preview.toString())
-                .setNegativeButton("لغو", null)
-                .setPositiveButton("تأیید، ذخیره و چاپ", (d, w) ->
-                    printPairedSheets("", UUID.randomUUID().toString(), variants.length(), variants))
-                .show();
-        } catch (Exception e) {
-            info("نسخه‌های اصلی ذخیره‌شده خوانده نشدند؛ دوباره از بانک سؤال ثبتشان کن.");
-        }
-    }
-
     private void printPairedSheets(String participantName, String participantId) {
         printPairedSheets(participantName, participantId, 2);
     }
@@ -1621,46 +1578,6 @@ public class MainActivity extends Activity {
         });
         dialog.show();
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
-    }
-
-    private JSONObject makeFixedPdfVariant(String model, JSONArray sourceQuestions) throws Exception {
-        JSONArray questions = new JSONArray();
-        StringBuilder answerKey = new StringBuilder();
-        for (int i = 0; i < sourceQuestions.length(); i++) {
-            JSONObject source = sourceQuestions.optJSONObject(i);
-            JSONArray options = source.optJSONArray("options");
-            int correct = source.optInt("correct_index", -1);
-            JSONObject q = new JSONObject();
-            q.put("source_id", source.optString("id", ""));
-            q.put("position", i + 1);
-            q.put("text", source.optString("text", ""));
-            q.put("topic", source.optString("topic", ""));
-            q.put("options", options == null ? new JSONArray() : options);
-            q.put("correct_index", correct);
-            String letter = correct >= 0 && correct <= 3 ? String.valueOf((char)('A' + correct)) : "-";
-            q.put("correct_letter", letter);
-            questions.put(q);
-            answerKey.append(letter);
-        }
-        JSONObject variant = new JSONObject();
-        variant.put("variant_id", model);
-        variant.put("questions", questions);
-        variant.put("answer_key", answerKey.toString());
-        variant.put("source", "AzmoonYar-ریاضی(1).PDF");
-        variant.put("fixed_original_order", true);
-        return variant;
-    }
-
-    private void addPdfQuestion(JSONArray bank, String text, String[] options, int correctIndex, String topic) throws Exception {
-        JSONObject q = new JSONObject();
-        q.put("id", UUID.randomUUID().toString());
-        q.put("text", text);
-        q.put("topic", topic);
-        JSONArray opts = new JSONArray();
-        for (String option : options) opts.put(option);
-        q.put("options", opts);
-        q.put("correct_index", correctIndex);
-        bank.put(q);
     }
 
     private void showAddBankQuestionDialog() {
