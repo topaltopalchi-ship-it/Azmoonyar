@@ -329,11 +329,100 @@ public class MainActivity extends Activity {
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
+        Button scanCorrection = new Button(this);
+        scanCorrection.setText("◎  اسکن و تصحیح پاسخنامه");
+        scanCorrection.setAllCaps(false);
+        scanCorrection.setTextSize(19);
+        scanCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
+        scanCorrection.setTextColor(Color.WHITE);
+        scanCorrection.setGravity(Gravity.CENTER);
+        scanCorrection.setMinHeight(dp(86));
+        scanCorrection.setPadding(dp(14), dp(16), dp(14), dp(16));
+        android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.rgb(255, 76, 177), Color.rgb(238, 0, 120), Color.rgb(180, 0, 86)});
+        pink.setCornerRadius(dp(48));
+        pink.setStroke(dp(3), Color.rgb(255, 90, 190));
+        scanCorrection.setBackground(pink);
+        scanCorrection.setElevation(dp(9));
+        LinearLayout.LayoutParams scanParams = new LinearLayout.LayoutParams(-1, -2);
+        scanParams.topMargin = dp(12);
+        scanParams.bottomMargin = dp(8);
+        root.addView(scanCorrection, scanParams);
+        scanCorrection.setOnClickListener(v -> showScanCorrectionEntry());
+
         TextView note = new TextView(this);
         note.setText("برای تصحیح پاسخنامه، کلید صحیح آزمون را ثبت کنید و از بخش نتایج، وضعیت پاسخ‌ها را بررسی کنید.");
         note.setTextSize(13); note.setTextColor(Color.DKGRAY); note.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2); np.topMargin=dp(20); root.addView(note,np);
         setContentView(scroll);
+    }
+
+    private void showScanCorrectionEntry() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(18), dp(10), dp(18), dp(4));
+
+        TextView help = new TextView(this);
+        help.setText("ابتدا کلید پاسخ آزمون را ثبت کنید. سپس نام شرکت‌کننده را وارد کنید. خواندن حباب‌ها با دوربین هنوز نیاز به تکمیل و آزمایش عملی دارد.");
+        help.setTextSize(15);
+        help.setTextColor(Color.rgb(45, 58, 86));
+        help.setGravity(Gravity.CENTER);
+        panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
+
+        EditText participantName = new EditText(this);
+        participantName.setSingleLine(true);
+        participantName.setHint("نام و نام خانوادگی شرکت‌کننده");
+        participantName.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(-1, -2);
+        nameParams.topMargin = dp(14);
+        panel.addView(participantName, nameParams);
+
+        Button voiceEntry = new Button(this);
+        voiceEntry.setText("🎙 ثبت نام با صدا");
+        voiceEntry.setAllCaps(false);
+        panel.addView(voiceEntry, new LinearLayout.LayoutParams(-1, -2));
+        final PersianVosk[] recognizer = new PersianVosk[1];
+        voiceEntry.setOnClickListener(v -> {
+            if (recognizer[0] != null) recognizer[0].stop();
+            recognizer[0] = new PersianVosk();
+            voiceEntry.setEnabled(false);
+            voiceEntry.setText("در حال آماده‌سازی مدل صوتی...");
+            recognizer[0].start(this, new PersianVosk.Callback() {
+                @Override public void onText(String text) {
+                    participantName.setText(text);
+                    voiceEntry.setEnabled(true);
+                    voiceEntry.setText("🎙 ثبت نام با صدا");
+                    if (recognizer[0] != null) recognizer[0].stop();
+                }
+                @Override public void onStatus(String status) {
+                    voiceEntry.setText(status.length() > 48 ? status.substring(0, 45) + "…" : status);
+                    if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                            || status.startsWith("ضبط بدون دریافت گفتار")) {
+                        voiceEntry.setEnabled(true);
+                    }
+                }
+            });
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle("اسکن و تصحیح پاسخنامه")
+                .setView(panel)
+                .setPositiveButton("ادامه", (dialog, which) -> {
+                    String name = participantName.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        info("ابتدا نام شرکت‌کننده را به‌صورت متنی یا صوتی وارد کنید.");
+                        return;
+                    }
+                    prefs.edit().putString("pending_scan_participant", name).apply();
+                    info("نام شرکت‌کننده ثبت شد: " + name
+                            + "\nبرای تصحیح نهایی، خواندن حباب‌های پاسخ با دوربین هنوز باید تکمیل شود.");
+                })
+                .setNegativeButton("انصراف", (dialog, which) -> {
+                    if (recognizer[0] != null) recognizer[0].stop();
+                })
+                .show();
     }
 
     private void addButtonGrid(String[] labels, View.OnClickListener[] listeners) {
