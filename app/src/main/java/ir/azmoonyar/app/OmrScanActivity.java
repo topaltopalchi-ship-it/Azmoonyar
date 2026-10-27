@@ -421,6 +421,121 @@ public final class OmrScanActivity extends ComponentActivity {
         return yPlane[y * width + x] & 0xff;
     }
 
+    private void processRecognizedSheet(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform) {
+        try {
+            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+            int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
+            String answerKey = prefs.getString("answer_key", "");
+            if (participantName.trim().isEmpty()) {
+                updateStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
+                return;
+            }
+            if (answerKey.length() < total) {
+                updateStatus("برگه شناسایی شد؛ ابتدا کلید پاسخ همین آزمون را کامل ثبت کنید.");
+                return;
+            }
+            double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
+            List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.0);
+            java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
+            for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
+            ExamScorer.Result score = ExamScorer.score(
+                    answerKey.substring(0, total), answers, 1.0, 0.0, 0.0);
+            if (!score.isComplete()) {
+                updateStatus("برگهٔ " + participantName + " خوانده شد، اما " + score.needsReview
+                        + " سؤال مبهم است؛ نمرهٔ قطعی ذخیره نشد. برگه را کنار ببرید.");
+                return;
+            }
+            JSONArray saved;
+            try { saved = new JSONArray(prefs.getString("grading_results", "[]")); }
+            catch (Exception ignored) { saved = new JSONArray(); }
+            JSONObject record = new JSONObject();
+            record.put("name", participantName.trim());
+            record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
+            record.put("score", score.percentage());
+            record.put("correct", score.correct);
+            record.put("wrong", score.wrong);
+            record.put("blank", score.blank);
+            record.put("multipleMarks", score.multipleMarks);
+            record.put("totalQuestions", score.totalQuestions);
+            record.put("createdAt", System.currentTimeMillis());
+            saved.put(record);
+            prefs.edit().putString("grading_results", saved.toString()).apply();
+            updateStatus("تصحیح خودکار انجام شد: " + participantName + " • نمره "
+                    + String.format(java.util.Locale.US, "%.1f", score.percentage())
+                    + " از 100. برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+        } catch (Exception e) {
+            updateStatus("برگه شناسایی شد، اما تصحیح مطمئن نبود؛ برگه و نور را تنظیم کنید.");
+        }
+    }
+
+    private void showNextParticipantDialog() {
+        runOnUiThread(() -> {
+            if (finished || isFinishing() || isDestroyed()) return;
+            EditText nameInput = new EditText(this);
+            nameInput.setSingleLine(true);
+            nameInput.setHint("نام شرکت‌کنندهٔ بعدی");
+            Button voiceButton = new Button(this);
+            voiceButton.setText("🎙 ثبت نام با صدا");
+            voiceButton.setAllCaps(false);
+            TextView voiceStatus = new TextView(this);
+            voiceStatus.setText("نام را تایپ کنید یا با صدا بگویید.");
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(24, 8, 24, 4);
+            content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("آماده برای پاسخنامهٔ بعدی")
+                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setView(content)
+                    .setPositiveButton("شروع اسکن بعدی", null)
+                    .setCancelable(false)
+                    .create();
+            voiceButton.setOnClickListener(v -> {
+                if (voiceRecognizer != null) voiceRecognizer.stop();
+                voiceRecognizer = new PersianVosk();
+                voiceButton.setEnabled(false);
+                voiceStatus.setText("گوش می‌دهم؛ نام را بگویید…");
+                voiceRecognizer.start(this, new PersianVosk.Callback() {
+                    @Override public void onText(String text) {
+                        runOnUiThread(() -> nameInput.setText(text));
+                        voiceButton.setEnabled(true);
+                        if (voiceRecognizer != null) voiceRecognizer.stop();
+                    }
+                    @Override public void onStatus(String status) {
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) voiceStatus.setText(status);
+                            if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                                    || status.startsWith("ضبط بدون دریافت گفتار")) voiceButton.setEnabled(true);
+                        });
+                    }
+                });
+            });
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(v -> {
+                        String nextName = nameInput.getText().toString().trim();
+                        if (nextName.isEmpty()) {
+                            nameInput.setError("نام شرکت‌کننده را وارد کنید.");
+                            return;
+                        }
+                        participantName = nextName;
+                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                                .putString("pending_scan_participant", nextName).apply();
+                        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                        waitingForNextName = false;
+                        sheetConsumed = false;
+                        stableMarkerFrames = 0;
+                        missingMarkerFrames = 0;
+                        dialog.dismiss();
+                        updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
+                    }));
+            dialog.show();
+        });
+    }
+
     private void updateStatus(String message) {
         runOnUiThread(() -> {
             if (!finished && statusView != null) statusView.setText(message);
@@ -441,6 +556,10 @@ public final class OmrScanActivity extends ComponentActivity {
 
     @Override protected void onDestroy() {
         finished = true;
+        if (voiceRecognizer != null) {
+            voiceRecognizer.stop();
+            voiceRecognizer = null;
+        }
         if (cameraExecutor != null) {
             cameraExecutor.shutdown();
             cameraExecutor = null;
