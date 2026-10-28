@@ -381,8 +381,14 @@ public final class OmrScanActivity extends ComponentActivity {
                     // Prefer near-square, compact components and plausible marker size.
                     double sizePenalty = Math.abs(Math.log(Math.max(0.1, estimatedMm)
                             / (newSize ? 16.0 : 3.0)));
+                    // The current template has both 16 mm primary marks and nearby
+                    // 3 mm auxiliary marks. On the right side the auxiliary mark is
+                    // encountered first; without this preference the transform can
+                    // map a small mark as if it were the page corner, compressing all
+                    // bubble coordinates and causing filled answers to read BLANK.
                     double score = 2.0 - Math.abs(1.0 - aspect) * 1.4
-                            + Math.min(1.0, fill) * 0.5 - sizePenalty * 0.25;
+                            + Math.min(1.0, fill) * 0.5
+                            + (newSize ? 0.9 : 0.0) - sizePenalty * 0.25;
                     if (score > bestScore) {
                         bestScore = score;
                         bestSize = estimatedMm;
