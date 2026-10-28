@@ -1139,17 +1139,18 @@ public class MainActivity extends Activity {
                 .append(".sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
                 .append(".meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
                 .append(".instruction{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
-                .append(".cols{position:absolute;top:44mm;left:22mm;right:22mm;display:grid;grid-template-columns:1fr 1fr;gap:4mm}")
-                .append(".col{border:0.35mm solid #111;border-radius:2mm;padding:2mm 1.5mm;min-width:0}")
+                .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2mm;direction:ltr}")
+                .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed}")
-                .append("th{font-size:9px;height:6mm;border-bottom:0.3mm solid #333}")
-                .append("td{height:4.05mm;text-align:center;padding:0;font-size:8px}")
-                .append("td.num{width:13mm;font-weight:bold;text-align:center}")
-                .append("td.opt{width:18.575mm}")
+                .append("th{font-size:8px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
+                .append("td{height:4.05mm;text-align:center;padding:0;border:0;font-size:8px;direction:ltr}")
+                .append("td.num{width:7mm;font-weight:bold;text-align:center}")
+                .append("td.opt{width:auto}")
                 .append(".bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
                 .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
+                .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append("</style></head><body>");
             int pages = (total + 99) / 100;
             for (int page = 0; page < pages; page++) {
@@ -1157,14 +1158,15 @@ public class MainActivity extends Activity {
                 int last = Math.min(total, first + 99);
                 html.append("<section class='sheet'>")
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
+                    .append("<i class='small-mark stl'></i><i class='small-mark str'></i><i class='small-mark sbl'></i><i class='small-mark sbr'></i>")
                     .append("<h1 class='head'>آزمون‌یار | پاسخنامه چهارگزینه‌ای</h1>")
                     .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page + 1).append(" از ").append(pages).append("</p>")
                     .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
                     .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
                     .append("<div class='cols'>");
-                for (int col = 0; col < 2; col++) {
-                    int colFirst = first + col * 50;
-                    int colLast = Math.min(last, colFirst + 49);
+                for (int col = 0; col < 4; col++) {
+                    int colFirst = first + col * 25;
+                    int colLast = Math.min(last, colFirst + 24);
                     html.append("<div class='col'><table><thead><tr><th>Question</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                     for (int q = colFirst; q <= colLast; q++) {
                         html.append("<tr><td class='num'>").append(q).append("</td>");
