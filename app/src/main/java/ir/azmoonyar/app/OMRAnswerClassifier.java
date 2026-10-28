@@ -33,7 +33,10 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        this(0.30, 0.16, 0.25);
+        // The phone-photo tests show filled bubbles around 0.17–0.37, while
+        // printed outlines and paper texture can be non-zero. Use a lower mark
+        // threshold but require a clear lead; borderline cases remain REVIEW.
+        this(0.25, 0.08, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
