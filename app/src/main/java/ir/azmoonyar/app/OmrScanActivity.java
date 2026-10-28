@@ -25,6 +25,8 @@ import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -47,6 +49,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 8402;
     private static final int AUDIO_PERMISSION_REQUEST = 8403;
     private PreviewView previewView;
+    private ImageCapture imageCapture;
     private TextView statusView;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
@@ -198,6 +201,10 @@ public final class OmrScanActivity extends ComponentActivity {
                 ProcessCameraProvider provider = providerFuture.get();
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
+                imageCapture = new ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                        .setJpegQuality(98)
+                        .build();
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -207,7 +214,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview, analysis);
+                        preview, analysis, imageCapture);
             } catch (Exception error) {
                 updateStatus("راه‌اندازی دوربین ناموفق بود؛ مجوز دوربین و دستگاه را بررسی کنید.");
             }
@@ -289,7 +296,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     voiceCaptureRequested = false;
                     stopVoiceCaptureListener();
                     // Save the captured sheet image first, then correct from that saved image.
-                    captureAndCorrectSavedImage(upright.pixels, upright.width, upright.height, transform);
+                    captureRealPhotoAndCorrect();
                 }
             } else {
                 stableMarkerFrames = 0;
@@ -616,57 +623,110 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
-    private void captureAndCorrectSavedImage(byte[] luma, int width, int height,
-            SheetPerspectiveTransform transform) {
-        Bitmap photo = null;
-        Bitmap savedPhoto = null;
-        try {
-            if (luma == null || width <= 0 || height <= 0
-                    || (long) width * height > 12000000L || luma.length < width * height) {
-                throw new java.io.IOException("Invalid captured frame");
-            }
-            photo = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            int[] pixels = new int[width * height];
-            for (int i = 0; i < pixels.length; i++) {
-                int gray = luma[i] & 0xff;
-                pixels[i] = Color.rgb(gray, gray, gray);
-            }
-            photo.setPixels(pixels, 0, width, 0, 0, width, height);
-            java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
-            if (!photoDir.exists() && !photoDir.mkdirs()) {
-                throw new java.io.IOException("Cannot create answer sheet photo directory");
-            }
-            java.io.File photoFile = new java.io.File(photoDir,
-                    "answer_sheet_" + System.currentTimeMillis() + ".jpg");
-            try (java.io.FileOutputStream output = new java.io.FileOutputStream(photoFile)) {
-                if (!photo.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
-                    throw new java.io.IOException("JPEG encoding failed");
-                }
-                output.flush();
-            }
-            // Correction reads back the saved photo, not the live analysis buffer.
-            savedPhoto = android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath());
-            if (savedPhoto == null) throw new java.io.IOException("Saved photo could not be decoded");
-            int savedWidth = savedPhoto.getWidth(), savedHeight = savedPhoto.getHeight();
-            int[] savedPixels = new int[savedWidth * savedHeight];
-            savedPhoto.getPixels(savedPixels, 0, savedWidth, 0, 0, savedWidth, savedHeight);
-            byte[] savedLuma = new byte[savedPixels.length];
-            for (int i = 0; i < savedPixels.length; i++) {
-                int color = savedPixels[i];
-                savedLuma[i] = (byte) ((Color.red(color) * 299
-                        + Color.green(color) * 587 + Color.blue(color) * 114) / 1000);
-            }
-            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                    .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
-            updateStatus("عکس پاسخنامه ذخیره شد؛ سیستم تصحیح همان عکس را بررسی می‌کند…");
-            processRecognizedSheet(savedLuma, savedWidth, savedHeight, transform);
-        } catch (Exception error) {
-            updateSheetResultStatus("گرفتن عکس یا تصحیح آن ناموفق بود؛ دوباره فرمان «عکس بگیر» را بگویید.");
+    /**
+     * Capture a full-quality JPEG with CameraX only after the voice command is accepted.
+     * OMR processing then reopens this exact saved file; preview pixels are never scored.
+     */
+    private void captureRealPhotoAndCorrect() {
+        if (imageCapture == null || finished) {
+            updateSheetResultStatus("دوربین برای ثبت عکس آماده نیست؛ دوباره تلاش کنید.");
             sheetConsumed = false;
             ensureVoicePermissionAndStart();
+            return;
+        }
+        java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+        if (!photoDir.exists() && !photoDir.mkdirs()) {
+            updateSheetResultStatus("پوشهٔ ذخیرهٔ عکس ساخته نشد.");
+            sheetConsumed = false;
+            ensureVoicePermissionAndStart();
+            return;
+        }
+        java.io.File photoFile = new java.io.File(photoDir,
+                "answer_sheet_" + System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions options =
+                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+        updateStatus("فرمان دریافت شد؛ عکس با وضوح کامل گرفته می‌شود…");
+        imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
+                        if (finished) return;
+                        try {
+                            processSavedPhotoFile(photoFile);
+                        } catch (Exception error) {
+                            updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
+                            sheetConsumed = false;
+                            ensureVoicePermissionAndStart();
+                        }
+                    }
+                    @Override public void onError(@NonNull ImageCaptureException error) {
+                        if (photoFile.exists()) photoFile.delete();
+                        updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دوباره بگویید «عکس بگیر».");
+                        sheetConsumed = false;
+                        ensureVoicePermissionAndStart();
+                    }
+                });
+    }
+
+    private void processSavedPhotoFile(java.io.File photoFile) throws Exception {
+        // Decode at a bounded size to avoid out-of-memory on high-resolution phone cameras.
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            throw new java.io.IOException("Saved image is unreadable");
+        }
+        int sample = 1;
+        while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 2400) sample *= 2;
+        android.graphics.BitmapFactory.Options decode = new android.graphics.BitmapFactory.Options();
+        decode.inSampleSize = sample;
+        decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath(), decode);
+        if (bitmap == null) throw new java.io.IOException("Saved image decode failed");
+        try {
+            // Respect the JPEG orientation recorded by CameraX/device.
+            android.media.ExifInterface exif = new android.media.ExifInterface(photoFile.getAbsolutePath());
+            int orientation = exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL);
+            int degrees = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            if (degrees != 0) {
+                android.graphics.Matrix matrix = new android.graphics.Matrix();
+                matrix.postRotate(degrees);
+                Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(),
+                        bitmap.getHeight(), matrix, true);
+                if (rotated != bitmap) { bitmap.recycle(); bitmap = rotated; }
+            }
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            byte[] luma = new byte[pixels.length];
+            for (int i = 0; i < pixels.length; i++) {
+                int c = pixels[i];
+                luma[i] = (byte) ((Color.red(c) * 299 + Color.green(c) * 587
+                        + Color.blue(c) * 114) / 1000);
+            }
+            MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
+            if (detection.count != 4) {
+                throw new java.io.IOException("Could not locate all four sheet registration marks");
+            }
+            double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
+            double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
+            double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
+            SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromControlPoints(
+                    new SheetPerspectiveTransform.Point[]{
+                            new SheetPerspectiveTransform.Point(inset, inset),
+                            new SheetPerspectiveTransform.Point(right, inset),
+                            new SheetPerspectiveTransform.Point(right, bottom),
+                            new SheetPerspectiveTransform.Point(inset, bottom)
+                    }, detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
+                    OmrTemplateLayout.PAGE_HEIGHT_MM);
+            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                    .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
+            updateStatus("عکس واقعی ذخیره شد؛ تصحیح از همان فایل انجام می‌شود…");
+            processRecognizedSheet(luma, width, height, transform);
         } finally {
-            if (savedPhoto != null && !savedPhoto.isRecycled()) savedPhoto.recycle();
-            if (photo != null && !photo.isRecycled()) photo.recycle();
+            if (!bitmap.isRecycled()) bitmap.recycle();
         }
     }
 
@@ -700,8 +760,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
-            // Each correct answer earns +1; each definite wrong answer earns -1;
-            // blank answers earn 0. Uncertain answers remain in the review queue.
+            // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
             // Wrong answers have no negative marking; blank answers also earn zero.
             ExamScorer.Result score = ExamScorer.score(
@@ -715,7 +774,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("name", participantName.trim());
                 pending.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
                 pending.put("createdAt", System.currentTimeMillis());
-                pending.put("source", "live_camera");
+                pending.put("source", "saved_camera_photo");
                 pending.put("needsReview", score.needsReview);
                 pending.put("totalQuestions", score.totalQuestions);
                 JSONArray questionStates = new JSONArray();
