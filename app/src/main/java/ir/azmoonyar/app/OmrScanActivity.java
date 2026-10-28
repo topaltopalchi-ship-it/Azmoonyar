@@ -59,6 +59,9 @@ public final class OmrScanActivity extends ComponentActivity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(Color.rgb(245, 248, 255));
+        // Keep the last instruction above Android's bottom navigation area.
+        int safeBottom = Math.round(28 * getResources().getDisplayMetrics().density);
+        page.setPadding(0, 0, 0, safeBottom);
 
         TextView title = new TextView(this);
         title.setText("اسکن پاسخنامه");
@@ -83,10 +86,11 @@ public final class OmrScanActivity extends ComponentActivity {
 
         TextView guidance = new TextView(this);
         guidance.setText("برگه را کامل داخل تصویر بگیرید. پس از تشخیص پایدار، اسکن خودکار انجام می‌شود؛ برای برگهٔ بعدی، برگهٔ قبلی را کنار ببرید.");
-        guidance.setTextColor(Color.rgb(80, 90, 110));
+        guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
-        guidance.setPadding(18, 4, 18, 14);
+        guidance.setBackgroundColor(Color.WHITE);
+        guidance.setPadding(18, 8, 18, 10);
         page.addView(guidance, new LinearLayout.LayoutParams(-1, -2));
         setContentView(page);
 
@@ -508,6 +512,20 @@ public final class OmrScanActivity extends ComponentActivity {
             Button voiceButton = new Button(this);
             voiceButton.setText("🎙 ثبت نام با صدا");
             voiceButton.setAllCaps(false);
+            voiceButton.setTextColor(Color.WHITE);
+            voiceButton.setTextSize(18);
+            voiceButton.setTypeface(null, android.graphics.Typeface.BOLD);
+            voiceButton.setMinHeight(Math.round(58 * getResources().getDisplayMetrics().density));
+            voiceButton.setPadding(20, 12, 20, 12);
+            android.graphics.drawable.GradientDrawable voiceBackground =
+                    new android.graphics.drawable.GradientDrawable();
+            voiceBackground.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            voiceBackground.setCornerRadius(1000f);
+            voiceBackground.setColor(Color.rgb(220, 38, 38));
+            voiceBackground.setStroke(Math.round(2 * getResources().getDisplayMetrics().density),
+                    Color.rgb(185, 28, 28));
+            voiceButton.setBackground(voiceBackground);
+            voiceButton.setElevation(Math.round(4 * getResources().getDisplayMetrics().density));
             TextView voiceStatus = new TextView(this);
             voiceStatus.setText("نام را تایپ کنید یا با صدا بگویید.");
             LinearLayout content = new LinearLayout(this);
