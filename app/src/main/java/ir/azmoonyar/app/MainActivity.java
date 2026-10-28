@@ -826,7 +826,7 @@ public class MainActivity extends Activity {
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".mark{position:absolute;width:16mm;height:16mm;background:#000}.tl{top:5mm;left:5mm}.tr{top:5mm;right:5mm}.bl{bottom:5mm;left:5mm}.br{bottom:5mm;right:5mm}")
+                .append(".mark{position:absolute;width:8mm;height:8mm;background:#000;z-index:2}.tl{top:2mm;left:2mm}.tr{top:2mm;right:2mm}.bl{bottom:2mm;left:2mm}.br{bottom:2mm;right:2mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2}.stl{top:2mm;left:8mm}.str{top:2mm;right:8mm}.sbl{bottom:2mm;left:8mm}.sbr{bottom:2mm;right:8mm}")
                 .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:24mm;left:12mm;right:12mm;font-size:10px;margin:0;height:5mm}")
                 .append(".answer-page .instructions{position:absolute;top:32mm;left:12mm;right:12mm;height:10mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
@@ -892,6 +892,8 @@ public class MainActivity extends Activity {
                     int last = printLayoutQuestionCount;
                     html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
+                        .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
+                        .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
                         .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                         .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
