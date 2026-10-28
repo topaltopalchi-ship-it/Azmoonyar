@@ -461,6 +461,8 @@ public class MainActivity extends Activity {
                 Color.rgb(0, 255, 120));
         voice.setTextSize(14);
         typed.setTextSize(14);
+        stylePinkOvalButton(voice);
+        stylePinkOvalButton(typed);
         voice.setOnClickListener(v -> showAddStudentDialog(true));
         typed.setOnClickListener(v -> showAddStudentDialog(false));
 
@@ -726,11 +728,19 @@ public class MainActivity extends Activity {
         Button voice = new Button(this);
         voice.setText("🎙 ثبت‌نام صوتی");
         voice.setAllCaps(false);
-        content.addView(voice, new LinearLayout.LayoutParams(-1, -2));
+        stylePinkOvalButton(voice);
+        LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, dp(58));
+        voiceParams.topMargin = dp(6);
+        voiceParams.bottomMargin = dp(6);
+        content.addView(voice, voiceParams);
         Button typed = new Button(this);
         typed.setText("⌨ ثبت‌نام متنی");
         typed.setAllCaps(false);
-        content.addView(typed, new LinearLayout.LayoutParams(-1, -2));
+        stylePinkOvalButton(typed);
+        LinearLayout.LayoutParams typedParams = new LinearLayout.LayoutParams(-1, dp(58));
+        typedParams.topMargin = dp(6);
+        typedParams.bottomMargin = dp(6);
+        content.addView(typed, typedParams);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت‌نام شرکت‌کنندگان")
