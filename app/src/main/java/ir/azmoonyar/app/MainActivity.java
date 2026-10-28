@@ -1883,7 +1883,7 @@ public class MainActivity extends Activity {
             return;
         }
         StringBuilder report = new StringBuilder();
-        report.append("نام شرکت‌کننده").append("                         ").append("نمره").append("\\n");
+        report.append("نام شرکت‌کننده").append("                         ").append("نمره").append("\n");
         report.append("────────────────────────────────").append("\\n");
         int shown = 0;
         for (int i = results.length() - 1; i >= 0; i--) {
