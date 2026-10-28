@@ -162,7 +162,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("پاسخنامه را طوری داخل کادر سبز قرار دهید که هر چهار گوشه دیده شوند. پس از تشخیص پایدار، اسکن خودکار انجام می‌شود؛ برای برگهٔ بعدی، برگهٔ قبلی را کنار ببرید.");
+        guidance.setText("فعلاً اسکن خودکار برگهٔ بعدی غیرفعال است. پاسخنامه را داخل کادر سبز قرار دهید و برای بررسی، از تصویر دوربین عکس بگیرید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -313,12 +313,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
             } else {
                 stableMarkerFrames = 0;
+                // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
+                // flow when the previous sheet leaves the camera. Keep the preview available
+                // so the operator can capture diagnostic screenshots without a dialog blocking it.
                 if (sheetConsumed && markerCount < 2) {
-                    missingMarkerFrames++;
-                    if (missingMarkerFrames >= 3 && !waitingForNextName) {
-                        waitingForNextName = true;
-                        showNextParticipantDialog();
-                    }
+                    missingMarkerFrames = 0;
                 } else if (markerCount >= 2) {
                     missingMarkerFrames = 0;
                 }
