@@ -1139,7 +1139,7 @@ public class MainActivity extends Activity {
                 .append(".sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
                 .append(".meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
                 .append(".instruction{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
-                .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr}")
+                .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr;outline:0.45mm solid #111;outline-offset:1mm}")
                 .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed}")
                 .append("th{font-size:8px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
