@@ -889,7 +889,7 @@ public class MainActivity extends Activity {
                 .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:24mm;left:12mm;right:12mm;font-size:10px;margin:0;height:5mm}")
                 .append(".answer-page .instructions{position:absolute;top:32mm;left:12mm;right:12mm;height:10mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
-                .append(".answer-page .cols{position:absolute;top:48mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2mm;margin:0;direction:ltr}")
+                .append(".answer-page .cols{position:absolute;top:44mm;left:22mm;right:22mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2mm;margin:0;direction:ltr}")
                 .append(".answer-page .col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
                 .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;direction:ltr}")
                 .append(".answer-page th{font-size:8px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
@@ -951,12 +951,12 @@ public class MainActivity extends Activity {
                     int last = printLayoutQuestionCount;
                     html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
-                        
-                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
-                        .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
-                        .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
-                        .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
-                        .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها در صفحه‌ها پیوسته است.</div><div class='cols'>");
+                        .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
+                        .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
+                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
+                        .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
+                        .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
+                        .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
                     for (int col = 0; col < 4; col++) {
                         int colFirst = first + col * 25;
                         int colLast = Math.min(first + (col + 1) * 25, last);
