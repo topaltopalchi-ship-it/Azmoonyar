@@ -25,6 +25,8 @@ public final class OmrTemplateLayout {
     private static final double COLUMNS_TOP_MM = 44.0;
     private static final double TABLE_HEADER_MM = 6.0;
     private static final double TABLE_ROW_MM = 8.3;
+    // Calibrate columns independently; start with column 1 only.
+    private static final double[] COLUMN_X_ADJUST_MM = {0.75, 0.0, 0.0, 0.0};
 
     private OmrTemplateLayout() {}
 
@@ -64,7 +66,8 @@ public final class OmrTemplateLayout {
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
                 // Printed table is LTR: question number, then A, B, C, D.
                 centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
-                        + (option + 0.5) * printedOptionCellWidth + 0.5;
+                        + (option + 0.5) * printedOptionCellWidth + 0.5
+                        + COLUMN_X_ADJUST_MM[column];
                 centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
             }
         }
