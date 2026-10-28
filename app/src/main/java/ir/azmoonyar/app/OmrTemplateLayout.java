@@ -48,11 +48,10 @@ public final class OmrTemplateLayout {
         double columnWidth = (PAGE_WIDTH_MM - 2 * PAGE_SIDE_PADDING_MM
                 - 3 * COLUMN_GAP_MM) / 4.0;
         double tableWidth = columnWidth - 2 * (COLUMN_BORDER_MM + COLUMN_PADDING_MM);
-        // The printed HTML uses table-layout:fixed without a colgroup and
-        // the first-row TH cells have no explicit widths. Android WebView therefore
-        // distributes all five columns evenly; the later TD.num width is ignored.
-        // Match the actual printed geometry instead of the intended 7 mm number cell.
-        double printedCellWidth = tableWidth / (OPTIONS_PER_QUESTION + 1.0);
+        // The printed HTML explicitly reserves 7 mm for the question number.
+        // The four answer cells share the remaining table width equally.
+        // Keep this formula in sync with the colgroup in MainActivity's print HTML.
+        double printedOptionCellWidth = (tableWidth - NUMBER_COLUMN_MM) / OPTIONS_PER_QUESTION;
         double firstBubbleCenterY = COLUMNS_TOP_MM + COLUMN_BORDER_MM + COLUMN_PADDING_MM
                 + TABLE_HEADER_MM + TABLE_ROW_MM / 2.0;
 
@@ -63,8 +62,8 @@ public final class OmrTemplateLayout {
             double tableLeft = columnLeft + COLUMN_BORDER_MM + COLUMN_PADDING_MM;
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
                 // Printed table is LTR: question number, then A, B, C, D.
-                centers[question][option][0] = tableLeft
-                        + (option + 1.5) * printedCellWidth;
+                centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
+                        + (option + 0.5) * printedOptionCellWidth;
                 centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
             }
         }
