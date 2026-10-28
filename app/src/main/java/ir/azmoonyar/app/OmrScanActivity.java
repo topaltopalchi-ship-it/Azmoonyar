@@ -333,8 +333,8 @@ public final class OmrScanActivity extends ComponentActivity {
                                 : lastSheetResultMessage);
                 } else if (transform != null) {
                     // Do not run the legacy live-bubble scanner in preview.
-                    // Correction runs only after voice capture and reads the saved image.
-                    message = "پاسخنامه آمادهٔ عکس‌گرفتن است؛ فرمان «عکس بگیر» را بگویید.";
+                    // Preview is guidance only; capture starts only from the manual button.
+                    message = "پاسخنامه آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
@@ -636,7 +636,7 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /**
-     * Capture a full-quality JPEG with CameraX only after the voice command is accepted.
+     * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
     private void captureRealPhotoAndCorrect() {
@@ -669,7 +669,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
                         if (photoFile.exists()) photoFile.delete();
-                        updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دوباره بگویید «عکس بگیر».");
+                        updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دکمهٔ عکس‌گرفتن را دوباره لمس کنید.");
                         sheetConsumed = false;
                     }
                 });
