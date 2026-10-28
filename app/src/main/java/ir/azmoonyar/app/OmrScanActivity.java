@@ -758,12 +758,13 @@ public final class OmrScanActivity extends ComponentActivity {
             Canvas canvas = new Canvas(bitmap);
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(Math.max(3f, width / 360f * 2.2f));
+            paint.setStrokeWidth(Math.max(1.5f, width / 700f * 2.0f));
             int[] optionColors = {
                     Color.rgb(239, 68, 68), Color.rgb(37, 99, 235),
                     Color.rgb(22, 163, 74), Color.rgb(234, 179, 8)
             };
-            float radius = Math.max(10f, width / 100f);
+            // Keep diagnostic rings inside the printed bubbles; large rings obscure adjacent options.
+            float radius = Math.max(3.5f, width / 220f);
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     SheetPerspectiveTransform.Point p =
