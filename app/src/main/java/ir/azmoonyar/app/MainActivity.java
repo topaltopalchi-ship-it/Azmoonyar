@@ -1366,13 +1366,13 @@ public class MainActivity extends Activity {
         message.setTextSize(15);
         message.setPadding(0, 0, 0, dp(12));
         panel.addView(message);
-        Button add = new Button(this); add.setText("افزودن سؤال"); add.setAllCaps(false);
+        Button add = new Button(this); add.setText("افزودن سؤال"); styleTurquoiseDashboardButton(add);
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
-        Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); clearBank.setAllCaps(false);
+        Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); styleTurquoiseDashboardButton(clearBank);
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
-        Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); saved.setAllCaps(false);
+        Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); styleTurquoiseDashboardButton(saved);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
-        Button generate = new Button(this); generate.setText("چاپ پرسشنامه و پاسخنامه"); generate.setAllCaps(false);
+        Button generate = new Button(this); generate.setText("چاپ پرسشنامه و پاسخنامه"); styleTurquoiseDashboardButton(generate);
         generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
@@ -1856,15 +1856,50 @@ public class MainActivity extends Activity {
             }).show();
     }
 
+    private android.graphics.drawable.GradientDrawable turquoiseButtonBackground(boolean filled) {
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(filled ? Color.rgb(13, 148, 136) : Color.rgb(236, 254, 255));
+        bg.setCornerRadius(dp(28));
+        bg.setStroke(dp(1), Color.rgb(13, 148, 136));
+        return bg;
+    }
+
+    private void styleTurquoiseDashboardButton(Button button) {
+        button.setAllCaps(false);
+        button.setTextColor(Color.rgb(15, 118, 110));
+        button.setBackground(turquoiseButtonBackground(false));
+        button.setElevation(dp(2));
+        button.setPadding(dp(14), dp(10), dp(14), dp(10));
+    }
+
+    private void showTurquoiseMenu(String title, String[] items, java.util.function.IntConsumer onChoose,
+                                   String backLabel, Runnable onBack) {
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setPadding(dp(12), dp(8), dp(12), dp(8));
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(title).setView(menu)
+            .setNegativeButton(backLabel, (d, w) -> { if (onBack != null) onBack.run(); }).create();
+        for (int i = 0; i < items.length; i++) {
+            final int index = i;
+            Button button = new Button(this);
+            button.setText(items[i]);
+            styleTurquoiseDashboardButton(button);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(54));
+            lp.setMargins(0, dp(5), 0, dp(5));
+            menu.addView(button, lp);
+            button.setOnClickListener(v -> {
+                dialog.dismiss();
+                onChoose.accept(index);
+            });
+        }
+        dialog.show();
+    }
+
     private void showReportsCenter() {
-        new AlertDialog.Builder(this)
-            .setTitle("آنالیز و آمار")
-            .setItems(new String[]{"نتایج آزمون", "صندوق گزارش‌ها و حریم خصوصی"}, (dialog, which) -> {
-                if (which == 0) showExamResultsMenu();
-                else showReportsPrivacyDetails();
-            })
-            .setNegativeButton("بستن", null)
-            .show();
+        showTurquoiseMenu("آنالیز و آمار",
+            new String[]{"نتایج آزمون", "صندوق گزارش‌ها و حریم خصوصی"},
+            which -> { if (which == 0) showExamResultsMenu(); else showReportsPrivacyDetails(); },
+            "بستن", null);
     }
 
     private JSONArray readGradingResults() {
@@ -1913,18 +1948,15 @@ public class MainActivity extends Activity {
     }
 
     private void showExamResultsMenu() {
-        new AlertDialog.Builder(this)
-            .setTitle("نتایج آزمون")
-            .setItems(new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی"},
-                (dialog, which) -> {
-                    if (which == 0) showRecentExamResults();
-                    else if (which == 1) showPreviousExamResults();
-                    else if (which == 2) showParticipantAnalysis();
-                    else if (which == 3) showExamAnalysis();
-                    else showReviewQueue();
-                })
-            .setNegativeButton("بازگشت", (d, w) -> showReportsCenter())
-            .show();
+        showTurquoiseMenu("نتایج آزمون",
+            new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی"},
+            which -> {
+                if (which == 0) showRecentExamResults();
+                else if (which == 1) showPreviousExamResults();
+                else if (which == 2) showParticipantAnalysis();
+                else if (which == 3) showExamAnalysis();
+                else showReviewQueue();
+            }, "بازگشت", this::showReportsCenter);
     }
 
     private JSONArray readReviewQueue() {
