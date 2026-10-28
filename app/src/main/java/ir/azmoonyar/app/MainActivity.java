@@ -1226,7 +1226,7 @@ public class MainActivity extends Activity {
         ScrollView answerScroll = new ScrollView(this);
         answerScroll.setFillViewport(false);
         answerScroll.addView(answers);
-        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(-1, dp(300));
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(-1, dp(230));
         form.addView(answerScroll, scrollLp);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -1236,7 +1236,7 @@ public class MainActivity extends Activity {
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
-        actions.setPadding(0, dp(8), 0, 0);
+        actions.setPadding(0, dp(10), 0, dp(6));
         Button printSave = new Button(this);
         printSave.setText("چاپ / ذخیره کلید");
         styleTurquoiseDashboardButton(printSave);
@@ -1244,7 +1244,7 @@ public class MainActivity extends Activity {
         loadImage.setText("بارگذاری تصویر کلید");
         styleTurquoiseDashboardButton(loadImage);
         Button close = new Button(this);
-        close.setText("بستن");
+        close.setText("بازگشت / خروج");
         styleTurquoiseDashboardButton(close);
         for (Button button : new Button[]{printSave, loadImage, close}) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(48));
