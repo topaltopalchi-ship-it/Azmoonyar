@@ -24,7 +24,7 @@ public final class OmrTemplateLayout {
     private static final double NUMBER_COLUMN_MM = 7.0;
     private static final double COLUMNS_TOP_MM = 44.0;
     private static final double TABLE_HEADER_MM = 6.0;
-    private static final double TABLE_ROW_MM = 8.3;
+    private static final double TABLE_ROW_MM = 7.9;
     // Calibrate columns independently; start with column 1 only.
     private static final double[] COLUMN_X_ADJUST_MM = {1.25, 0.0, 0.0, 0.0};
     private static final double[] COLUMN_Y_ADJUST_MM = {0.4, 0.0, 0.0, 0.0};
