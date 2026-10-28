@@ -767,8 +767,8 @@ public final class OmrScanActivity extends ComponentActivity {
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.0;
-            final double halfBubbleHeightMm = 1.55;
+            final double halfBubbleWidthMm = 2.15;
+            final double halfBubbleHeightMm = 1.70;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
