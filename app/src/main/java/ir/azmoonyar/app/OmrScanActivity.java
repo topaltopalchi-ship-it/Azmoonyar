@@ -692,8 +692,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
+            // Each correct answer earns +1; each definite wrong answer earns -1;
+            // blank answers earn 0. Uncertain answers remain in the review queue.
+            String activeKey = answerKey.substring(0, total);
             ExamScorer.Result score = ExamScorer.score(
-                    answerKey.substring(0, total), answers, 1.0, 0.0, 0.0);
+                    activeKey, answers, 1.0, -1.0, 0.0);
             if (!score.isComplete()) {
                 // Preserve the uncertain sheet for later human review, but never store a final score.
                 JSONArray queue;
@@ -735,18 +738,44 @@ public final class OmrScanActivity extends ComponentActivity {
             JSONObject record = new JSONObject();
             record.put("name", participantName.trim());
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
+            JSONArray wrongQuestions = new JSONArray();
+            JSONArray wrongDetails = new JSONArray();
+            for (int i = 0; i < questions.size(); i++) {
+                OMRAnswerClassifier.Result answer = questions.get(i).classification;
+                boolean wrong = answer.status == OMRAnswerClassifier.Status.MULTIPLE_MARKS;
+                if (answer.status == OMRAnswerClassifier.Status.ANSWERED) {
+                    wrong = answer.optionIndex != (activeKey.charAt(i) - 'A');
+                }
+                if (wrong) {
+                    int questionNumber = i + 1;
+                    wrongQuestions.put(questionNumber);
+                    JSONObject detail = new JSONObject();
+                    detail.put("question", questionNumber);
+                    detail.put("correctOption", String.valueOf(activeKey.charAt(i)));
+                    detail.put("selectedOption", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                            ? String.valueOf((char) ('A' + answer.optionIndex)) : "MULTIPLE_MARKS");
+                    wrongDetails.put(detail);
+                }
+            }
             record.put("score", score.percentage());
+            record.put("earnedPoints", score.earnedPoints);
             record.put("correct", score.correct);
             record.put("wrong", score.wrong);
+            record.put("wrongQuestions", wrongQuestions);
+            record.put("wrongDetails", wrongDetails);
             record.put("blank", score.blank);
             record.put("multipleMarks", score.multipleMarks);
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
             prefs.edit().putString("grading_results", saved.toString()).apply();
-            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName + " • نمره "
-                    + String.format(java.util.Locale.US, "%.1f", score.percentage())
-                    + " از 100. برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+            String wrongList = wrongQuestions.length() == 0 ? "ندارد"
+                    : wrongQuestions.toString().replace("[", "").replace("]", "");
+            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
+                    + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
+                    + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
+                    + " • شماره سؤال‌های غلط: " + wrongList
+                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
