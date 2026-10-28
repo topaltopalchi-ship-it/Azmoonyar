@@ -48,6 +48,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
+    private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
 
     @Override public void onCreate(Bundle state) {
@@ -210,7 +211,9 @@ public final class OmrScanActivity extends ComponentActivity {
                 if (sheetConsumed) {
                     message = waitingForNextName
                             ? "برگهٔ قبلی کنار رفت؛ نام شرکت‌کنندهٔ بعدی را ثبت کنید."
-                            : "برگه بررسی شد؛ آن را کنار ببرید تا اسکنر برای برگهٔ بعدی آماده شود.";
+                            : (lastSheetResultMessage.isEmpty()
+                                ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
+                                : lastSheetResultMessage);
                 } else if (transform != null) {
                     try {
                         // Live preview while a new sheet is being aligned.
@@ -436,11 +439,11 @@ public final class OmrScanActivity extends ComponentActivity {
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             String answerKey = prefs.getString("answer_key", "");
             if (participantName.trim().isEmpty()) {
-                updateStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
+                updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
                 return;
             }
             if (answerKey.length() < total) {
-                updateStatus("برگه شناسایی شد؛ ابتدا کلید پاسخ همین آزمون را کامل ثبت کنید.");
+                updateSheetResultStatus("برگه شناسایی شد؛ ابتدا کلید پاسخ همین آزمون را کامل ثبت کنید.");
                 return;
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
@@ -476,7 +479,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
+                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
                 return;
             }
@@ -495,11 +498,11 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
             prefs.edit().putString("grading_results", saved.toString()).apply();
-            updateStatus("تصحیح خودکار انجام شد: " + participantName + " • نمره "
+            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName + " • نمره "
                     + String.format(java.util.Locale.US, "%.1f", score.percentage())
                     + " از 100. برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
-            updateStatus("برگه شناسایی شد، اما تصحیح مطمئن نبود؛ برگه و نور را تنظیم کنید.");
+            updateSheetResultStatus("برگه شناسایی شد، اما تصحیح مطمئن نبود؛ برگه و نور را تنظیم کنید.");
         }
     }
 
@@ -581,6 +584,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     }));
             dialog.show();
         });
+    }
+
+    private void updateSheetResultStatus(String message) {
+        lastSheetResultMessage = message;
+        updateStatus(message);
     }
 
     private void updateStatus(String message) {
