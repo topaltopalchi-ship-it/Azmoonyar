@@ -1189,6 +1189,10 @@ public class MainActivity extends Activity {
                             view.createPrintDocumentAdapter("AzmoonYar-OMR-" + total),
                             new PrintAttributes.Builder()
                                 .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                // The OMR template uses absolute A4 millimeter coordinates.
+                                // Do not let Android's print framework add default margins
+                                // and scale the sheet into a smaller printable rectangle.
+                                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                                 .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
                                 .build());                    } else {
                         info("قابلیت چاپ در این دستگاه در دسترس نیست.");
