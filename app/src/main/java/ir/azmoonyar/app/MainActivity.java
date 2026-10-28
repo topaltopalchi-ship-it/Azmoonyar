@@ -1764,21 +1764,14 @@ public class MainActivity extends Activity {
                                 bubble.setTextSize(12);
                                 bubble.setTypeface(null, android.graphics.Typeface.BOLD);
                                 bubble.setGravity(Gravity.CENTER);
-                                int[] optionColors = {
-                                        Color.rgb(37, 99, 235), Color.rgb(13, 148, 136),
-                                        Color.rgb(124, 58, 237), Color.rgb(219, 39, 119)
-                                };
-                                int color = optionColors[option];
-                                boolean isCorrect = letter == correct;
+                                int color = letter == correct ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139);
                                 android.graphics.drawable.GradientDrawable bubbleBg = new android.graphics.drawable.GradientDrawable();
-                                bubbleBg.setColor(isCorrect ? Color.rgb(22, 163, 74)
-                                        : new int[]{Color.rgb(239, 246, 255), Color.rgb(240, 253, 250),
-                                                Color.rgb(245, 243, 255), Color.rgb(253, 242, 248)}[option]);
-                                bubbleBg.setCornerRadius(dp(40));
-                                bubbleBg.setStroke(dp(1.5f), isCorrect ? Color.rgb(21, 128, 61) : color);
+                                bubbleBg.setColor(letter == correct ? Color.rgb(220, 252, 231) : Color.WHITE);
+                                bubbleBg.setCornerRadius(dp(30));
+                                bubbleBg.setStroke(dp(2), color);
                                 bubble.setBackground(bubbleBg);
-                                bubble.setTextColor(isCorrect ? Color.WHITE : color);
-                                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(42), dp(30));
+                                bubble.setTextColor(color);
+                                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(38), dp(30));
                                 bp.leftMargin = dp(3);
                                 bp.rightMargin = dp(3);
                                 row.addView(bubble, bp);
