@@ -767,8 +767,8 @@ public final class OmrScanActivity extends ComponentActivity {
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 1.75;
-            final double halfBubbleHeightMm = 1.30;
+            final double halfBubbleWidthMm = 2.0;
+            final double halfBubbleHeightMm = 1.55;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -790,8 +790,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     // 0.82 made the diagnostic rings visibly too small; keep only a
                     // slight inset so the center alignment can be judged against the
                     // actual printed border.
-                    rx = Math.max(2.0f, rx * 0.96f);
-                    ry = Math.max(2.0f, ry * 0.96f);
+                    rx = Math.max(2.0f, rx * 0.98f);
+                    ry = Math.max(2.0f, ry * 0.98f);
                     paint.setColor(optionColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
