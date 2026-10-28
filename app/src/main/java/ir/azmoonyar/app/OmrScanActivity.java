@@ -9,11 +9,16 @@ import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ImageView;
+import android.widget.ScrollView;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
@@ -552,6 +557,12 @@ public final class OmrScanActivity extends ComponentActivity {
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+            // One-time diagnostic: draw every sampled A/B/C/D center on the exact
+            // upright camera frame, so coordinate misalignment can be visually checked.
+            if (prefs.getBoolean("omr_coordinate_overlay_first_sheet", true)) {
+                prefs.edit().putBoolean("omr_coordinate_overlay_first_sheet", false).apply();
+                showBubbleCoordinateOverlay(luma, width, height, transform, centers);
+            }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             ExamScorer.Result score = ExamScorer.score(
@@ -611,6 +622,80 @@ public final class OmrScanActivity extends ComponentActivity {
                     + " از 100. برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
+        }
+    }
+
+    private void showBubbleCoordinateOverlay(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform, double[][][] centers) {
+        // Called from the camera analyzer thread; build the diagnostic image there,
+        // then display it on the UI thread. The original luminance array is not retained.
+        try {
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            int[] pixels = new int[width * height];
+            for (int i = 0; i < pixels.length; i++) {
+                int gray = luma[i] & 0xff;
+                pixels[i] = Color.rgb(gray, gray, gray);
+            }
+            bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(3f, width / 360f * 2.2f));
+            int[] optionColors = {
+                    Color.rgb(239, 68, 68), Color.rgb(37, 99, 235),
+                    Color.rgb(22, 163, 74), Color.rgb(234, 179, 8)
+            };
+            float radius = Math.max(10f, width / 100f);
+            for (int q = 0; q < centers.length; q++) {
+                for (int option = 0; option < 4; option++) {
+                    SheetPerspectiveTransform.Point p =
+                            transform.toImage(centers[q][option][0], centers[q][option][1]);
+                    paint.setColor(optionColors[option]);
+                    canvas.drawCircle((float) p.x, (float) p.y, radius, paint);
+                    if (q < 10) {
+                        paint.setStyle(Paint.Style.FILL);
+                        paint.setTextSize(Math.max(18f, width / 45f));
+                        canvas.drawText("ABCD".substring(option, option + 1),
+                                (float) p.x + radius, (float) p.y - radius, paint);
+                        paint.setStyle(Paint.Style.STROKE);
+                    }
+                }
+            }
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    bitmap.recycle();
+                    return;
+                }
+                ImageView image = new ImageView(this);
+                image.setImageBitmap(bitmap);
+                image.setAdjustViewBounds(true);
+                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ScrollView scroll = new ScrollView(this);
+                scroll.addView(image, new ScrollView.LayoutParams(-1, -2));
+                int maxHeight = (int) (getResources().getDisplayMetrics().heightPixels * 0.68f);
+                LinearLayout content = new LinearLayout(this);
+                content.setOrientation(LinearLayout.VERTICAL);
+                TextView legend = new TextView(this);
+                legend.setText("مراکز نمونه‌برداری حباب‌ها روی تصویر دوربین — A قرمز، B آبی، C سبز، D زرد. حروف ۱۰ سؤال اول نشان داده شده‌اند.");
+                legend.setTextSize(14);
+                legend.setPadding(16, 12, 16, 12);
+                content.addView(legend);
+                content.addView(scroll, new LinearLayout.LayoutParams(-1, maxHeight));
+                new AlertDialog.Builder(this)
+                        .setTitle("آزمایش مختصات حباب‌ها")
+                        .setView(content)
+                        .setPositiveButton("بستن", (dialog, which) -> {
+                            image.setImageDrawable(null);
+                            bitmap.recycle();
+                        })
+                        .setOnCancelListener(dialog -> {
+                            image.setImageDrawable(null);
+                            bitmap.recycle();
+                        })
+                        .show();
+            });
+        } catch (RuntimeException ignored) {
+            // Diagnostics must never interrupt normal scan processing.
         }
     }
 
