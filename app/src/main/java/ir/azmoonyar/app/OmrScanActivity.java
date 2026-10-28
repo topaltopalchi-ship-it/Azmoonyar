@@ -221,7 +221,7 @@ public final class OmrScanActivity extends ComponentActivity {
                                 OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
                         List<OMRSheetReader.QuestionResult> results =
                                 new OMRSheetReader().read(upright.pixels, upright.width,
-                                        upright.height, transform, centers, 1.0);
+                                        upright.height, transform, centers, 1.45);
                         int answered = 0, blank = 0, review = 0, multiple = 0;
                         for (OMRSheetReader.QuestionResult result : results) {
                             switch (result.classification.status) {
@@ -502,7 +502,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     + String.format(java.util.Locale.US, "%.1f", score.percentage())
                     + " از 100. برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
-            updateSheetResultStatus("برگه شناسایی شد، اما تصحیح مطمئن نبود؛ برگه و نور را تنظیم کنید.");
+            updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
     }
 
