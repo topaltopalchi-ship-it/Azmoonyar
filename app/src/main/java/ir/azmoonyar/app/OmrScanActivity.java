@@ -58,6 +58,8 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile byte[] diagnosticLuma;
     private volatile int diagnosticWidth, diagnosticHeight;
     private volatile SheetPerspectiveTransform diagnosticTransform;
+    private volatile SheetPerspectiveTransform.Point[] diagnosticMarkerPoints;
+    private volatile double diagnosticMarkerSizeMm;
     private volatile double[][][] diagnosticCenters;
     private volatile long lastDiagnosticFrameSaved;
 
@@ -109,16 +111,19 @@ public final class OmrScanActivity extends ComponentActivity {
         diagnosticButton.setOnClickListener(v -> {
             byte[] frame = diagnosticLuma;
             SheetPerspectiveTransform transform = diagnosticTransform;
+            SheetPerspectiveTransform.Point[] markerPoints = diagnosticMarkerPoints;
+            double markerSizeMm = diagnosticMarkerSizeMm;
             double[][][] centers = diagnosticCenters;
             int w = diagnosticWidth, h = diagnosticHeight;
-            if (frame == null || transform == null || centers == null || w <= 0 || h <= 0) {
+            if (frame == null || transform == null || markerPoints == null
+                    || markerPoints.length != 4 || centers == null || w <= 0 || h <= 0) {
                 new AlertDialog.Builder(this)
                         .setTitle("تصویر تشخیصی آماده نیست")
                         .setMessage("ابتدا برگه را کامل داخل کادر دوربین بگیرید تا چهار مربع گوشه شناسایی شوند؛ سپس دوباره این دکمه را بزنید.")
                         .setPositiveButton("باشه", null).show();
                 return;
             }
-            showBubbleCoordinateOverlay(frame, w, h, transform, centers);
+            showBubbleCoordinateOverlay(frame, w, h, transform, centers, markerPoints, markerSizeMm);
         });
         page.addView(diagnosticButton, new LinearLayout.LayoutParams(-1, -2));
         setContentView(page);
@@ -220,6 +225,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     diagnosticWidth = upright.width;
                     diagnosticHeight = upright.height;
                     diagnosticTransform = transform;
+                    diagnosticMarkerPoints = detection.points.clone();
+                    diagnosticMarkerSizeMm = detection.markerSizeMm;
                     diagnosticCenters = OmrTemplateLayout.bubbleCentersForPage(
                             Math.max(1, Math.min(100, getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
                                     .getInt("question_count", 20))), 0);
@@ -654,7 +661,8 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     private void showBubbleCoordinateOverlay(byte[] luma, int width, int height,
-            SheetPerspectiveTransform transform, double[][][] centers) {
+            SheetPerspectiveTransform transform, double[][][] centers,
+            SheetPerspectiveTransform.Point[] markerPoints, double markerSizeMm) {
         // Called from the camera analyzer thread; build the diagnostic image there,
         // then display it on the UI thread. The original luminance array is not retained.
         try {
@@ -713,10 +721,34 @@ public final class OmrScanActivity extends ComponentActivity {
                 LinearLayout content = new LinearLayout(this);
                 content.setOrientation(LinearLayout.VERTICAL);
                 TextView legend = new TextView(this);
-                legend.setText("مراکز نمونه‌برداری حباب‌ها روی تصویر دوربین — A قرمز، B آبی، C سبز، D زرد. حروف ۱۰ سؤال اول نشان داده شده‌اند.");
+                legend.setText("مراکز نمونه‌برداری حباب‌ها — A قرمز، B آبی، C سبز، D زرد. حروف ۱۰ سؤال اول نمایش داده شده‌اند.");
                 legend.setTextSize(14);
-                legend.setPadding(16, 12, 16, 12);
+                legend.setPadding(16, 12, 16, 8);
                 content.addView(legend);
+                TextView geometry = new TextView(this);
+                double top = distance(markerPoints[0], markerPoints[1]);
+                double right = distance(markerPoints[1], markerPoints[2]);
+                double bottom = distance(markerPoints[3], markerPoints[2]);
+                double left = distance(markerPoints[0], markerPoints[3]);
+                double diag14 = distance(markerPoints[0], markerPoints[2]);
+                double diag23 = distance(markerPoints[1], markerPoints[3]);
+                double horizontalScale = (top + bottom) * 0.5 / (OmrTemplateLayout.PAGE_WIDTH_MM
+                        - 2 * (markerSizeMm > 8 ? OmrTemplateLayout.NEW_MARKER_CENTER_INSET_MM
+                        : OmrTemplateLayout.LEGACY_MARKER_CENTER_INSET_MM));
+                double verticalScale = (left + right) * 0.5 / (OmrTemplateLayout.PAGE_HEIGHT_MM
+                        - 2 * (markerSizeMm > 8 ? OmrTemplateLayout.NEW_MARKER_CENTER_INSET_MM
+                        : OmrTemplateLayout.LEGACY_MARKER_CENTER_INSET_MM));
+                geometry.setText(String.format(java.util.Locale.US,
+                        "فاصلهٔ افقی بالا/پایین: %.1f / %.1f px\n"
+                        + "فاصلهٔ عمودی چپ/راست: %.1f / %.1f px\n"
+                        + "قطر گوشهٔ ۱ تا ۳: %.1f px\nقطر گوشهٔ ۲ تا ۴: %.1f px\n"
+                        + "مقیاس میانگین افقی/عمودی: %.2f / %.2f px/mm\n"
+                        + "نشانهٔ استفاده‌شده: %.1f mm",
+                        top, bottom, left, right, diag14, diag23,
+                        horizontalScale, verticalScale, markerSizeMm));
+                geometry.setTextSize(13);
+                geometry.setPadding(16, 4, 16, 12);
+                content.addView(geometry);
                 content.addView(scroll, new LinearLayout.LayoutParams(-1, maxHeight));
                 new AlertDialog.Builder(this)
                         .setTitle("آزمایش مختصات حباب‌ها")
