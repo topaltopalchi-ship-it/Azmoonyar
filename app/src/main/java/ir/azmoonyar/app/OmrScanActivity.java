@@ -763,19 +763,40 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(239, 68, 68), Color.rgb(37, 99, 235),
                     Color.rgb(22, 163, 74), Color.rgb(234, 179, 8)
             };
-            // Keep diagnostic rings inside the printed bubbles; large rings obscure adjacent options.
-            float radius = Math.max(3.5f, width / 220f);
+            // The printed bubbles are ellipses (4.3 x 3.4 mm), not circles.
+            // Derive each overlay's local width/height through the homography so
+            // the rings shrink/grow with perspective instead of drifting outside
+            // the bubbles on distant columns or near the page edges.
+            final double halfBubbleWidthMm = 1.75;
+            final double halfBubbleHeightMm = 1.30;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
-                    SheetPerspectiveTransform.Point p =
-                            transform.toImage(centers[q][option][0], centers[q][option][1]);
+                    double x = centers[q][option][0];
+                    double y = centers[q][option][1];
+                    SheetPerspectiveTransform.Point p = transform.toImage(x, y);
+                    SheetPerspectiveTransform.Point leftEdge = transform.toImage(
+                            Math.max(0.0, x - halfBubbleWidthMm), y);
+                    SheetPerspectiveTransform.Point rightEdge = transform.toImage(
+                            Math.min(OmrTemplateLayout.PAGE_WIDTH_MM, x + halfBubbleWidthMm), y);
+                    SheetPerspectiveTransform.Point topEdge = transform.toImage(
+                            x, Math.max(0.0, y - halfBubbleHeightMm));
+                    SheetPerspectiveTransform.Point bottomEdge = transform.toImage(
+                            x, Math.min(OmrTemplateLayout.PAGE_HEIGHT_MM, y + halfBubbleHeightMm));
+                    float rx = (float) (Math.hypot(p.x - leftEdge.x, p.y - leftEdge.y)
+                            + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
+                    float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
+                            + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
+                    // Slight inset keeps the colored outline inside the printed border.
+                    rx = Math.max(2.0f, rx * 0.82f);
+                    ry = Math.max(2.0f, ry * 0.82f);
                     paint.setColor(optionColors[option]);
-                    canvas.drawCircle((float) p.x, (float) p.y, radius, paint);
+                    canvas.drawOval((float) p.x - rx, (float) p.y - ry,
+                            (float) p.x + rx, (float) p.y + ry, paint);
                     if (q < 10) {
                         paint.setStyle(Paint.Style.FILL);
-                        paint.setTextSize(Math.max(18f, width / 45f));
+                        paint.setTextSize(Math.max(14f, width / 60f));
                         canvas.drawText("ABCD".substring(option, option + 1),
-                                (float) p.x + radius, (float) p.y - radius, paint);
+                                (float) p.x + rx, (float) p.y - ry, paint);
                         paint.setStyle(Paint.Style.STROKE);
                     }
                 }
