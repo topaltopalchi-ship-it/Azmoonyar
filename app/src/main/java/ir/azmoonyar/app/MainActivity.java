@@ -428,7 +428,7 @@ public class MainActivity extends Activity {
             });
         });
 
-        new AlertDialog.Builder(this)
+        styledDialogBuilder()
                 .setTitle("اسکن و تصحیح پاسخنامه")
                 .setView(panel)
                 .setPositiveButton("ادامه", (dialog, which) -> {
@@ -634,7 +634,7 @@ public class MainActivity extends Activity {
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
         EditText name=new EditText(this); styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
         EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۱۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
-        new AlertDialog.Builder(this).setTitle("تعریف / ویرایش آزمون").setView(form)
+        styledDialogBuilder().setTitle("تعریف / ویرایش آزمون").setView(form)
           .setNegativeButton("انصراف",null)
           .setNeutralButton("ثبت‌نام شرکت‌کنندگان",(d,w)->showStudentsDialog())
           .setPositiveButton("ذخیره",(d,w)->{
