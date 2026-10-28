@@ -1041,7 +1041,6 @@ public class MainActivity extends Activity {
                 .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
-                .append(".foot{position:absolute;bottom:7mm;left:12mm;right:12mm;text-align:center;font-size:7px}")
                 .append("</style></head><body>");
             int pages = (total + 99) / 100;
             for (int page = 0; page < pages; page++) {
@@ -1065,8 +1064,7 @@ public class MainActivity extends Activity {
                     }
                     html.append("</tbody></table></div>");
                 }
-                html.append("</div><div class='foot'>AZY-OMR-100-v1 • A4 • چهار گزینه • صفحه ")
-                    .append(page + 1).append(" از ").append(pages).append("</div></section>");
+                html.append("</div></section>");
             }
             html.append("</body></html>");
             WebView web = new WebView(this);
