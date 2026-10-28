@@ -1857,11 +1857,28 @@ public class MainActivity extends Activity {
         }
         RadioGroup group = new RadioGroup(this);
         group.setOrientation(RadioGroup.VERTICAL);        group.setPadding(dp(8), dp(8), dp(8), dp(8));
+        int[][] optionColors = {
+            {219, 234, 254, 29, 78, 216},
+            {252, 231, 243, 157, 23, 77},
+            {220, 252, 231, 22, 101, 52}
+        };
         for (int i = 0; i < labels.length; i++) {
             RadioButton option = new RadioButton(this);
             option.setText(labels[i]);
+            option.setTextSize(15);
+            option.setTypeface(null, android.graphics.Typeface.BOLD);
             option.setTag(values[i]);
-            group.addView(option);
+            option.setPadding(dp(14), dp(12), dp(14), dp(12));
+            option.setButtonTintList(android.content.res.ColorStateList.valueOf(
+                Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5])));
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
+            pill.setColor(Color.rgb(optionColors[i][0], optionColors[i][1], optionColors[i][2]));
+            pill.setCornerRadius(dp(24));
+            pill.setStroke(dp(1), Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5]));
+            option.setBackground(pill);
+            RadioGroup.LayoutParams optionLp = new RadioGroup.LayoutParams(-1, -2);
+            optionLp.setMargins(0, dp(5), 0, dp(5));
+            group.addView(option, optionLp);
             if (i == checked) option.setChecked(true);
         }
         TextView note = new TextView(this);
@@ -1872,7 +1889,7 @@ public class MainActivity extends Activity {
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.addView(group);
         layout.addView(note);
-        new AlertDialog.Builder(this)
+        styledDialogBuilder()
             .setTitle("حفظ حریم خصوصی تصاویر")
             .setView(layout)
             .setNegativeButton("انصراف", null)
