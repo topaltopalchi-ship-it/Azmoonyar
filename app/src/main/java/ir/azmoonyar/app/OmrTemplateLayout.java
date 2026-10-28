@@ -18,9 +18,9 @@ public final class OmrTemplateLayout {
 
     private static final double PAGE_SIDE_PADDING_MM = 12.0;
     private static final double COLUMN_GAP_MM = 3.0;
-    private static final double COLUMN_BORDER_MM = 0.25;
+    private static final double COLUMN_BORDER_MM = 0.30;
     private static final double COLUMN_PADDING_MM = 1.0;
-    private static final double COLUMN_VERTICAL_PADDING_MM = 1.0;
+    private static final double COLUMN_VERTICAL_PADDING_MM = 1.5;
     private static final double NUMBER_COLUMN_MM = 7.0;
     private static final double COLUMNS_TOP_MM = 44.0;
     private static final double TABLE_HEADER_MM = 6.0;
@@ -50,7 +50,7 @@ public final class OmrTemplateLayout {
         // .sheet has 12 mm side padding; .cols uses four equal columns and 3 mm gaps.
         double columnWidth = (PAGE_WIDTH_MM - 2 * PAGE_SIDE_PADDING_MM
                 - 3 * COLUMN_GAP_MM) / 4.0;
-        double tableWidth = columnWidth - 2 * (COLUMN_BORDER_MM + COLUMN_PADDING_MM);
+        double tableWidth = columnWidth - 2 * COLUMN_BORDER_MM - 2 * COLUMN_PADDING_MM;
         // The printed HTML explicitly reserves 7 mm for the question number.
         // The four answer cells share the remaining table width equally.
         // Keep this formula in sync with the colgroup in MainActivity's print HTML.
