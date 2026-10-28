@@ -1942,11 +1942,12 @@ public class MainActivity extends Activity {
                                 bubble.setGravity(Gravity.CENTER);
                                 int color = letter == correct ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139);
                                 android.graphics.drawable.GradientDrawable bubbleBg = new android.graphics.drawable.GradientDrawable();
-                                bubbleBg.setColor(letter == correct ? Color.rgb(220, 252, 231) : Color.WHITE);
+                                // Keep answer-key preview bubbles monochrome; do not color-code options.
+                                bubbleBg.setColor(Color.WHITE);
                                 bubbleBg.setCornerRadius(dp(30));
-                                bubbleBg.setStroke(dp(2), color);
+                                bubbleBg.setStroke(dp(2), Color.BLACK);
                                 bubble.setBackground(bubbleBg);
-                                bubble.setTextColor(color);
+                                bubble.setTextColor(Color.BLACK);
                                 LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(38), dp(30));
                                 bp.leftMargin = dp(3);
                                 bp.rightMargin = dp(3);
