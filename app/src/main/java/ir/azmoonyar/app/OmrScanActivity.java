@@ -55,6 +55,11 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
+    private volatile byte[] diagnosticLuma;
+    private volatile int diagnosticWidth, diagnosticHeight;
+    private volatile SheetPerspectiveTransform diagnosticTransform;
+    private volatile double[][][] diagnosticCenters;
+    private volatile long lastDiagnosticFrameSaved;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -98,6 +103,24 @@ public final class OmrScanActivity extends ComponentActivity {
         guidance.setBackgroundColor(Color.WHITE);
         guidance.setPadding(18, 8, 18, 10);
         page.addView(guidance, new LinearLayout.LayoutParams(-1, -2));
+
+        Button diagnosticButton = new Button(this);
+        diagnosticButton.setText("نمایش مختصات حباب‌ها");
+        diagnosticButton.setOnClickListener(v -> {
+            byte[] frame = diagnosticLuma;
+            SheetPerspectiveTransform transform = diagnosticTransform;
+            double[][][] centers = diagnosticCenters;
+            int w = diagnosticWidth, h = diagnosticHeight;
+            if (frame == null || transform == null || centers == null || w <= 0 || h <= 0) {
+                new AlertDialog.Builder(this)
+                        .setTitle("تصویر تشخیصی آماده نیست")
+                        .setMessage("ابتدا برگه را کامل داخل کادر دوربین بگیرید تا چهار مربع گوشه شناسایی شوند؛ سپس دوباره این دکمه را بزنید.")
+                        .setPositiveButton("باشه", null).show();
+                return;
+            }
+            showBubbleCoordinateOverlay(frame, w, h, transform, centers);
+        });
+        page.addView(diagnosticButton, new LinearLayout.LayoutParams(-1, -2));
         setContentView(page);
 
         participantName = getIntent().getStringExtra("participant_name");
@@ -191,6 +214,17 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
             }
             if (transform != null && markerCount == 4) {
+                long diagnosticNow = android.os.SystemClock.elapsedRealtime();
+                if (diagnosticNow - lastDiagnosticFrameSaved > 300) {
+                    diagnosticLuma = upright.pixels.clone();
+                    diagnosticWidth = upright.width;
+                    diagnosticHeight = upright.height;
+                    diagnosticTransform = transform;
+                    diagnosticCenters = OmrTemplateLayout.bubbleCentersForPage(
+                            Math.max(1, Math.min(100, getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                                    .getInt("question_count", 20))), 0);
+                    lastDiagnosticFrameSaved = diagnosticNow;
+                }
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
                 if (!sheetConsumed && stableMarkerFrames >= 2) {
@@ -557,14 +591,6 @@ public final class OmrScanActivity extends ComponentActivity {
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
-            // One-time diagnostic: draw every sampled A/B/C/D center on the exact
-            // upright camera frame, so coordinate misalignment can be visually checked.
-            // Keep the overlay enabled until calibration is confirmed. The previous
-            // one-shot flag was consumed before the dialog was visibly shown, making
-            // a transient UI/image error silently disable diagnostics for all later scans.
-            if (prefs.getBoolean("omr_coordinate_overlay_enabled", true)) {
-                showBubbleCoordinateOverlay(luma, width, height, transform, centers);
-            }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             ExamScorer.Result score = ExamScorer.score(
