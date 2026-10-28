@@ -1915,19 +1915,50 @@ public class MainActivity extends Activity {
     }
 
     private android.graphics.drawable.GradientDrawable turquoiseButtonBackground(boolean filled) {
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(filled ? Color.rgb(13, 148, 136) : Color.rgb(236, 254, 255));
-        bg.setCornerRadius(dp(28));
-        bg.setStroke(dp(1), Color.rgb(13, 148, 136));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                filled
+                        ? new int[]{Color.rgb(255, 105, 180), Color.rgb(236, 72, 153), Color.rgb(190, 24, 93)}
+                        : new int[]{Color.rgb(255, 240, 248), Color.rgb(255, 218, 238), Color.rgb(252, 165, 211)});
+        bg.setCornerRadius(dp(30));
+        bg.setStroke(dp(2), Color.rgb(219, 39, 119));
         return bg;
     }
 
     private void styleTurquoiseDashboardButton(Button button) {
         button.setAllCaps(false);
-        button.setTextColor(Color.rgb(15, 118, 110));
-        button.setBackground(turquoiseButtonBackground(false));
-        button.setElevation(dp(2));
+        button.setTextColor(Color.rgb(157, 23, 77));
+        android.graphics.drawable.GradientDrawable base = turquoiseButtonBackground(false);
+        android.graphics.drawable.GradientDrawable wave = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(125, 255, 255, 255), Color.argb(18, 255, 255, 255),
+                        Color.argb(65, 236, 72, 153)});
+        wave.setCornerRadius(dp(27));
+        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{base, wave});
+        layers.setLayerInset(1, dp(3), dp(3), dp(3), dp(5));
+        button.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(125, 255, 255, 255)), layers, null));
+        button.setElevation(dp(9));
+        button.setTranslationZ(dp(2));
+        button.setShadowLayer(dp(1), 0, dp(2), Color.argb(100, 131, 24, 67));
         button.setPadding(dp(14), dp(10), dp(14), dp(10));
+        button.setOnTouchListener((view, event) -> {
+            switch (event.getAction()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    view.animate().translationY(dp(4)).scaleX(0.985f).scaleY(0.96f)
+                            .setDuration(65).start();
+                    view.setElevation(dp(3));
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    view.animate().translationY(0).scaleX(1f).scaleY(1f)
+                            .setDuration(130).start();
+                    view.setElevation(dp(9));
+                    break;
+            }
+            return false;
+        });
     }
 
     private void showTurquoiseMenu(String title, String[] items, java.util.function.IntConsumer onChoose,
