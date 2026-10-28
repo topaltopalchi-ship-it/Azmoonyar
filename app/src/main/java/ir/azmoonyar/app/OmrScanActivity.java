@@ -300,9 +300,10 @@ public final class OmrScanActivity extends ComponentActivity {
                     diagnosticTransform = transform;
                     diagnosticMarkerPoints = detection.points.clone();
                     diagnosticMarkerSizeMm = detection.markerSizeMm;
+                    // Diagnostic overlay must validate the entire printed 100-question sheet,
+                    // independent of the currently selected exam question count.
                     diagnosticCenters = OmrTemplateLayout.bubbleCentersForPage(
-                            Math.max(1, Math.min(100, getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                                    .getInt("question_count", 20))), 0);
+                            OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
                     lastDiagnosticFrameSaved = diagnosticNow;
                 }
                 stableMarkerFrames++;
