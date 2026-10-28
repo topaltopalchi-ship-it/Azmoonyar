@@ -1824,7 +1824,7 @@ public class MainActivity extends Activity {
             if (i == checked) option.setChecked(true);
         }
         TextView note = new TextView(this);
-        note.setText("ذخیره و پردازش تصاویر پاسخنامه بر اساس گزینهٔ انتخاب‌شده انجام می‌شود؛ تشخیص حباب‌ها باید پس از اتصال پردازش تصویر فعال شود.");
+        note.setText("اسکن زنده، پاسخ‌ها را از روی جایگاه حباب‌ها بررسی می‌کند. این تنظیم فقط تعیین می‌کند تصاویر پاسخنامه نگه‌داری شوند یا نه؛ اگر پاسخ‌ها با اطمینان کافی تشخیص داده نشوند، نمرهٔ قطعی ثبت نمی‌شود.");
         note.setTextSize(14);
         note.setPadding(dp(12), dp(8), dp(12), dp(8));
         LinearLayout layout = new LinearLayout(this);
