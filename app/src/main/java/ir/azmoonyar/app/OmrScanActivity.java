@@ -695,8 +695,9 @@ public final class OmrScanActivity extends ComponentActivity {
             // Each correct answer earns +1; each definite wrong answer earns -1;
             // blank answers earn 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
+            // Wrong answers have no negative marking; blank answers also earn zero.
             ExamScorer.Result score = ExamScorer.score(
-                    activeKey, answers, 1.0, -1.0, 0.0);
+                    activeKey, answers, 1.0, 0.0, 0.0);
             if (!score.isComplete()) {
                 // Preserve the uncertain sheet for later human review, but never store a final score.
                 JSONArray queue;
