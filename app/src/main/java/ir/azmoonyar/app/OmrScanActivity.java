@@ -173,35 +173,7 @@ public final class OmrScanActivity extends ComponentActivity {
         guidance.setPadding(18, 8, 18, 10);
         page.addView(guidance, new LinearLayout.LayoutParams(-1, -2));
 
-        Button diagnosticButton = new Button(this);
-        diagnosticButton.setText("نمایش مختصات حباب‌ها");
-        diagnosticButton.setTextSize(14);
-        diagnosticButton.setAllCaps(false);
-        diagnosticButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
-        diagnosticButton.setTextColor(Color.rgb(7, 40, 130));
-        diagnosticButton.setElevation(8f * getResources().getDisplayMetrics().density);
-        diagnosticButton.setOnClickListener(v -> {
-            byte[] frame = diagnosticLuma;
-            SheetPerspectiveTransform transform = diagnosticTransform;
-            SheetPerspectiveTransform.Point[] markerPoints = diagnosticMarkerPoints;
-            double markerSizeMm = diagnosticMarkerSizeMm;
-            double[][][] centers = diagnosticCenters;
-            int w = diagnosticWidth, h = diagnosticHeight;
-            if (frame == null || transform == null || markerPoints == null
-                    || markerPoints.length != 4 || centers == null || w <= 0 || h <= 0) {
-                new AlertDialog.Builder(this)
-                        .setTitle("تصویر تشخیصی آماده نیست")
-                        .setMessage("ابتدا برگه را کامل داخل کادر دوربین بگیرید تا چهار مربع گوشه شناسایی شوند؛ سپس دوباره این دکمه را بزنید.")
-                        .setPositiveButton("باشه", null).show();
-                return;
-            }
-            showBubbleCoordinateOverlay(frame, w, h, transform, centers, markerPoints, markerSizeMm);
-        });
-        FrameLayout.LayoutParams diagnosticButtonParams = new FrameLayout.LayoutParams(
-                -1, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        int buttonMargin = Math.round(12 * getResources().getDisplayMetrics().density);
-        diagnosticButtonParams.setMargins(buttonMargin, buttonMargin, buttonMargin, buttonMargin);
-        cameraFrame.addView(diagnosticButton, diagnosticButtonParams);
+        // Diagnostic bubble overlays are intentionally removed from the normal scan screen.
         setContentView(page);
 
         participantName = getIntent().getStringExtra("participant_name");
@@ -316,7 +288,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     sheetConsumed = true;
                     voiceCaptureRequested = false;
                     stopVoiceCaptureListener();
-                    processRecognizedSheet(upright.pixels, upright.width, upright.height, transform);
+                    // Save the captured sheet image first, then correct from that saved image.
+                    captureAndCorrectSavedImage(upright.pixels, upright.width, upright.height, transform);
                 }
             } else {
                 stableMarkerFrames = 0;
@@ -659,6 +632,60 @@ public final class OmrScanActivity extends ComponentActivity {
             return key.toString();
         } catch (Exception ignored) {
             return "";
+        }
+    }
+
+    private void captureAndCorrectSavedImage(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform) {
+        Bitmap photo = null;
+        Bitmap savedPhoto = null;
+        try {
+            if (luma == null || width <= 0 || height <= 0
+                    || (long) width * height > 12000000L || luma.length < width * height) {
+                throw new java.io.IOException("Invalid captured frame");
+            }
+            photo = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            int[] pixels = new int[width * height];
+            for (int i = 0; i < pixels.length; i++) {
+                int gray = luma[i] & 0xff;
+                pixels[i] = Color.rgb(gray, gray, gray);
+            }
+            photo.setPixels(pixels, 0, width, 0, 0, width, height);
+            java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+            if (!photoDir.exists() && !photoDir.mkdirs()) {
+                throw new java.io.IOException("Cannot create answer sheet photo directory");
+            }
+            java.io.File photoFile = new java.io.File(photoDir,
+                    "answer_sheet_" + System.currentTimeMillis() + ".jpg");
+            try (java.io.FileOutputStream output = new java.io.FileOutputStream(photoFile)) {
+                if (!photo.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
+                    throw new java.io.IOException("JPEG encoding failed");
+                }
+                output.flush();
+            }
+            // Correction reads back the saved photo, not the live analysis buffer.
+            savedPhoto = android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath());
+            if (savedPhoto == null) throw new java.io.IOException("Saved photo could not be decoded");
+            int savedWidth = savedPhoto.getWidth(), savedHeight = savedPhoto.getHeight();
+            int[] savedPixels = new int[savedWidth * savedHeight];
+            savedPhoto.getPixels(savedPixels, 0, savedWidth, 0, 0, savedWidth, savedHeight);
+            byte[] savedLuma = new byte[savedPixels.length];
+            for (int i = 0; i < savedPixels.length; i++) {
+                int color = savedPixels[i];
+                savedLuma[i] = (byte) ((Color.red(color) * 299
+                        + Color.green(color) * 587 + Color.blue(color) * 114) / 1000);
+            }
+            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                    .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
+            updateStatus("عکس پاسخنامه ذخیره شد؛ سیستم تصحیح همان عکس را بررسی می‌کند…");
+            processRecognizedSheet(savedLuma, savedWidth, savedHeight, transform);
+        } catch (Exception error) {
+            updateSheetResultStatus("گرفتن عکس یا تصحیح آن ناموفق بود؛ دوباره فرمان «عکس بگیر» را بگویید.");
+            sheetConsumed = false;
+            ensureVoicePermissionAndStart();
+        } finally {
+            if (savedPhoto != null && !savedPhoto.isRecycled()) savedPhoto.recycle();
+            if (photo != null && !photo.isRecycled()) photo.recycle();
         }
     }
 
