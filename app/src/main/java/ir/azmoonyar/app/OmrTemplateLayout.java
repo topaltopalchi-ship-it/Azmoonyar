@@ -18,13 +18,13 @@ public final class OmrTemplateLayout {
 
     private static final double PAGE_SIDE_PADDING_MM = 12.0;
     private static final double COLUMN_GAP_MM = 3.0;
-    private static final double COLUMN_BORDER_MM = 0.3;
+    private static final double COLUMN_BORDER_MM = 0.25;
     private static final double COLUMN_PADDING_MM = 1.0;
-    private static final double COLUMN_VERTICAL_PADDING_MM = 1.5;
+    private static final double COLUMN_VERTICAL_PADDING_MM = 1.0;
     private static final double NUMBER_COLUMN_MM = 7.0;
     private static final double COLUMNS_TOP_MM = 44.0;
-    private static final double TABLE_HEADER_MM = 7.0;
-    private static final double TABLE_ROW_MM = 8.3;
+    private static final double TABLE_HEADER_MM = 6.0;
+    private static final double TABLE_ROW_MM = 8.0;
 
     private OmrTemplateLayout() {}
 
@@ -64,7 +64,7 @@ public final class OmrTemplateLayout {
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
                 // Printed table is LTR: question number, then A, B, C, D.
                 centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
-                        + (option + 0.5) * printedOptionCellWidth + 0.5;
+                        + (option + 0.5) * printedOptionCellWidth;
                 centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
             }
         }
