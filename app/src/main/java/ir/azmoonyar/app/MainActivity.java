@@ -885,17 +885,17 @@ public class MainActivity extends Activity {
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".mark{position:absolute;width:8mm;height:8mm;background:#000;z-index:2}.tl{top:5mm;left:5mm}.tr{top:5mm;right:5mm}.bl{bottom:5mm;left:5mm}.br{bottom:5mm;right:5mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2}.stl{top:5mm;left:15mm}.str{top:5mm;right:15mm}.sbl{bottom:5mm;left:15mm}.sbr{bottom:5mm;right:15mm}")
+                .append(".mark{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}.tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
                 .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:24mm;left:12mm;right:12mm;font-size:10px;margin:0;height:5mm}")
                 .append(".answer-page .instructions{position:absolute;top:32mm;left:12mm;right:12mm;height:10mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
-                .append(".answer-page .cols{position:absolute;top:48mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2mm;margin:0;direction:ltr}")
-                .append(".answer-page .col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
+                .append(".answer-page .cols{position:absolute;top:44mm;left:22mm;right:22mm;display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin:0;direction:ltr}")
+                .append(".answer-page .col{border:0.35mm solid #111;border-radius:2mm;padding:2mm 1.5mm;min-width:0;direction:ltr}")
                 .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;direction:ltr}")
-                .append(".answer-page th{font-size:8px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append(".answer-page td{height:7mm;text-align:center;padding:0;border:0;font-size:8px;direction:ltr}")
-                .append(".answer-page td.num{width:7mm;font-weight:bold;text-align:center}")
-                .append(".answer-page td.opt{width:auto}")
+                .append(".answer-page th{font-size:9px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
+                .append(".answer-page td{height:4.05mm;text-align:center;padding:0;border:0;font-size:8px;direction:ltr}")
+                .append(".answer-page td.num{width:13mm;font-weight:bold;text-align:center}")
+                .append(".answer-page td.opt{width:18.575mm}")
 
                 .append("</style></head><body>");
 
@@ -919,10 +919,10 @@ public class MainActivity extends Activity {
                 // belong only on answer sheets, so scanning a question page cannot be counted
                 // as a scanned answer sheet.
                 final int questionsPerPage = 25;
-                final int questionPageCount = 4;
+                final int questionPageCount = Math.max(1, (total + questionsPerPage - 1) / questionsPerPage);
                 for (int questionPage = 1; questionPage <= questionPageCount; questionPage++) {
                     int questionFirst = (questionPage - 1) * questionsPerPage;
-                    int questionLast = Math.min(questionPage * questionsPerPage, printLayoutQuestionCount);
+                    int questionLast = Math.min(questionPage * questionsPerPage, total);
                     html.append("<section class='page'><h1 class='head'>").append(safeExam)
                         .append(" — برگه سؤال‌ها</h1>")
                         .append("<div class='meta'>صفحه ").append(questionPage).append(" از ")
@@ -951,16 +951,15 @@ public class MainActivity extends Activity {
                     int last = printLayoutQuestionCount;
                     html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
-                        .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
-                        .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
+                        
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه</h1>")
                         .append("<div class='meta'>نام و نام خانوادگی: ........................................................</div>")
                         .append("<div class='meta'>صفحه ").append(page).append(" از ").append(pageCount)
                         .append(" | سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</div>")
                         .append("<div class='clear'></div><div class='instructions'>برای هر سؤال فقط یک دایره را کاملاً پر کنید. شماره سؤال‌ها در صفحه‌ها پیوسته است.</div><div class='cols'>");
-                    for (int col = 0; col < 4; col++) {
-                        int colFirst = first + col * 25;
-                        int colLast = Math.min(first + (col + 1) * 25, last);
+                    for (int col = 0; col < 2; col++) {
+                        int colFirst = first + col * 50;
+                        int colLast = Math.min(first + (col + 1) * 50, last);
                         if (colFirst >= last) continue;
                         html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                         for (int q = colFirst; q < colLast; q++) {
