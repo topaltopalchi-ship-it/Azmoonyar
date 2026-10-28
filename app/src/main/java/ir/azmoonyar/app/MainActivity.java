@@ -962,7 +962,7 @@ public class MainActivity extends Activity {
                         int colFirst = first + col * 25;
                         int colLast = Math.min(first + (col + 1) * 25, last);
                         if (colFirst >= last) continue;
-                        html.append("<div class='col'><table><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
+                        html.append("<div class='col'><table><colgroup><col style='width:7mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'></colgroup><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                         for (int q = colFirst; q < colLast; q++) {
                             html.append("<tr><td class='num'>").append(q + 1).append("</td>");
                             for (int option = 0; option < 4; option++) html.append("<td class='opt'><span class='bubble'></span></td>");
@@ -1143,7 +1143,7 @@ public class MainActivity extends Activity {
                 .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed}")
                 .append("th{font-size:8px;height:6mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append("td{height:8.5mm;text-align:center;padding:0;border:0;font-size:8.5px;direction:ltr}")
+                .append("td{height:8mm;text-align:center;padding:0;border:0;font-size:8.5px;direction:ltr}")
                 .append("td.num{width:7mm;font-weight:bold;text-align:center}")
                 .append("td.opt{width:auto}")
                 .append(".bubble{display:inline-block;width:4.3mm;height:3.4mm;border:0.4mm solid #111;border-radius:50%;vertical-align:middle}")
