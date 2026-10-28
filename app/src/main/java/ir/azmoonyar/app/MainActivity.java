@@ -2217,6 +2217,16 @@ public class MainActivity extends Activity {
                 detail.append("سؤال ").append(q.optInt("question", i + 1)).append(": ")
                     .append(q.optString("status", "نامشخص"));
                 if (option >= 0) detail.append(" (گزینهٔ ").append("ABCD".charAt(Math.min(3, option))).append(")");
+                JSONArray optionScores = q.optJSONArray("optionScores");
+                if (optionScores != null && optionScores.length() >= 4) {
+                    detail.append("\n  تیرگی حباب‌ها — ");
+                    for (int j = 0; j < 4; j++) {
+                        if (j > 0) detail.append(" | ");
+                        detail.append("ABCD".charAt(j)).append(": ")
+                            .append(String.format(java.util.Locale.US, "%.2f", optionScores.optDouble(j, 0)));
+                    }
+                    detail.append("\n");
+                }
                 detail.append("\n");
             }
         }
