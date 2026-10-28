@@ -167,8 +167,26 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
+        Button captureButton = new Button(this);
+        captureButton.setText("عکس بگیر و تصحیح کن");
+        captureButton.setTextSize(18);
+        captureButton.setAllCaps(false);
+        captureButton.setOnClickListener(v -> {
+            if (sheetConsumed) {
+                updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
+                return;
+            }
+            if (imageCapture == null) {
+                updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
+                return;
+            }
+            sheetConsumed = true;
+            captureRealPhotoAndCorrect();
+        });
+        page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
-        guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید و برای ثبت تصویر، بگویید: «عکس بگیر».");
+        guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -182,7 +200,6 @@ public final class OmrScanActivity extends ComponentActivity {
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
         cameraExecutor = Executors.newSingleThreadExecutor();
-        ensureVoicePermissionAndStart();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
@@ -291,13 +308,8 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
-                if (!sheetConsumed && voiceCaptureRequested && stableMarkerFrames >= 2) {
-                    sheetConsumed = true;
-                    voiceCaptureRequested = false;
-                    stopVoiceCaptureListener();
-                    // Save the captured sheet image first, then correct from that saved image.
-                    captureRealPhotoAndCorrect();
-                }
+                // Capture is initiated only by the explicit on-screen button.
+                // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
                 // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
@@ -631,14 +643,12 @@ public final class OmrScanActivity extends ComponentActivity {
         if (imageCapture == null || finished) {
             updateSheetResultStatus("دوربین برای ثبت عکس آماده نیست؛ دوباره تلاش کنید.");
             sheetConsumed = false;
-            ensureVoicePermissionAndStart();
             return;
         }
         java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
         if (!photoDir.exists() && !photoDir.mkdirs()) {
             updateSheetResultStatus("پوشهٔ ذخیرهٔ عکس ساخته نشد.");
             sheetConsumed = false;
-            ensureVoicePermissionAndStart();
             return;
         }
         java.io.File photoFile = new java.io.File(photoDir,
@@ -655,14 +665,12 @@ public final class OmrScanActivity extends ComponentActivity {
                         } catch (Exception error) {
                             updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
                             sheetConsumed = false;
-                            ensureVoicePermissionAndStart();
                         }
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
                         if (photoFile.exists()) photoFile.delete();
                         updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دوباره بگویید «عکس بگیر».");
                         sheetConsumed = false;
-                        ensureVoicePermissionAndStart();
                     }
                 });
     }
