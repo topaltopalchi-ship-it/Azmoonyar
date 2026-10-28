@@ -443,12 +443,20 @@ public final class OmrScanActivity extends ComponentActivity {
                 return;
             }
             if (answerKey.length() < total) {
-                updateSheetResultStatus("برگه شناسایی شد؛ ابتدا کلید پاسخ همین آزمون را کامل ثبت کنید.");
+                updateSheetResultStatus("برگه شناسایی شد؛ کلید پاسخ کامل نیست. از بخش «کلید پاسخ» پاسخ‌های آزمون را ثبت کنید.");
                 return;
+            }
+            for (int i = 0; i < total; i++) {
+                char keyLetter = Character.toUpperCase(answerKey.charAt(i));
+                if (keyLetter < 'A' || keyLetter > 'D') {
+                    updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ سؤال " + (i + 1)
+                            + " ثبت نشده یا نامعتبر است. از بخش «کلید پاسخ» گزینهٔ A، B، C یا D را تعیین کنید.");
+                    return;
+                }
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.0);
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             ExamScorer.Result score = ExamScorer.score(
