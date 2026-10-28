@@ -432,27 +432,56 @@ public final class OmrScanActivity extends ComponentActivity {
         return yPlane[y * width + x] & 0xff;
     }
 
+    private boolean isValidAnswerKey(String key, int total) {
+        if (key == null || key.length() < total) return false;
+        for (int i = 0; i < total; i++) {
+            char c = Character.toUpperCase(key.charAt(i));
+            if (c < 'A' || c > 'D') return false;
+        }
+        return true;
+    }
+
+    private String buildAnswerKeyFromQuestionBank(String json, int total) {
+        try {
+            JSONArray bank = new JSONArray(json == null ? "[]" : json);
+            if (bank.length() < total) return "";
+            StringBuilder key = new StringBuilder();
+            for (int i = 0; i < total; i++) {
+                JSONObject question = bank.optJSONObject(i);
+                int correct = question == null ? -1 : question.optInt("correct_index", -1);
+                if (correct < 0 || correct > 3) return "";
+                key.append((char) ('A' + correct));
+            }
+            return key.toString();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private void processRecognizedSheet(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform) {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             String answerKey = prefs.getString("answer_key", "");
+            // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
+            // not from the legacy answer_key field. Prefer a complete saved model key,
+            // then derive the original key from the same question bank shown in that dialog.
+            if (!isValidAnswerKey(answerKey, total)) {
+                String modelKey = prefs.getString("answer_key_model_A", "");
+                if (isValidAnswerKey(modelKey, total)) {
+                    answerKey = modelKey;
+                } else {
+                    answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
+                }
+            }
             if (participantName.trim().isEmpty()) {
                 updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
                 return;
             }
-            if (answerKey.length() < total) {
-                updateSheetResultStatus("برگه شناسایی شد؛ کلید پاسخ کامل نیست. از بخش «کلید پاسخ» پاسخ‌های آزمون را ثبت کنید.");
+            if (!isValidAnswerKey(answerKey, total)) {
+                updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ معتبر و کامل پیدا نشد. بانک سؤال و پاسخ صحیح هر سؤال را بررسی کنید.");
                 return;
-            }
-            for (int i = 0; i < total; i++) {
-                char keyLetter = Character.toUpperCase(answerKey.charAt(i));
-                if (keyLetter < 'A' || keyLetter > 'D') {
-                    updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ سؤال " + (i + 1)
-                            + " ثبت نشده یا نامعتبر است. از بخش «کلید پاسخ» گزینهٔ A، B، C یا D را تعیین کنید.");
-                    return;
-                }
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
