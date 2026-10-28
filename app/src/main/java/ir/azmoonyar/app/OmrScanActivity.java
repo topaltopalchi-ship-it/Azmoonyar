@@ -559,8 +559,10 @@ public final class OmrScanActivity extends ComponentActivity {
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             // One-time diagnostic: draw every sampled A/B/C/D center on the exact
             // upright camera frame, so coordinate misalignment can be visually checked.
-            if (prefs.getBoolean("omr_coordinate_overlay_first_sheet", true)) {
-                prefs.edit().putBoolean("omr_coordinate_overlay_first_sheet", false).apply();
+            // Keep the overlay enabled until calibration is confirmed. The previous
+            // one-shot flag was consumed before the dialog was visibly shown, making
+            // a transient UI/image error silently disable diagnostics for all later scans.
+            if (prefs.getBoolean("omr_coordinate_overlay_enabled", true)) {
                 showBubbleCoordinateOverlay(luma, width, height, transform, centers);
             }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
@@ -630,11 +632,20 @@ public final class OmrScanActivity extends ComponentActivity {
         // Called from the camera analyzer thread; build the diagnostic image there,
         // then display it on the UI thread. The original luminance array is not retained.
         try {
+            if (luma == null || width <= 0 || height <= 0
+                    || (long) width * height > 12000000L) {
+                updateSheetResultStatus("تصویر تشخیصی معتبر نیست؛ دوباره برگه را اسکن کنید.");
+                return;
+            }
             Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             int[] pixels = new int[width * height];
-            for (int i = 0; i < pixels.length; i++) {
+            int available = Math.min(luma.length, pixels.length);
+            for (int i = 0; i < available; i++) {
                 int gray = luma[i] & 0xff;
                 pixels[i] = Color.rgb(gray, gray, gray);
+            }
+            for (int i = available; i < pixels.length; i++) {
+                pixels[i] = Color.BLACK;
             }
             bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
             Canvas canvas = new Canvas(bitmap);
@@ -694,8 +705,10 @@ public final class OmrScanActivity extends ComponentActivity {
                         })
                         .show();
             });
-        } catch (RuntimeException ignored) {
-            // Diagnostics must never interrupt normal scan processing.
+        } catch (RuntimeException error) {
+            runOnUiThread(() -> updateSheetResultStatus(
+                    "نمایش تصویر تشخیصی ناموفق بود: "
+                    + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage())));
         }
     }
 
