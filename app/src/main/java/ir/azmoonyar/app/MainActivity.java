@@ -194,13 +194,7 @@ public class MainActivity extends Activity {
             dialog.getWindow().setBackgroundDrawable(bg);
             Button ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             if (ok != null) {
-                android.graphics.drawable.GradientDrawable buttonBg = new android.graphics.drawable.GradientDrawable(
-                        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{Color.rgb(37, 99, 235), Color.rgb(79, 70, 229)});
-                buttonBg.setCornerRadius(dp(12));
-                ok.setBackground(buttonBg);
-                ok.setTextColor(Color.WHITE);
-                ok.setTypeface(null, android.graphics.Typeface.BOLD);
+                stylePinkOvalButton(ok);
             }
         });
         dialog.show();
@@ -234,17 +228,9 @@ public class MainActivity extends Activity {
 
         Button free = new Button(this);
         free.setText("ورود رایگان");
-        free.setAllCaps(false);
+        stylePinkOvalButton(free);
         free.setTextSize(17);
-        free.setTypeface(null, android.graphics.Typeface.BOLD);
-        free.setTextColor(Color.WHITE);
-        android.graphics.drawable.GradientDrawable freeBg = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{Color.rgb(37, 99, 235), Color.rgb(79, 70, 229)});
-        freeBg.setCornerRadius(dp(18));
-        freeBg.setStroke(dp(2), Color.rgb(147, 197, 253));
-        free.setBackground(freeBg);
-        free.setElevation(dp(6));
+        free.setMinHeight(dp(60));
         page.addView(free, new LinearLayout.LayoutParams(-1, dp(60)));
         free.setOnClickListener(v -> {
             prefs.edit().putString("entry_mode", "free_local").apply();
@@ -253,15 +239,9 @@ public class MainActivity extends Activity {
 
         Button create = new Button(this);
         create.setText("ساخت حساب");
-        create.setAllCaps(false);
+        stylePinkOvalButton(create);
         create.setTextSize(16);
-        create.setTypeface(null, android.graphics.Typeface.BOLD);
-        create.setTextColor(Color.rgb(30, 64, 130));
-        android.graphics.drawable.GradientDrawable createBg = new android.graphics.drawable.GradientDrawable();
-        createBg.setColor(Color.WHITE);
-        createBg.setCornerRadius(dp(18));
-        createBg.setStroke(dp(2), Color.rgb(147, 177, 230));
-        create.setBackground(createBg);
+        create.setMinHeight(dp(58));
         LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(-1, dp(58));
         createParams.topMargin = dp(12);
         page.addView(create, createParams);
@@ -334,22 +314,9 @@ public class MainActivity extends Activity {
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
         Button scanCorrection = new Button(this);
         scanCorrection.setText("اسکن و تصحیح");
-        scanCorrection.setAllCaps(false);
+        stylePinkOvalButton(scanCorrection);
         scanCorrection.setTextSize(18);
-        scanCorrection.setTypeface(null, android.graphics.Typeface.BOLD);
-        scanCorrection.setTextColor(Color.WHITE);
-        scanCorrection.setGravity(Gravity.CENTER);
         scanCorrection.setMinHeight(dp(68));
-        scanCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
-        android.graphics.drawable.GradientDrawable scanBlue = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(0, 174, 255), Color.rgb(0, 91, 255), Color.rgb(0, 35, 160)});
-        scanBlue.setCornerRadius(dp(48));
-        scanBlue.setStroke(dp(3), Color.rgb(0, 210, 255));
-        scanCorrection.setBackground(new RippleDrawable(
-                ColorStateList.valueOf(Color.argb(145, 255, 255, 255)), scanBlue, null));
-        scanCorrection.setElevation(dp(12));
-        scanCorrection.setStateListAnimator(null);
         scanCorrection.setContentDescription("دکمهٔ اصلی اسکن و تصحیح پاسخنامه");
         scanCorrection.setOnTouchListener((view, event) -> {
             switch (event.getActionMasked()) {
@@ -1945,39 +1912,8 @@ public class MainActivity extends Activity {
     }
 
     private void styleTurquoiseDashboardButton(Button button) {
-        button.setAllCaps(false);
-        button.setTextColor(Color.rgb(157, 23, 77));
-        android.graphics.drawable.GradientDrawable base = turquoiseButtonBackground(false);
-        android.graphics.drawable.GradientDrawable wave = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.argb(125, 255, 255, 255), Color.argb(18, 255, 255, 255),
-                        Color.argb(65, 236, 72, 153)});
-        wave.setCornerRadius(dp(27));
-        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
-                new android.graphics.drawable.Drawable[]{base, wave});
-        layers.setLayerInset(1, dp(3), dp(3), dp(3), dp(5));
-        button.setBackground(new RippleDrawable(
-                ColorStateList.valueOf(Color.argb(125, 255, 255, 255)), layers, null));
-        button.setElevation(dp(9));
-        button.setTranslationZ(dp(2));
-        button.setShadowLayer(dp(1), 0, dp(2), Color.argb(100, 131, 24, 67));
-        button.setPadding(dp(14), dp(10), dp(14), dp(10));
-        button.setOnTouchListener((view, event) -> {
-            switch (event.getAction()) {
-                case android.view.MotionEvent.ACTION_DOWN:
-                    view.animate().translationY(dp(4)).scaleX(0.985f).scaleY(0.96f)
-                            .setDuration(65).start();
-                    view.setElevation(dp(3));
-                    break;
-                case android.view.MotionEvent.ACTION_UP:
-                case android.view.MotionEvent.ACTION_CANCEL:
-                    view.animate().translationY(0).scaleX(1f).scaleY(1f)
-                            .setDuration(130).start();
-                    view.setElevation(dp(9));
-                    break;
-            }
-            return false;
-        });
+        // Match the dashboard: alternating glossy electric blue and vivid green oval buttons.
+        stylePinkOvalButton(button);
     }
 
     private void showTurquoiseMenu(String title, String[] items, java.util.function.IntConsumer onChoose,
