@@ -577,6 +577,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("optionIndex", answer.optionIndex);
                     item.put("margin", answer.margin);
                     item.put("strongestScore", answer.strongestScore);
+                    JSONArray optionScores = new JSONArray();
+                    for (double darkness : questions.get(i).darkness) {
+                        optionScores.put(darkness);
+                    }
+                    item.put("optionScores", optionScores);
                     questionStates.put(item);
                 }
                 pending.put("questions", questionStates);
