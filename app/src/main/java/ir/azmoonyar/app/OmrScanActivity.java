@@ -172,6 +172,11 @@ public final class OmrScanActivity extends ComponentActivity {
 
         Button diagnosticButton = new Button(this);
         diagnosticButton.setText("نمایش مختصات حباب‌ها");
+        diagnosticButton.setTextSize(14);
+        diagnosticButton.setAllCaps(false);
+        diagnosticButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        diagnosticButton.setTextColor(Color.rgb(7, 40, 130));
+        diagnosticButton.setElevation(8f * getResources().getDisplayMetrics().density);
         diagnosticButton.setOnClickListener(v -> {
             byte[] frame = diagnosticLuma;
             SheetPerspectiveTransform transform = diagnosticTransform;
@@ -189,7 +194,11 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             showBubbleCoordinateOverlay(frame, w, h, transform, centers, markerPoints, markerSizeMm);
         });
-        page.addView(diagnosticButton, new LinearLayout.LayoutParams(-1, -2));
+        FrameLayout.LayoutParams diagnosticButtonParams = new FrameLayout.LayoutParams(
+                -1, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        int buttonMargin = Math.round(12 * getResources().getDisplayMetrics().density);
+        diagnosticButtonParams.setMargins(buttonMargin, buttonMargin, buttonMargin, buttonMargin);
+        cameraFrame.addView(diagnosticButton, diagnosticButtonParams);
         setContentView(page);
 
         participantName = getIntent().getStringExtra("participant_name");
