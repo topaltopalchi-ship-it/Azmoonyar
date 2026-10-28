@@ -372,7 +372,33 @@ public class MainActivity extends Activity {
         Button voiceEntry = new Button(this);
         voiceEntry.setText("🎙 ثبت نام با صدا");
         voiceEntry.setAllCaps(false);
-        panel.addView(voiceEntry, new LinearLayout.LayoutParams(-1, -2));
+        voiceEntry.setTextColor(Color.WHITE);
+        voiceEntry.setTextSize(19);
+        voiceEntry.setTypeface(null, android.graphics.Typeface.BOLD);
+        voiceEntry.setGravity(Gravity.CENTER);
+        voiceEntry.setPadding(dp(18), dp(14), dp(18), dp(14));
+        android.graphics.drawable.GradientDrawable redBase = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.rgb(255, 92, 110), Color.rgb(235, 35, 65), Color.rgb(170, 0, 38)});
+        redBase.setCornerRadius(dp(42));
+        redBase.setStroke(dp(3), Color.rgb(255, 150, 160));
+        voiceEntry.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(150,255,255,255)), redBase, null));
+        voiceEntry.setElevation(dp(12));
+        voiceEntry.setStateListAnimator(null);
+        voiceEntry.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+                view.animate().translationY(dp(4)).setDuration(70).start();
+                view.setElevation(dp(4));
+            } else if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
+                    || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
+                view.animate().translationY(0).setDuration(100).start();
+                view.setElevation(dp(12));
+            }
+            return false;
+        });
+        LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, dp(66));
+        voiceParams.topMargin = dp(10);
+        panel.addView(voiceEntry, voiceParams);
         final PersianVosk[] recognizer = new PersianVosk[1];
         voiceEntry.setOnClickListener(v -> {
             if (recognizer[0] != null) recognizer[0].stop();
@@ -617,21 +643,44 @@ public class MainActivity extends Activity {
     }
 
     private void showExamDialog() {
-        LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(8),dp(6),dp(8),dp(2));
-        EditText name=new EditText(this); styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName()); form.addView(name);
-        EditText count=new EditText(this); styleInput(count); count.setSingleLine(true); count.setInputType(2); count.setHint("تعداد سؤال (۱ تا ۱۰۰)"); count.setText(String.valueOf(questionCount())); form.addView(count);
-        styledDialogBuilder().setTitle("تعریف / ویرایش آزمون").setView(form)
-          .setNegativeButton("انصراف",null)
-          .setNeutralButton("ثبت‌نام شرکت‌کنندگان",(d,w)->showStudentsDialog())
-          .setPositiveButton("ذخیره",(d,w)->{
-            String n=name.getText().toString().trim(); int c;
-            try { c=Integer.parseInt(count.getText().toString().trim()); } catch(Exception e) { info("تعداد سؤال را به‌صورت عدد وارد کن."); return; }
-            if(n.isEmpty() || c<1 || c>100) { info("نام آزمون لازم است و تعداد سؤال باید بین ۱ تا ۱۰۰ باشد."); return; }
-            String old=key(); StringBuilder nk=new StringBuilder();
-            for(int i=0;i<c;i++) nk.append(i<old.length()?old.charAt(i):'-');
-            prefs.edit().putString("exam_name",n).putInt("question_count",c).putString("answer_key",nk.toString()).apply();
-            refreshSummary(); info("آزمون روی دستگاه ذخیره شد.");
-          }).show();
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(8), dp(6), dp(8), dp(6));
+        EditText name = new EditText(this);
+        styleInput(name); name.setSingleLine(true); name.setHint("نام آزمون"); name.setText(examName());
+        content.addView(name);
+        EditText count = new EditText(this);
+        styleInput(count); count.setSingleLine(true); count.setInputType(2);
+        count.setHint("تعداد سؤال (۱ تا ۱۰۰)"); count.setText(String.valueOf(questionCount()));
+        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-1, -2);
+        countParams.topMargin = dp(6); content.addView(count, countParams);
+
+        Button save = new Button(this); save.setText("ذخیره"); stylePinkOvalButton(save);
+        Button students = new Button(this); students.setText("ثبت‌نام شرکت‌کنندگان"); stylePinkOvalButton(students);
+        Button cancel = new Button(this); cancel.setText("انصراف"); stylePinkOvalButton(cancel);
+        for (Button b : new Button[]{save, students, cancel}) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(52));
+            lp.topMargin = dp(8); content.addView(b, lp);
+        }
+        AlertDialog dialog = styledDialogBuilder().setTitle("تعریف / ویرایش آزمون")
+                .setView(content).create();
+        save.setOnClickListener(v -> {
+            String n = name.getText().toString().trim();
+            int c;
+            try { c = Integer.parseInt(count.getText().toString().trim()); }
+            catch (Exception e) { info("تعداد سؤال را به‌صورت عدد وارد کن."); return; }
+            if (n.isEmpty() || c < 1 || c > 100) {
+                info("نام آزمون لازم است و تعداد سؤال باید بین ۱ تا ۱۰۰ باشد."); return;
+            }
+            String old = key(); StringBuilder nk = new StringBuilder();
+            for (int i = 0; i < c; i++) nk.append(i < old.length() ? old.charAt(i) : '-');
+            prefs.edit().putString("exam_name", n).putInt("question_count", c)
+                    .putString("answer_key", nk.toString()).apply();
+            refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
+        });
+        students.setOnClickListener(v -> { dialog.dismiss(); showStudentsDialog(); });
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 
     private JSONArray readStudents() {
