@@ -430,6 +430,23 @@ public final class OmrScanActivity extends ComponentActivity {
             double spacingInMarkerWidths = meanHorizontal / Math.max(1.0, expectedMarkerPixels);
             boolean sidesConsistent = ratio(top, bottom) < 2.2
                     && ratio(left, right) < 2.2;
+
+            // THIRD CRITERION: validate both diagonals as a second independent
+            // geometry check. For the primary marks, the canonical center-to-center
+            // spans are 184 mm horizontally and 271 mm vertically. Their diagonals
+            // should therefore be close to sqrt(184^2 + 271^2), after perspective
+            // distortion. Do not demand a literal 45-degree angle: an A4 portrait
+            // sheet is not square, so its diagonal is about 35 degrees to the long
+            // horizontal axis in the ideal page geometry.
+            double diagonal14 = distance(points[0], points[2]);
+            double diagonal23 = distance(points[1], points[3]);
+            double meanDiagonal = (diagonal14 + diagonal23) * 0.5;
+            double expectedDiagonal = Math.hypot(meanHorizontal, meanVertical);
+            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.45;
+            boolean diagonalsMatchSideScale = expectedDiagonal > 0
+                    && meanDiagonal / expectedDiagonal >= 0.70
+                    && meanDiagonal / expectedDiagonal <= 1.35;
+
             // Large corner marks yield about 11.5 marker-widths between centers.
             // The auxiliary squares yield over 50, so they fail this second test.
             boolean spacingMatchesPrimaryMarks = spacingInMarkerWidths >= 7.0
@@ -438,7 +455,8 @@ public final class OmrScanActivity extends ComponentActivity {
             // implausible point sets before computing bubble coordinates.
             double pageShape = meanHorizontal / Math.max(1.0, meanVertical);
             boolean portraitShape = pageShape >= 0.30 && pageShape <= 1.25;
-            if (!sidesConsistent || !spacingMatchesPrimaryMarks || !portraitShape) {
+            if (!sidesConsistent || !spacingMatchesPrimaryMarks || !portraitShape
+                    || !diagonalsMatchEachOther || !diagonalsMatchSideScale) {
                 return new MarkerDetection(0, new SheetPerspectiveTransform.Point[4], markerSizeMm);
             }
         }
