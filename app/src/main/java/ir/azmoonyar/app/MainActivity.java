@@ -1167,7 +1167,7 @@ public class MainActivity extends Activity {
                 for (int col = 0; col < 4; col++) {
                     int colFirst = first + col * 25;
                     int colLast = Math.min(last, colFirst + 24);
-                    html.append("<div class='col'><table><thead><tr><th>Question</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
+                    html.append("<div class='col'><table><colgroup><col style='width:7mm'><col><col><col><col></colgroup><thead><tr><th>Question</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                     for (int q = colFirst; q <= colLast; q++) {
                         html.append("<tr><td class='num'>").append(q).append("</td>");
                         for (int option = 0; option < 4; option++) html.append("<td class='opt'><span class='bubble'></span></td>");
