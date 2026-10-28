@@ -1114,11 +1114,9 @@ public class MainActivity extends Activity {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
-        final int total = Math.max(1, Math.min(100, questionCount()));
-        if (total < 1 || total > 100) {
-            info("تعداد سؤال باید بین ۱ تا ۱۰۰ باشد.");
-            return;
-        }
+        // The printable OMR master is always a fixed 100-question A4 sheet,
+        // independent of the current exam's configured question count.
+        final int total = 100;
         try {
             String safeExam = escapeHtml(examName());
             StringBuilder html = new StringBuilder();
