@@ -1204,10 +1204,21 @@ public class MainActivity extends Activity {
         String formatted = formatAnswerKey(value, questionCount());
         String[] lines = formatted.split("\\n");
         for (String line : lines) {
-            if (line.trim().isEmpty()) continue;
-            Button answer = new Button(this);
-            answer.setText(line.trim());
-            styleTurquoiseDashboardButton(answer);
+            String item = line.trim();
+            if (item.isEmpty() || item.startsWith("تکمیل:")) continue;
+            TextView answer = new TextView(this);
+            answer.setText(item);
+            answer.setTextSize(16);
+            answer.setTypeface(null, android.graphics.Typeface.BOLD);
+            answer.setTextColor(Color.rgb(157, 23, 77));
+            answer.setGravity(Gravity.CENTER);
+            answer.setClickable(false);
+            answer.setFocusable(false);
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
+            pill.setColor(Color.rgb(253, 242, 248));
+            pill.setCornerRadius(dp(28));
+            pill.setStroke(dp(1), Color.rgb(236, 72, 153));
+            answer.setBackground(pill);
             LinearLayout.LayoutParams answerLp = new LinearLayout.LayoutParams(-1, dp(44));
             answerLp.setMargins(0, dp(3), 0, dp(3));
             answers.addView(answer, answerLp);
