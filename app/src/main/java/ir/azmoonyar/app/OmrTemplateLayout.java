@@ -24,7 +24,7 @@ public final class OmrTemplateLayout {
     private static final double NUMBER_COLUMN_MM = 7.0;
     private static final double COLUMNS_TOP_MM = 44.0;
     private static final double TABLE_HEADER_MM = 6.0;
-    private static final double TABLE_ROW_MM = 7.9;
+    private static final double TABLE_ROW_MM = 8.3;
 
     private OmrTemplateLayout() {}
 
