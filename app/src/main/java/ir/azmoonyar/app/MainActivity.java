@@ -1375,7 +1375,7 @@ public class MainActivity extends Activity {
             out.append(String.format(Locale.ROOT, "%02d: %s%n", i + 1,
                     (a >= 'A' && a <= 'D') ? String.valueOf(a) : "ثبت نشده"));
         }
-        out.insert(0, "تکمیل: " + filled + "/" + count + "\\n");
+        out.insert(0, "تکمیل: " + filled + "/" + count + "\n");
         return out.toString();
     }
 
