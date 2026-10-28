@@ -341,12 +341,13 @@ public class MainActivity extends Activity {
         scanCorrection.setGravity(Gravity.CENTER);
         scanCorrection.setMinHeight(dp(68));
         scanCorrection.setPadding(dp(12), dp(10), dp(12), dp(10));
-        android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable(
+        android.graphics.drawable.GradientDrawable scanBlue = new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(255, 76, 177), Color.rgb(238, 0, 120), Color.rgb(180, 0, 86)});
-        pink.setCornerRadius(dp(48));
-        pink.setStroke(dp(3), Color.rgb(255, 90, 190));
-        scanCorrection.setBackground(pink);
+                new int[]{Color.rgb(0, 174, 255), Color.rgb(0, 91, 255), Color.rgb(0, 35, 160)});
+        scanBlue.setCornerRadius(dp(48));
+        scanBlue.setStroke(dp(3), Color.rgb(0, 210, 255));
+        scanCorrection.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(145, 255, 255, 255)), scanBlue, null));
         scanCorrection.setElevation(dp(12));
         scanCorrection.setStateListAnimator(null);
         scanCorrection.setContentDescription("دکمهٔ اصلی اسکن و تصحیح پاسخنامه");
@@ -477,29 +478,47 @@ public class MainActivity extends Activity {
         row.addView(typed, p);
     }
 
+    private int dashboardButtonColorIndex = 0;
+
+    // Shared glossy dashboard style: alternate electric blue and vivid green, with a tactile press.
     private void stylePinkOvalButton(Button button) {
         button.setAllCaps(false);
         button.setTextColor(Color.WHITE);
         button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
         button.setPadding(dp(16), dp(10), dp(16), dp(10));
-        android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable(
+        boolean blue = (dashboardButtonColorIndex++ % 2 == 0);
+        int c1 = blue ? Color.rgb(0, 174, 255) : Color.rgb(0, 238, 78);
+        int c2 = blue ? Color.rgb(0, 91, 255) : Color.rgb(0, 190, 55);
+        int c3 = blue ? Color.rgb(0, 35, 160) : Color.rgb(0, 105, 38);
+        int border = blue ? Color.rgb(0, 210, 255) : Color.rgb(0, 255, 115);
+        android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(255, 104, 190), Color.rgb(238, 0, 120), Color.rgb(177, 0, 82)});
-        pink.setCornerRadius(dp(48));
-        pink.setStroke(dp(2), Color.rgb(255, 135, 205));
-        button.setBackground(pink);
-        button.setElevation(dp(5));
+                new int[]{c1, c2, c2, c3});
+        base.setCornerRadius(dp(38));
+        base.setStroke(dp(3), border);
+        android.graphics.drawable.GradientDrawable shine = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(85, 255, 255, 255), Color.argb(18, 255, 255, 255),
+                        Color.argb(65, 0, 20, 90)});
+        shine.setCornerRadius(dp(34));
+        android.graphics.drawable.LayerDrawable layers = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{base, shine});
+        layers.setLayerInset(1, dp(4), dp(4), dp(4), dp(6));
+        button.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Color.argb(145, 255, 255, 255)), layers, null));
+        button.setElevation(dp(10));
         button.setStateListAnimator(null);
         button.setOnTouchListener((view, event) -> {
             switch (event.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_DOWN:
-                    view.animate().translationY(dp(2)).setDuration(65).start();
-                    view.setElevation(dp(2));
+                    view.animate().translationY(dp(3)).setDuration(70).start();
+                    view.setElevation(dp(3));
                     break;
                 case android.view.MotionEvent.ACTION_UP:
                 case android.view.MotionEvent.ACTION_CANCEL:
-                    view.animate().translationY(0).setDuration(90).start();
-                    view.setElevation(dp(5));
+                    view.animate().translationY(0).setDuration(100).start();
+                    view.setElevation(dp(10));
                     break;
             }
             return false;
