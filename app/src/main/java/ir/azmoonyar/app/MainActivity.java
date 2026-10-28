@@ -1507,7 +1507,7 @@ public class MainActivity extends Activity {
     }
 
     private void confirmClearQuestionBank() {
-        new AlertDialog.Builder(this).setTitle("پاک کردن بانک سؤال")
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("پاک کردن بانک سؤال")
             .setMessage("همهٔ سؤال‌های بانک و کلید فرم واحد پاک شوند؟ این کار قابل بازگشت نیست.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("پاک کردن", (d, w) -> {
@@ -1519,7 +1519,14 @@ public class MainActivity extends Activity {
                     .apply();
                 refreshSummary();
                 info("بانک سؤال و کلید فرم واحد پاک شدند.");
-            }).show();
+            }).create();
+        dialog.setOnShowListener(d -> {
+            Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            Button clear = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            if (cancel != null) styleTurquoiseDashboardButton(cancel);
+            if (clear != null) styleTurquoiseDashboardButton(clear);
+        });
+        dialog.show();
     }
 
     private JSONArray readSavedExamBatches() {
