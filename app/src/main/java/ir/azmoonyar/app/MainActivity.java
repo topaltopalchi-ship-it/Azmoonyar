@@ -1007,13 +1007,65 @@ public class MainActivity extends Activity {
             .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 
+    /** Print only the question paper, paginated at 25 complete questions per A4 page. */
+    private void printQuestionnaireOnly() {
+        if (examName().trim().isEmpty()) { info("ابتدا آزمون را تعریف کن."); return; }
+        JSONArray bank = readQuestionBank();
+        final int total = questionCount();
+        if (total < 1 || bank.length() < total) {
+            info("ابتدا بانک سؤال را تا تعداد سؤال‌های آزمون کامل کن.");
+            return;
+        }
+        StringBuilder html = new StringBuilder();
+        String safeExam = escapeHtml(examName());
+        html.append("<html><head><meta charset='utf-8'><style>")
+            .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
+            .append("body{margin:0;font-family:sans-serif;color:#111;direction:rtl}")
+            .append(".page{width:210mm;height:297mm;padding:14mm 14mm 12mm;page-break-after:always;overflow:hidden}")
+            .append(".page:last-child{page-break-after:auto}.head{text-align:center;font-size:18px;margin:0 0 5mm}")
+            .append(".meta{font-size:10pt;margin-bottom:5mm;border-bottom:1px solid #888;padding-bottom:3mm}")
+            .append(".q{font-size:12pt;margin:0 0 5mm;break-inside:avoid;page-break-inside:avoid}")
+            .append(".opts{display:grid;grid-template-columns:1fr 1fr;gap:2mm 6mm;direction:rtl;font-size:11pt;margin:2mm 5mm 0}")
+            .append("</style></head><body>");
+        int perPage = 25;
+        int pages = (total + perPage - 1) / perPage;
+        for (int page=0; page<pages; page++) {
+            int first = page * perPage;
+            int last = Math.min(total, first + perPage);
+            html.append("<section class='page'><h1 class='head'>").append(safeExam).append(" — پرسشنامه</h1>")
+                .append("<div class='meta'>صفحه ").append(page+1).append(" از ").append(pages)
+                .append(" | سؤال‌های ").append(first+1).append(" تا ").append(last).append("</div>");
+            for (int i=first; i<last; i++) {
+                JSONObject q=bank.optJSONObject(i);
+                if (q==null || q.optString("text","").trim().isEmpty()) {
+                    info("متن سؤال " + (i+1) + " خالی است؛ چاپ انجام نشد."); return;
+                }
+                JSONArray options=q.optJSONArray("options");
+                if(options==null || options.length()!=4) {
+                    info("سؤال " + (i+1) + " باید چهار گزینهٔ کامل داشته باشد؛ چاپ انجام نشد."); return;
+                }
+                html.append("<article class='q'><b>").append(i+1).append(". ")
+                    .append(escapeHtml(q.optString("text",""))).append("</b><div class='opts'>");
+                for(int j=0;j<4;j++) {
+                    String option=options.optString(j,"").trim();
+                    if(option.isEmpty()) { info("گزینهٔ " + (char)('A'+j) + " سؤال " + (i+1) + " خالی است."); return; }
+                    html.append("<div>").append((char)('A'+j)).append(") ").append(escapeHtml(option)).append("</div>");
+                }
+                html.append("</div></article>");
+            }
+            html.append("</section>");
+        }
+        html.append("</body></html>");
+        printHtmlDocument("AzmoonYar-Questionnaire-" + examName(), html.toString());
+    }
+
     /** Prints the standard OMR sheet as one A4 page per 100 questions. */
     private void printStandardAnswerSheets() {
         if (examName().trim().isEmpty()) {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
-        final int total = 100;
+        final int total = Math.max(1, Math.min(100, questionCount()));
         if (total < 1 || total > 100) {
             info("تعداد سؤال باید بین ۱ تا ۱۰۰ باشد.");
             return;
@@ -1399,8 +1451,10 @@ public class MainActivity extends Activity {
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); styleTurquoiseDashboardButton(saved);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
-        Button generate = new Button(this); generate.setText("چاپ پرسشنامه و پاسخنامه"); styleTurquoiseDashboardButton(generate);
-        generate.setOnClickListener(v -> printPairedSheets("", UUID.randomUUID().toString(), 1)); panel.addView(generate);
+        Button printQuestions = new Button(this); printQuestions.setText("چاپ پرسشنامه فقط"); styleTurquoiseDashboardButton(printQuestions);
+        printQuestions.setOnClickListener(v -> printQuestionnaireOnly()); panel.addView(printQuestions);
+        Button printAnswers = new Button(this); printAnswers.setText("چاپ پاسخنامه فقط"); styleTurquoiseDashboardButton(printAnswers);
+        printAnswers.setOnClickListener(v -> printStandardAnswerSheets()); panel.addView(printAnswers);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
     }
