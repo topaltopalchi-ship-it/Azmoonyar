@@ -894,7 +894,7 @@ public class MainActivity extends Activity {
                 .append(".answer-page .col{border:0.3mm solid #555;border-radius:0;padding:1.5mm 1mm;min-width:0;direction:ltr}")
                 .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;direction:ltr}")
                 .append(".answer-page th{font-size:8.5px;height:7mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append(".answer-page td{height:8.5mm;text-align:center;padding:0;border:0;font-size:8.5px;direction:ltr}")
+                .append(".answer-page tbody tr{height:8.8mm}.answer-page td{height:8.8mm;min-height:8.8mm;text-align:center;padding:0;border:0;font-size:8.5px;direction:ltr}")
                 .append(".answer-page td.num{width:7mm;font-weight:bold;text-align:center;white-space:nowrap}")
                 .append(".answer-page td.opt{width:auto;padding:0 0.5mm}")
 
