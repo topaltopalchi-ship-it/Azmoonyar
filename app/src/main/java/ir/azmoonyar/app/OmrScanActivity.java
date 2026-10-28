@@ -411,7 +411,49 @@ public final class OmrScanActivity extends ComponentActivity {
             for (double size : sizes) if (size > 0) sum += size;
             markerSizeMm = sum / found;
         }
+
+        // SECOND CRITERION: check the spacing between the four chosen squares.
+        // The primary 16 mm corner marks have centers 184 mm apart horizontally
+        // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
+        // apart (24.5 mm to 185.5 mm). Prefer/accept a set whose measured
+        // inter-corner spacing is consistent with the physical size of the
+        // selected marks; this catches a small square being mistaken for a
+        // page corner even when its shape score is high.
+        if (found == 4 && markerSizeMm > 0) {
+            double top = distance(points[0], points[1]);
+            double right = distance(points[1], points[2]);
+            double bottom = distance(points[2], points[3]);
+            double left = distance(points[3], points[0]);
+            double meanHorizontal = (top + bottom) * 0.5;
+            double meanVertical = (left + right) * 0.5;
+            double expectedMarkerPixels = markerSizeMm * gw / 210.0;
+            double spacingInMarkerWidths = meanHorizontal / Math.max(1.0, expectedMarkerPixels);
+            boolean sidesConsistent = ratio(top, bottom) < 2.2
+                    && ratio(left, right) < 2.2;
+            // Large corner marks yield about 11.5 marker-widths between centers.
+            // The auxiliary squares yield over 50, so they fail this second test.
+            boolean spacingMatchesPrimaryMarks = spacingInMarkerWidths >= 7.0
+                    && spacingInMarkerWidths <= 22.0;
+            // A page is portrait; allow substantial perspective skew, but reject
+            // implausible point sets before computing bubble coordinates.
+            double pageShape = meanHorizontal / Math.max(1.0, meanVertical);
+            boolean portraitShape = pageShape >= 0.30 && pageShape <= 1.25;
+            if (!sidesConsistent || !spacingMatchesPrimaryMarks || !portraitShape) {
+                return new MarkerDetection(0, new SheetPerspectiveTransform.Point[4], markerSizeMm);
+            }
+        }
         return new MarkerDetection(found, points, markerSizeMm);
+    }
+
+    private static double distance(SheetPerspectiveTransform.Point a,
+            SheetPerspectiveTransform.Point b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    private static double ratio(double a, double b) {
+        double smaller = Math.min(a, b);
+        double larger = Math.max(a, b);
+        return smaller <= 0 ? Double.POSITIVE_INFINITY : larger / smaller;
     }
 
     /** Estimate a local black/white split from sparse luma samples. */
