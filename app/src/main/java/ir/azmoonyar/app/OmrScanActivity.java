@@ -531,6 +531,19 @@ public final class OmrScanActivity extends ComponentActivity {
             markerSizeMm = sum / found;
         }
 
+        // Reject mixed marker families before building the perspective transform.
+        // Averaging 3 mm auxiliary marks with 16 mm primary marks can select the
+        // wrong template coordinates and make every bubble overlay drift badly.
+        if (found == 4) {
+            boolean primaryFamily = sizes[0] > 8.0;
+            for (int i = 1; i < sizes.length; i++) {
+                if ((sizes[i] > 8.0) != primaryFamily) {
+                    return new MarkerDetection(0,
+                            new SheetPerspectiveTransform.Point[4], markerSizeMm);
+                }
+            }
+        }
+
         // SECOND CRITERION: check the spacing between the four chosen squares.
         // The primary 16 mm corner marks have centers 184 mm apart horizontally
         // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
