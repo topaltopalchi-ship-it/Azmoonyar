@@ -36,3 +36,6 @@
 - [نقشهٔ راه](docs/ROADMAP.md)
 - [قواعد طراحی پاسخنامه و تشخیص](docs/ANSWER_SHEET.md)
 - [ممیزی فنی و برنامهٔ تکمیل](docs/IMPLEMENTATION_AUDIT_FA.md)
+
+
+<!-- Fresh release build requested on 2026-10-28. -->
