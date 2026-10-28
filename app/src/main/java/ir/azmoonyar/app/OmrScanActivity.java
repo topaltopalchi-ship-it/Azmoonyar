@@ -786,9 +786,12 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Slight inset keeps the colored outline inside the printed border.
-                    rx = Math.max(2.0f, rx * 0.82f);
-                    ry = Math.max(2.0f, ry * 0.82f);
+                    // Match the printed 4.3 x 3.4 mm ellipse closely.
+                    // 0.82 made the diagnostic rings visibly too small; keep only a
+                    // slight inset so the center alignment can be judged against the
+                    // actual printed border.
+                    rx = Math.max(2.0f, rx * 0.96f);
+                    ry = Math.max(2.0f, ry * 0.96f);
                     paint.setColor(optionColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
