@@ -313,28 +313,9 @@ public final class OmrScanActivity extends ComponentActivity {
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
                 } else if (transform != null) {
-                    try {
-                        // Live preview while a new sheet is being aligned.
-                        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(
-                                OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
-                        List<OMRSheetReader.QuestionResult> results =
-                                new OMRSheetReader().read(upright.pixels, upright.width,
-                                        upright.height, transform, centers, 1.45);
-                        int answered = 0, blank = 0, review = 0, multiple = 0;
-                        for (OMRSheetReader.QuestionResult result : results) {
-                            switch (result.classification.status) {
-                                case ANSWERED: answered++; break;
-                                case BLANK: blank++; break;
-                                case MULTIPLE_MARKS: multiple++; break;
-                                case REVIEW: review++; break;
-                            }
-                        }
-                        message = "خواندن آزمایشی حباب‌ها • پاسخ تشخیص‌داده‌شده: " + answered
-                                + " • خالی: " + blank + " • بازبینی: " + review
-                                + " • چندعلامتی: " + multiple + " — نمره ذخیره نمی‌شود.";
-                    } catch (RuntimeException readError) {
-                        message = "چهار گوشه پیدا شد، اما خواندن حباب‌ها پایدار نیست؛ برگه را صاف‌تر و با نور یکنواخت بگیرید.";
-                    }
+                    // Do not run the legacy live-bubble scanner in preview.
+                    // Correction runs only after voice capture and reads the saved image.
+                    message = "پاسخنامه آمادهٔ عکس‌گرفتن است؛ فرمان «عکس بگیر» را بگویید.";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
