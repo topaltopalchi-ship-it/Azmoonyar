@@ -808,10 +808,9 @@ public final class OmrScanActivity extends ComponentActivity {
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(Math.max(1.5f, width / 700f * 2.0f));
-            int[] optionColors = {
-                    Color.rgb(239, 68, 68), Color.rgb(37, 99, 235),
-                    Color.rgb(22, 163, 74), Color.rgb(234, 179, 8)
-            };
+            // Keep the diagnostic bubble overlay strictly monochrome.
+            // The four options must not be distinguished by colored rings.
+            final int bubbleOverlayColor = Color.BLACK;
             // The printed bubbles are ellipses (4.3 x 3.4 mm), not circles.
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
@@ -841,7 +840,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     // actual printed border.
                     rx = Math.max(2.0f, rx * 0.98f);
                     ry = Math.max(2.0f, ry * 0.98f);
-                    paint.setColor(optionColors[option]);
+                    paint.setColor(bubbleOverlayColor);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
                     if (q < 10) {
@@ -1045,9 +1044,16 @@ public final class OmrScanActivity extends ComponentActivity {
         voiceRecognizer = new PersianVosk();
         voiceRecognizer.start(this, new PersianVosk.Callback() {
             @Override public void onText(String text) {
-                String normalized = text == null ? "" : text.replace("‌", " ").trim();
+                String normalized = text == null ? "" : text.trim()
+                        .replace("‌", " ")
+                        .replace('ي', 'ی')
+                        .replace('ك', 'ک')
+                        .replaceAll("[\\p{Punct}\\p{S}،؛؟!]", " ")
+                        .replaceAll("\\s+", " ");
+                // Persian ASR may omit the verb or return the command with punctuation.
                 if (normalized.contains("عکس بگیر") || normalized.equals("عکس")
-                        || normalized.contains("عکس بگیره")) {
+                        || normalized.contains("عکس بگیره") || normalized.contains("عکس بگير")
+                        || normalized.contains("عکس بگیر") || normalized.contains("عکس بگیرش")) {
                     voiceCaptureRequested = true;
                     voiceCommandListening = false;
                     stopVoiceCaptureListener();
