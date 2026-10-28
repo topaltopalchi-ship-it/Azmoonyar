@@ -1843,10 +1843,11 @@ public class MainActivity extends Activity {
         }
         RadioGroup group = new RadioGroup(this);
         group.setOrientation(RadioGroup.VERTICAL);        group.setPadding(dp(8), dp(8), dp(8), dp(8));
+        // Match the dashboard's glossy blue/green button palette.
         int[][] optionColors = {
             {219, 234, 254, 29, 78, 216},
-            {252, 231, 243, 157, 23, 77},
-            {220, 252, 231, 22, 101, 52}
+            {220, 252, 231, 22, 101, 52},
+            {219, 234, 254, 29, 78, 216}
         };
         for (int i = 0; i < labels.length; i++) {
             RadioButton option = new RadioButton(this);
@@ -1857,11 +1858,20 @@ public class MainActivity extends Activity {
             option.setPadding(dp(14), dp(12), dp(14), dp(12));
             option.setButtonTintList(android.content.res.ColorStateList.valueOf(
                 Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5])));
-            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
-            pill.setColor(Color.rgb(optionColors[i][0], optionColors[i][1], optionColors[i][2]));
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{
+                    Color.rgb(optionColors[i][0], optionColors[i][1], optionColors[i][2]),
+                    Color.rgb(Math.max(0, optionColors[i][0] - 8),
+                              Math.max(0, optionColors[i][1] - 8),
+                              Math.max(0, optionColors[i][2] - 8))
+                });
             pill.setCornerRadius(dp(24));
-            pill.setStroke(dp(1), Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5]));
+            pill.setStroke(dp(2), Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5]));
             option.setBackground(pill);
+            option.setElevation(dp(4));
+            option.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(
+                this, android.R.animator.button_state_list_anim));
             RadioGroup.LayoutParams optionLp = new RadioGroup.LayoutParams(-1, -2);
             optionLp.setMargins(0, dp(5), 0, dp(5));
             group.addView(option, optionLp);
