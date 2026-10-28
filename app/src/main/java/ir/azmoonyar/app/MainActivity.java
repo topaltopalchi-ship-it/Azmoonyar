@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
                 new View.OnClickListener[]{v -> showExamDialog(), v -> showQuestionBank()});
         addButtonGrid(
                 new String[]{"کلید پاسخ", "نتایج تصحیح"},
-                new View.OnClickListener[]{v -> showKeyDialog(), v -> showReportsCenter()});
+                new View.OnClickListener[]{v -> showKeyDialog(), v -> showCorrectionResults()});
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
@@ -1870,6 +1870,46 @@ public class MainActivity extends Activity {
     private JSONArray readGradingResults() {
         try { return new JSONArray(prefs.getString("grading_results", "[]")); }
         catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void showCorrectionResults() {
+        JSONArray results = readGradingResults();
+        if (results.length() == 0) {
+            new AlertDialog.Builder(this)
+                .setTitle("نتایج تصحیح")
+                .setMessage("هنوز نتیجهٔ تصحیحی ثبت نشده است.")
+                .setPositiveButton("باشه", null)
+                .show();
+            return;
+        }
+        StringBuilder report = new StringBuilder();
+        report.append("نام شرکت‌کننده").append("                         ").append("نمره").append("\\n");
+        report.append("────────────────────────────────").append("\\n");
+        int shown = 0;
+        for (int i = results.length() - 1; i >= 0; i--) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            String name = result.optString("name", "").trim();
+            if (name.isEmpty()) name = "بدون نام";
+            String score = String.format(Locale.US, "%.1f", result.optDouble("score", 0.0));
+            report.append(++shown).append(". ").append(name)
+                .append("  —  ").append(score).append(" از 100").append("\\n");
+        }
+        TextView content = new TextView(this);
+        content.setText(report.toString());
+        content.setTextSize(17);
+        content.setTextDirection(View.TEXT_DIRECTION_RTL);
+        content.setGravity(Gravity.RIGHT);
+        content.setPadding(dp(18), dp(14), dp(18), dp(14));
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.addView(content);
+        new AlertDialog.Builder(this)
+            .setTitle("نتایج تصحیح — نام و نمرهٔ همهٔ شرکت‌کنندگان")
+            .setView(scroll)
+            .setPositiveButton("بستن", null)
+            .setNeutralButton("جزئیات و آمار", (d, w) -> showReportsCenter())
+            .show();
     }
 
     private void showExamResultsMenu() {
