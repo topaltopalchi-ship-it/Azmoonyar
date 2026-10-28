@@ -45,6 +45,7 @@ import java.util.List;
  */
 public final class OmrScanActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 8402;
+    private static final int AUDIO_PERMISSION_REQUEST = 8403;
     private PreviewView previewView;
     private TextView statusView;
     private ExecutorService cameraExecutor;
@@ -56,6 +57,8 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
+    private volatile boolean voiceCommandListening;
+    private volatile boolean voiceCaptureRequested;
     private volatile byte[] diagnosticLuma;
     private volatile int diagnosticWidth, diagnosticHeight;
     private volatile SheetPerspectiveTransform diagnosticTransform;
@@ -162,7 +165,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("فعلاً اسکن خودکار برگهٔ بعدی غیرفعال است. پاسخنامه را داخل کادر سبز قرار دهید و برای بررسی، از تصویر دوربین عکس بگیرید.");
+        guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید و برای ثبت تصویر، بگویید: «عکس بگیر».");
         guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -204,6 +207,7 @@ public final class OmrScanActivity extends ComponentActivity {
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
         cameraExecutor = Executors.newSingleThreadExecutor();
+        ensureVoicePermissionAndStart();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
@@ -308,8 +312,10 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
-                if (!sheetConsumed && stableMarkerFrames >= 2) {
+                if (!sheetConsumed && voiceCaptureRequested && stableMarkerFrames >= 2) {
                     sheetConsumed = true;
+                    voiceCaptureRequested = false;
+                    stopVoiceCaptureListener();
                     processRecognizedSheet(upright.pixels, upright.width, upright.height, transform);
                 }
             } else {
@@ -952,6 +958,8 @@ public final class OmrScanActivity extends ComponentActivity {
                         if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
                         waitingForNextName = false;
                         sheetConsumed = false;
+                        voiceCaptureRequested = false;
+                        ensureVoicePermissionAndStart();
                         stableMarkerFrames = 0;
                         missingMarkerFrames = 0;
                         dialog.dismiss();
@@ -981,6 +989,69 @@ public final class OmrScanActivity extends ComponentActivity {
             } else {
                 updateStatus("برای اسکن پاسخنامه، اجازهٔ دسترسی به دوربین لازم است.");
             }
+        } else if (requestCode == AUDIO_PERMISSION_REQUEST) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startVoiceCaptureListener();
+            } else {
+                updateStatus("برای گرفتن عکس با فرمان صوتی، اجازهٔ میکروفون لازم است.");
+            }
+        }
+    }
+
+    private void ensureVoicePermissionAndStart() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            startVoiceCaptureListener();
+        } else if (!isFinishing()) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+        }
+    }
+
+    private void startVoiceCaptureListener() {
+        if (finished || voiceCommandListening || sheetConsumed || waitingForNextName) return;
+        voiceCommandListening = true;
+        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+        voiceRecognizer = new PersianVosk();
+        voiceRecognizer.start(this, new PersianVosk.Callback() {
+            @Override public void onText(String text) {
+                String normalized = text == null ? "" : text.replace("‌", " ").trim();
+                if (normalized.contains("عکس بگیر") || normalized.equals("عکس")
+                        || normalized.contains("عکس بگیره")) {
+                    voiceCaptureRequested = true;
+                    voiceCommandListening = false;
+                    stopVoiceCaptureListener();
+                    updateStatus("فرمان دریافت شد؛ برگه را ثبت می‌کنم…");
+                } else {
+                    voiceCommandListening = false;
+                    stopVoiceCaptureListener();
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                            this::restartVoiceCapture, 250);
+                }
+            }
+            private void restartVoiceCapture() {
+                if (!finished && !sheetConsumed && !waitingForNextName) startVoiceCaptureListener();
+            }
+            @Override public void onStatus(String status) {
+                // Keep the command listener silent; no spoken guidance or status narration.
+                if (status.startsWith("خطای میکروفون") || status.startsWith("دریافت مدل صوتی فارسی ناموفق")) {
+                    voiceCommandListening = false;
+                    stopVoiceCaptureListener();
+                    updateStatus("تشخیص فرمان صوتی آماده نیست؛ مجوز میکروفون و اینترنتِ دریافت اولیهٔ مدل را بررسی کنید.");
+                } else if (status.startsWith("ضبط بدون دریافت گفتار")) {
+                    voiceCommandListening = false;
+                    stopVoiceCaptureListener();
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                            () -> { if (!finished && !sheetConsumed && !waitingForNextName) startVoiceCaptureListener(); }, 250);
+                }
+            }
+        });
+    }
+
+    private void stopVoiceCaptureListener() {
+        if (voiceRecognizer != null) {
+            voiceRecognizer.stop();
+            voiceRecognizer = null;
         }
     }
 
