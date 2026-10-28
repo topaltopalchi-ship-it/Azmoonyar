@@ -1558,11 +1558,36 @@ public class MainActivity extends Activity {
             name.setPadding(dp(10), dp(12), dp(10), dp(12));
             name.setOnClickListener(v -> showSavedBatchContents(selectedBatch));
             row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
+            Button print = new Button(this);
+            print.setText("انتقال به چاپ");
+            styleTurquoiseDashboardButton(print);
+            print.setTextSize(12);
+            print.setMinWidth(0);
+            print.setPadding(dp(8), dp(6), dp(8), dp(6));
+            print.setOnClickListener(v -> {
+                String savedHtml = selectedBatch.optString("print_html", "");
+                if (savedHtml.isEmpty()) {
+                    showSavedBatchContents(selectedBatch);
+                } else {
+                    printHtmlDocument("AzmoonYar-" + selectedBatch.optString("exam_name", "آزمون"), savedHtml);
+                }
+            });
+            LinearLayout.LayoutParams printLp = new LinearLayout.LayoutParams(dp(118), dp(48));
+            printLp.setMargins(0, 0, dp(6), 0);
+            row.addView(print, printLp);
+
             Button delete = new Button(this);
             delete.setText("حذف");
             delete.setAllCaps(false);
             delete.setTextColor(Color.WHITE);
-            delete.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(185, 28, 28)));
+            delete.setTypeface(null, android.graphics.Typeface.BOLD);
+            android.graphics.drawable.GradientDrawable deleteBg = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{Color.rgb(255, 92, 92), Color.rgb(220, 38, 38), Color.rgb(153, 27, 27)});
+            deleteBg.setCornerRadius(dp(36));
+            deleteBg.setStroke(dp(2), Color.rgb(255, 170, 170));
+            delete.setBackground(deleteBg);
+            delete.setPadding(dp(10), dp(6), dp(10), dp(6));
             delete.setOnClickListener(v -> new AlertDialog.Builder(MainActivity.this)
                     .setTitle("حذف مجموعه")
                     .setMessage("«" + selectedBatch.optString("exam_name", "آزمون") + "» حذف شود؟ این کار مجموعه‌های دیگر را تغییر نمی‌دهد.")
@@ -1571,7 +1596,7 @@ public class MainActivity extends Activity {
                         deleteSavedExamBatch(batchId);
                         showSavedExamBatches();
                     }).show());
-            row.addView(delete, new LinearLayout.LayoutParams(dp(84), dp(48)));
+            row.addView(delete, new LinearLayout.LayoutParams(dp(76), dp(48)));
             list.addView(row);
             View divider = new View(this);
             divider.setBackgroundColor(Color.rgb(226, 232, 240));
