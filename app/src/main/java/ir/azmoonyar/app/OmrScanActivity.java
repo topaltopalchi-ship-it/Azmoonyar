@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 import android.widget.ScrollView;
@@ -63,6 +64,64 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile double[][][] diagnosticCenters;
     private volatile long lastDiagnosticFrameSaved;
 
+    /** Draws an A4 portrait placement guide over the live camera preview. */
+    private static final class SheetGuideOverlay extends View {
+        private final Paint framePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint shadePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        SheetGuideOverlay(android.content.Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            framePaint.setColor(Color.rgb(70, 230, 150));
+            framePaint.setStyle(Paint.Style.STROKE);
+            framePaint.setStrokeWidth(4f * getResources().getDisplayMetrics().density);
+            framePaint.setStrokeCap(Paint.Cap.ROUND);
+            framePaint.setStrokeJoin(Paint.Join.ROUND);
+            shadePaint.setColor(Color.argb(210, 70, 230, 150));
+            shadePaint.setStyle(Paint.Style.STROKE);
+            shadePaint.setStrokeWidth(2f * getResources().getDisplayMetrics().density);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float density = getResources().getDisplayMetrics().density;
+            float viewW = getWidth(), viewH = getHeight();
+            if (viewW <= 0 || viewH <= 0) return;
+
+            // A4 ratio: width / height = 210 / 297. Leave room around all edges.
+            float maxW = viewW * 0.88f;
+            float maxH = viewH * 0.88f;
+            float rectW = Math.min(maxW, maxH * (210f / 297f));
+            float rectH = rectW * (297f / 210f);
+            float left = (viewW - rectW) * 0.5f;
+            float top = (viewH - rectH) * 0.5f;
+            float right = left + rectW, bottom = top + rectH;
+
+            framePaint.setStrokeWidth(2.5f * density);
+            canvas.drawRect(left, top, right, bottom, framePaint);
+
+            // Strong corner brackets make the intended sheet edges easy to align.
+            float arm = Math.min(rectW, rectH) * 0.075f;
+            framePaint.setStrokeWidth(5f * density);
+            canvas.drawLine(left, top, left + arm, top, framePaint);
+            canvas.drawLine(left, top, left, top + arm, framePaint);
+            canvas.drawLine(right, top, right - arm, top, framePaint);
+            canvas.drawLine(right, top, right, top + arm, framePaint);
+            canvas.drawLine(left, bottom, left + arm, bottom, framePaint);
+            canvas.drawLine(left, bottom, left, bottom - arm, framePaint);
+            canvas.drawLine(right, bottom, right - arm, bottom, framePaint);
+            canvas.drawLine(right, bottom, right, bottom - arm, framePaint);
+
+            Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
+            label.setColor(Color.WHITE);
+            label.setTextSize(14f * density);
+            label.setTypeface(android.graphics.Typeface.create(
+                    android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
+            label.setShadowLayer(3f * density, 0f, 1f * density, Color.BLACK);
+            canvas.drawText("A4", left + 8f * density, top + 22f * density, label);
+        }
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(Color.rgb(7, 27, 114));
@@ -85,9 +144,14 @@ public final class OmrScanActivity extends ComponentActivity {
         title.setPadding(12, 16, 12, 12);
         page.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
+        // Camera preview with a fixed A4 portrait guide overlaid on top.
+        FrameLayout cameraFrame = new FrameLayout(this);
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FIT_CENTER);
-        page.addView(previewView, new LinearLayout.LayoutParams(-1, 0, 1f));
+        cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
+        SheetGuideOverlay sheetGuide = new SheetGuideOverlay(this);
+        cameraFrame.addView(sheetGuide, new FrameLayout.LayoutParams(-1, -1));
+        page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
         statusView.setText("دوربین برای یافتن چهار مربع گوشه آماده می‌شود…");
@@ -98,7 +162,7 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
         TextView guidance = new TextView(this);
-        guidance.setText("برگه را کامل داخل تصویر بگیرید. پس از تشخیص پایدار، اسکن خودکار انجام می‌شود؛ برای برگهٔ بعدی، برگهٔ قبلی را کنار ببرید.");
+        guidance.setText("پاسخنامه را طوری داخل کادر سبز قرار دهید که هر چهار گوشه دیده شوند. پس از تشخیص پایدار، اسکن خودکار انجام می‌شود؛ برای برگهٔ بعدی، برگهٔ قبلی را کنار ببرید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
