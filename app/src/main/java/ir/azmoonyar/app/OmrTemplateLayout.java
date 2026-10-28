@@ -26,7 +26,8 @@ public final class OmrTemplateLayout {
     private static final double TABLE_HEADER_MM = 6.0;
     private static final double TABLE_ROW_MM = 8.3;
     // Calibrate columns independently; start with column 1 only.
-    private static final double[] COLUMN_X_ADJUST_MM = {0.75, 0.0, 0.0, 0.0};
+    private static final double[] COLUMN_X_ADJUST_MM = {1.25, 0.0, 0.0, 0.0};
+    private static final double[] COLUMN_Y_ADJUST_MM = {0.4, 0.0, 0.0, 0.0};
 
     private OmrTemplateLayout() {}
 
@@ -68,7 +69,8 @@ public final class OmrTemplateLayout {
                 centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
                         + (option + 0.5) * printedOptionCellWidth + 0.5
                         + COLUMN_X_ADJUST_MM[column];
-                centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
+                centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM
+                        + COLUMN_Y_ADJUST_MM[column];
             }
         }
         return centers;
