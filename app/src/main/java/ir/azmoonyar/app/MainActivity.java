@@ -1169,7 +1169,6 @@ public class MainActivity extends Activity {
 
     private void showKeyDialog() {
         if (examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
-        JSONArray bank = readQuestionBank();
         String value = buildOriginalBankKey();
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
@@ -1188,12 +1187,6 @@ public class MainActivity extends Activity {
         note.setPadding(0, dp(8), 0, dp(8));
         form.addView(note);
 
-        TextView currentKey = new TextView(this);
-        currentKey.setTextSize(15);
-        currentKey.setTextColor(Color.rgb(30, 41, 59));
-        currentKey.setText(formatAnswerKey(value, questionCount()));
-        form.addView(currentKey);
-
         int filled = 0;
         for (int i = 0; i < value.length(); i++) {
             if (value.charAt(i) >= 'A' && value.charAt(i) <= 'D') filled++;
@@ -1202,19 +1195,56 @@ public class MainActivity extends Activity {
         completion.setText("پاسخ‌های ثبت‌شده: " + filled + " از " + questionCount());
         completion.setTextSize(14);
         completion.setTypeface(null, android.graphics.Typeface.BOLD);
-        completion.setPadding(0, dp(8), 0, 0);
+        completion.setTextColor(Color.rgb(15, 118, 110));
+        completion.setPadding(0, dp(8), 0, dp(8));
         form.addView(completion);
 
-        new AlertDialog.Builder(this)
+        LinearLayout answers = new LinearLayout(this);
+        answers.setOrientation(LinearLayout.VERTICAL);
+        String formatted = formatAnswerKey(value, questionCount());
+        String[] lines = formatted.split("\\n");
+        for (String line : lines) {
+            if (line.trim().isEmpty()) continue;
+            Button answer = new Button(this);
+            answer.setText(line.trim());
+            styleTurquoiseDashboardButton(answer);
+            LinearLayout.LayoutParams answerLp = new LinearLayout.LayoutParams(-1, dp(44));
+            answerLp.setMargins(0, dp(3), 0, dp(3));
+            answers.addView(answer, answerLp);
+        }
+        ScrollView answerScroll = new ScrollView(this);
+        answerScroll.setFillViewport(false);
+        answerScroll.addView(answers);
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(-1, dp(300));
+        form.addView(answerScroll, scrollLp);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("کلید پاسخ اصلی")
             .setView(form)
-            .setNegativeButton("بستن", null)
-            .setNeutralButton("بارگذاری تصویر کلید", (d, w) -> {
-                pendingKeyTarget = "main";
-                pickAnswerKeyImage();
-            })
-            .setPositiveButton("چاپ / ذخیره کلید", (d, w) -> showKeyOutputChoices("main"))
-            .show();
+            .create();
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setPadding(0, dp(8), 0, 0);
+        Button printSave = new Button(this);
+        printSave.setText("چاپ / ذخیره کلید");
+        styleTurquoiseDashboardButton(printSave);
+        Button loadImage = new Button(this);
+        loadImage.setText("بارگذاری تصویر کلید");
+        styleTurquoiseDashboardButton(loadImage);
+        Button close = new Button(this);
+        close.setText("بستن");
+        styleTurquoiseDashboardButton(close);
+        for (Button button : new Button[]{printSave, loadImage, close}) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(48));
+            lp.setMargins(0, dp(3), 0, dp(3));
+            actions.addView(button, lp);
+        }
+        form.addView(actions);
+        printSave.setOnClickListener(v -> { dialog.dismiss(); showKeyOutputChoices("main"); });
+        loadImage.setOnClickListener(v -> { dialog.dismiss(); pendingKeyTarget = "main"; pickAnswerKeyImage(); });
+        close.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showKeyOutputChoices(String target) {
