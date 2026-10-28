@@ -1870,8 +1870,17 @@ public class MainActivity extends Activity {
             pill.setStroke(dp(2), Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5]));
             option.setBackground(pill);
             option.setElevation(dp(4));
-            option.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(
-                this, android.R.animator.button_state_list_anim));
+            option.setOnTouchListener((view, event) -> {
+                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    view.setTranslationY(dp(2));
+                    view.setElevation(dp(1));
+                } else if (event.getAction() == android.view.MotionEvent.ACTION_UP
+                        || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+                    view.setTranslationY(0);
+                    view.setElevation(dp(4));
+                }
+                return false;
+            });
             RadioGroup.LayoutParams optionLp = new RadioGroup.LayoutParams(-1, -2);
             optionLp.setMargins(0, dp(5), 0, dp(5));
             group.addView(option, optionLp);
