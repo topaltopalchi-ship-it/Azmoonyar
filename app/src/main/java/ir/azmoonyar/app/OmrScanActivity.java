@@ -167,23 +167,13 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
-        Button captureButton = new Button(this);
-        captureButton.setText("عکس بگیر و تصحیح کن");
-        captureButton.setTextSize(18);
-        captureButton.setAllCaps(false);
-        captureButton.setOnClickListener(v -> {
-            if (sheetConsumed) {
-                updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
-                return;
-            }
-            if (imageCapture == null) {
-                updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
-                return;
-            }
-            sheetConsumed = true;
-            captureRealPhotoAndCorrect();
-        });
-        page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
+        TextView scanHint = new TextView(this);
+        scanHint.setText("اسکن خودکار: برگه را کامل داخل کادر نگه دارید؛ پس از شناسایی چهار گوشه، پاسخ‌ها فوراً خوانده می‌شوند.");
+        scanHint.setTextSize(16);
+        scanHint.setTextColor(Color.rgb(7, 95, 75));
+        scanHint.setGravity(Gravity.CENTER);
+        scanHint.setPadding(16, 12, 16, 12);
+        page.addView(scanHint, new LinearLayout.LayoutParams(-1, -2));
 
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
@@ -331,8 +321,18 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
-                // Capture is initiated only by the explicit on-screen button.
-                // Preview analysis is used for guidance only and never triggers a photo.
+                // Scan directly from the live camera frame after the four sheet markers
+                // are stable. No JPEG capture, disk write, decode, or second corner pass.
+                if (!sheetConsumed && stableMarkerFrames >= 5) {
+                    if (participantName.trim().isEmpty()) {
+                        // Keep the preview alive so the operator can provide the name first.
+                        // Do not consume the sheet; the next stable frame will retry.
+                    } else {
+                        sheetConsumed = true;
+                        updateStatus("چهار گوشه شناسایی شد؛ اسکن زنده و تصحیح پاسخ‌ها…");
+                        processRecognizedSheet(upright.pixels, upright.width, upright.height, transform);
+                    }
+                }
             } else {
                 stableMarkerFrames = 0;
                 // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
@@ -357,7 +357,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 } else if (transform != null) {
                     // Do not run the legacy live-bubble scanner in preview.
                     // Preview is guidance only; capture starts only from the manual button.
-                    message = "پاسخنامه آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
+                    message = participantName.trim().isEmpty()\n                                ? "برگه در کادر است؛ ابتدا نام شرکت‌کننده را ثبت کنید تا اسکن خودکار انجام شود."\n                                : "پاسخنامه آماده است؛ چند لحظه ثابت نگه دارید تا اسکن خودکار انجام شود.";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
@@ -856,7 +856,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("name", participantName.trim());
                 pending.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
                 pending.put("createdAt", System.currentTimeMillis());
-                pending.put("source", "saved_camera_photo");
+                pending.put("source", "live_camera_scan");
                 pending.put("needsReview", score.needsReview);
                 pending.put("totalQuestions", score.totalQuestions);
                 JSONArray questionStates = new JSONArray();
