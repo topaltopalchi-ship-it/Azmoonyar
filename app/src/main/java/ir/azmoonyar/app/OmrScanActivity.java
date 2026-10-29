@@ -906,9 +906,14 @@ public final class OmrScanActivity extends ComponentActivity {
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(Math.max(1.5f, width / 700f * 2.0f));
-            // Keep the diagnostic bubble overlay strictly monochrome.
-            // The four options must not be distinguished by colored rings.
-            final int bubbleOverlayColor = Color.BLACK;
+            // Use high-contrast option-specific colors so the diagnostic rings
+            // are easy to distinguish against grayscale camera imagery.
+            final int[] bubbleOverlayColors = new int[] {
+                    Color.rgb(255, 35, 35),   // A: vivid red
+                    Color.rgb(20, 105, 255),   // B: vivid blue
+                    Color.rgb(0, 190, 70),     // C: vivid green
+                    Color.rgb(255, 190, 0)     // D: vivid yellow/amber
+            };
             // The printed bubbles are ellipses (4.3 x 3.4 mm), not circles.
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
@@ -938,7 +943,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     // actual printed border.
                     rx = Math.max(2.0f, rx * 0.98f);
                     ry = Math.max(2.0f, ry * 0.98f);
-                    paint.setColor(bubbleOverlayColor);
+                    paint.setColor(bubbleOverlayColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
                     if (q < 10) {
