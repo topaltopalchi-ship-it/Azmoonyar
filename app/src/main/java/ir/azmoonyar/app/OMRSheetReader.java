@@ -5,9 +5,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Samples four bubbles per question after a caller has validated the sheet
- * registration marks and supplied bubble centers in the printed template's
- * coordinate system. No default coordinates are guessed here.
+ * EXPERIMENTAL OpenCV-backed main scoring path.
+ *
+ * This branch intentionally routes the scanner through OpenCvBubbleAnalyzer
+ * instead of BubbleDarknessAnalyzer so the user can compare real-sheet results.
+ * The frozen reference branch remains unchanged.
  */
 public final class OMRSheetReader {
     public static final class QuestionResult {
@@ -36,7 +38,7 @@ public final class OMRSheetReader {
 
     /**
      * @param bubbleCentersMm each question contains exactly four [x,y] centers
-     *                        in the canonical printed page coordinate system
+     *                        in the canonical printed template coordinate system
      * @param bubbleRadiusMm printed bubble radius in the same coordinate units
      */
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
@@ -51,13 +53,20 @@ public final class OMRSheetReader {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
 
+        if (!OpenCvBubbleAnalyzer.initialize()) {
+            throw new IllegalStateException("موتور OpenCV راه‌اندازی نشد؛ اسکن متوقف شد تا پاسخ حدسی تولید نشود.");
+        }
+
         List<QuestionResult> results = new ArrayList<>();
         for (int q = 0; q < bubbleCentersMm.length; q++) {
             double[][] centers = bubbleCentersMm[q];
             if (centers == null || centers.length != 4) {
                 throw new IllegalArgumentException("هر سؤال باید چهار مختصات حباب داشته باشد.");
             }
-            double[] scores = new double[4];
+
+            double[] centerX = new double[4];
+            double[] centerY = new double[4];
+            double[] radii = new double[4];
             for (int option = 0; option < 4; option++) {
                 if (centers[option] == null || centers[option].length != 2) {
                     throw new IllegalArgumentException("مختصات حباب باید شامل x و y باشد.");
@@ -70,10 +79,16 @@ public final class OMRSheetReader {
                         x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
-                double radiusPixels = (radiusX + radiusY) * 0.5;
-                scores[option] = BubbleDarknessAnalyzer.score(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusPixels);
+
+                centerX[option] = center.x;
+                centerY[option] = center.y;
+                radii[option] = (radiusX + radiusY) * 0.5;
             }
+
+            // OpenCV scores are raw dark-pixel ratios from adaptive Gaussian thresholding.
+            // They are intentionally fed into the same classifier for this first comparison.
+            double[] scores = OpenCvBubbleAnalyzer.scores(
+                    luminance, imageWidth, imageHeight, centerX, centerY, radii);
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
         return Collections.unmodifiableList(results);
