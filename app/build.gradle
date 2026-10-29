@@ -39,6 +39,8 @@ android {
 }
 
 dependencies {
+    // OpenCV is used only by the diagnostic comparison path; the current scanner remains unchanged.
+    implementation 'org.opencv:opencv:4.10.0'
     implementation 'androidx.activity:activity:1.9.3'
     implementation 'androidx.exifinterface:exifinterface:1.3.7'
     // CameraX: continuous live preview and in-memory frame analysis.
