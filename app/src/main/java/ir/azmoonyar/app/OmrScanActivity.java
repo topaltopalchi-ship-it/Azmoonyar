@@ -185,6 +185,29 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
 
+        // Expose the coordinate diagnostic that was previously implemented but
+        // had no UI entry point, so operators can verify bubble alignment on a live sheet.
+        Button coordinateButton = new Button(this);
+        coordinateButton.setText("نمایش حلقه‌های مختصات");
+        coordinateButton.setTextSize(15);
+        coordinateButton.setAllCaps(false);
+        coordinateButton.setOnClickListener(v -> {
+            byte[] luma = diagnosticLuma;
+            int width = diagnosticWidth;
+            int height = diagnosticHeight;
+            SheetPerspectiveTransform transform = diagnosticTransform;
+            SheetPerspectiveTransform.Point[] markers = diagnosticMarkerPoints;
+            double markerSize = diagnosticMarkerSizeMm;
+            double[][][] centers = diagnosticCenters;
+            if (luma == null || width <= 0 || height <= 0 || transform == null
+                    || markers == null || markers.length != 4 || centers == null) {
+                updateStatus("ابتدا پاسخنامه را کامل داخل کادر دوربین نگه دارید تا چهار مربع گوشه شناسایی شوند.");
+                return;
+            }
+            showBubbleCoordinateOverlay(luma, width, height, transform, centers, markers, markerSize);
+        });
+        page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
