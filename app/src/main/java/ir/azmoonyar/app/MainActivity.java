@@ -2180,8 +2180,41 @@ public class MainActivity extends Activity {
     private void showReviewQueue() {
         JSONArray queue = readReviewQueue();
         if (queue.length() == 0) {
+            // Recover entries only when saved results contain question-level REVIEW details.
+            JSONArray results = readGradingResults();
+            JSONArray recovered = new JSONArray();
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject result = results.optJSONObject(i);
+                if (result == null) continue;
+                JSONArray questions = result.optJSONArray("questions");
+                int reviewCount = result.optInt("needsReview", 0);
+                if (questions != null) {
+                    for (int q = 0; q < questions.length(); q++) {
+                        JSONObject question = questions.optJSONObject(q);
+                        if (question != null && "REVIEW".equalsIgnoreCase(question.optString("status", ""))) reviewCount++;
+                    }
+                }
+                if (reviewCount <= 0) continue;
+                JSONObject pending = new JSONObject();
+                try {
+                    pending.put("name", result.optString("name", "بدون نام"));
+                    pending.put("examName", result.optString("examName", "آزمون بدون نام"));
+                    pending.put("createdAt", result.optLong("createdAt", System.currentTimeMillis()));
+                    pending.put("source", "recovered_from_grading_results");
+                    pending.put("needsReview", reviewCount);
+                    pending.put("totalQuestions", result.optInt("totalQuestions", questions == null ? 0 : questions.length()));
+                    if (questions != null) pending.put("questions", questions);
+                    recovered.put(pending);
+                } catch (Exception ignored) {}
+            }
+            if (recovered.length() > 0) {
+                prefs.edit().putString("grading_review_queue", recovered.toString()).commit();
+                queue = recovered;
+            }
+        }
+        if (queue.length() == 0) {
             new AlertDialog.Builder(this).setTitle("صف بازبینی")
-                .setMessage("هیچ برگه‌ای در صف بازبینی نیست.")
+                .setMessage("صف بازبینی خالی است. اگر نتیجه‌های قبلی جزئیات سؤال‌های مبهم را ذخیره نکرده باشند، بازیابی خودکار ممکن نیست. از این نسخه به بعد برگه‌های مبهم باید مستقیماً در صف ذخیره شوند.")
                 .setPositiveButton("باشه", null)
                 .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
             return;
