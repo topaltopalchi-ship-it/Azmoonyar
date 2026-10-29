@@ -1,12 +1,15 @@
 package ir.azmoonyar.app;
 
 /**
- * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
+ * Experimental sensitivity test based on the user's confirmed 20-question sheet.
  *
  * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
  * and 1 is fully dark. Geometry detection, perspective correction, local background
  * normalization and image-quality checks must happen before calling this class.
  * Weak or ambiguous evidence is sent for review instead of guessed.
+ *
+ * IMPORTANT: This experimental threshold is isolated on experiment/marja-threshold-024.
+ * Do not merge it into the frozen reference branch until it is validated on real sheets.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
@@ -33,11 +36,11 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
-        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        // EXPERIMENT ONLY: lower the mark threshold from 0.28 to 0.24 and the
+        // minimum margin from 0.24 to 0.20. Blank threshold remains 0.16.
+        // The goal is to test whether a few borderline but manually confirmed marks
+        // can be accepted without causing false confident answers on other sheets.
+        this(0.24, 0.16, 0.20);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
