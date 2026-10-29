@@ -891,10 +891,10 @@ public class MainActivity extends Activity {
                 .append(".answer-page .meta{position:absolute;top:25mm;left:12mm;right:12mm;height:6mm;font-size:10px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:8mm;white-space:nowrap}")
                 .append(".answer-page .instructions{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
                 .append(".answer-page .cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;margin:0;direction:ltr}")
-                .append(".answer-page .col{border:0.3mm solid #555;border-radius:0;padding:1.5mm 1mm;min-width:0;direction:ltr}")
+                .append(".answer-page .col{border:0.25mm solid #555;border-radius:0;padding:1mm 1mm;min-width:0;direction:ltr}")
                 .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;direction:ltr}")
                 .append(".answer-page th{font-size:8.5px;height:7mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append(".answer-page tbody tr{height:8.3mm}.answer-page td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border:0;font-size:8.5px;direction:ltr}")
+                .append(".answer-page tbody tr{height:8.3mm}.answer-page td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border:0.15mm solid #d0d0d0;font-size:8.5px;direction:ltr}")
                 .append(".answer-page td.num{width:7mm;font-weight:bold;text-align:center;white-space:nowrap}")
                 .append(".answer-page td.opt{width:auto;padding:0 0.5mm}")
 
