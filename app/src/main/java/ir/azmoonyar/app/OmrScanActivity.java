@@ -471,9 +471,17 @@ public final class OmrScanActivity extends ComponentActivity {
                         int p = queue[head++];
                         int px = p % gw, py = p / gw;
                         pixels++;
-                        minX = Math.min(minX, px); maxX = Math.max(maxX, px);
-                        minY = Math.min(minY, py); maxY = Math.max(maxY, py);
-                        if (pixels > 6000) { tooLarge = true; break; }
+                        // Once a component is clearly far too large to be a registration
+                        // mark, stop maintaining its bounding box, but keep flooding it.
+                        // Breaking here left the rest of a dark shadow/text component
+                        // unvisited, so the outer scan repeatedly rediscovered it and
+                        // made corner detection progressively slower.
+                        if (pixels > 6000) {
+                            tooLarge = true;
+                        } else if (!tooLarge) {
+                            minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                            minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                        }
                         for (int dy = -1; dy <= 1; dy++) {
                             for (int dx = -1; dx <= 1; dx++) {
                                 if (dx == 0 && dy == 0) continue;
