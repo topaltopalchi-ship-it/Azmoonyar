@@ -34,9 +34,10 @@ public final class OMRAnswerClassifier {
 
     public OMRAnswerClassifier() {
         // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // around 0.30-0.45 must be eligible, while values at or below 0.12 remain blank.
-        // Close competing options are still sent to review; validate with more real sheets.
-        this(0.28, 0.12, 0.12);
+        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
+        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
+        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
+        this(0.28, 0.16, 0.24);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
