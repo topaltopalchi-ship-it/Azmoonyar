@@ -233,7 +233,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     centers[0][i][1] = y;
                 }
                 java.util.List<OMRSheetReader.QuestionResult> results =
-                        new OMRSheetReader().read(luma, width, height, transform, centers, 6.0);
+                        new OMRSheetReader().read(luma, width, height, transform, centers, 12.0);
                 if (results.isEmpty()) {
                     updateStatus("آزمایش انجام نشد؛ دوباره برگه را زیر دوربین قرار دهید.");
                     return;
