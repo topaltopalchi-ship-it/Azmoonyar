@@ -31,7 +31,7 @@ public class OMRAnswerClassifierTest {
 
     @Test
     public void sendsWeakEvidenceToReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.40, 0.18, 0.12, 0.10});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.25, 0.18, 0.12, 0.10});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
@@ -39,6 +39,19 @@ public class OMRAnswerClassifierTest {
     public void sendsLowMarginSingleMarkToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.50, 0.39, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+    }
+
+    @Test
+    public void detectsModerateRealPhotoMarkWhenClearlyStronger() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.00, 0.00, 0.08, 0.40});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(3, result.optionIndex);
+    }
+
+    @Test
+    public void treatsLowContrastUnmarkedBubbleAsBlank() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
     }
 
     @Test
