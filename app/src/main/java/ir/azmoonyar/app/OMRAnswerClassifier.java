@@ -36,7 +36,7 @@ public final class OMRAnswerClassifier {
         // Be conservative for phone photos: borderline fills and close competing
         // options must be reviewed instead of being silently accepted as wrong.
         // This deliberately increases review sensitivity; validate with real sheets.
-        this(0.30, 0.06, 0.16);
+        this(0.55, 0.12, 0.16);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
