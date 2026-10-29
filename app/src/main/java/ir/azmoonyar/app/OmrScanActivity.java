@@ -427,13 +427,19 @@ public final class OmrScanActivity extends ComponentActivity {
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
         final int[] queue = new int[gw * gh];
-        final int cornerW = Math.max(12, gw / 4);
-        final int cornerH = Math.max(12, gh / 4);
+        // The sheet may occupy only the middle 60–80% of the camera frame.
+        // Search a wider outer corner window so perspective/margins do not put
+        // the printed registration squares outside the detector's search area.
+        // Opposite windows remain separated, avoiding duplicate corner matches.
+        final int cornerW = Math.max(12, (int) Math.round(gw * 0.40));
+        final int cornerH = Math.max(12, (int) Math.round(gh * 0.40));
+        final int rightStart = gw - cornerW;
+        final int bottomStart = gh - cornerH;
         final int[][] regions = {
                 {0, 0, cornerW, cornerH},
-                {gw - cornerW, 0, gw, cornerH},
-                {gw - cornerW, gh - cornerH, gw, gh},
-                {0, gh - cornerH, cornerW, gh}
+                {rightStart, 0, gw, cornerH},
+                {rightStart, bottomStart, gw, gh},
+                {0, bottomStart, cornerW, gh}
         };
         SheetPerspectiveTransform.Point[] points = new SheetPerspectiveTransform.Point[4];
         double[] sizes = new double[4];
