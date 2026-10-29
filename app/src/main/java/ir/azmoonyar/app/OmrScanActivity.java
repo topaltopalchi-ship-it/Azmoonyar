@@ -208,6 +208,64 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
 
+        Button largeBubbleTestButton = new Button(this);
+        largeBubbleTestButton.setText("آزمایش چهار حباب بزرگ A4");
+        largeBubbleTestButton.setTextSize(15);
+        largeBubbleTestButton.setAllCaps(false);
+        largeBubbleTestButton.setOnClickListener(v -> {
+            byte[] luma = diagnosticLuma;
+            int width = diagnosticWidth;
+            int height = diagnosticHeight;
+            SheetPerspectiveTransform transform = diagnosticTransform;
+            if (luma == null || width <= 0 || height <= 0 || transform == null) {
+                updateStatus("برگهٔ آزمایش را کامل داخل کادر دوربین نگه دارید تا چهار مربع گوشه شناسایی شوند.");
+                return;
+            }
+            try {
+                // Coordinates match the dedicated A4 test PDF: bubble centers at
+                // 20%, 40%, 60%, 80% of page width and 125 mm from the top.
+                double pageW = transform.getPageWidth();
+                double pageH = transform.getPageHeight();
+                double y = Math.min(pageH, 125.0);
+                double[][][] centers = new double[1][4][2];
+                for (int i = 0; i < 4; i++) {
+                    centers[0][i][0] = pageW * (0.2 + 0.2 * i);
+                    centers[0][i][1] = y;
+                }
+                java.util.List<OMRSheetReader.QuestionResult> results =
+                        new OMRSheetReader().read(luma, width, height, transform, centers, 6.0);
+                if (results.isEmpty()) {
+                    updateStatus("آزمایش انجام نشد؛ دوباره برگه را زیر دوربین قرار دهید.");
+                    return;
+                }
+                OMRSheetReader.QuestionResult q = results.get(0);
+                OMRAnswerClassifier.Result result = q.classification;
+                StringBuilder report = new StringBuilder("نتیجهٔ آزمایش حباب بزرگ\\n\\n");
+                report.append("وضعیت: ").append(result.status.name()).append("\\n");
+                report.append("گزینهٔ تشخیص‌داده‌شده: ")
+                        .append(result.optionIndex >= 0 ? "ABCD".charAt(result.optionIndex) : "نامشخص")
+                        .append("\\nقوی‌ترین امتیاز: ")
+                        .append(String.format(java.util.Locale.US, "%.3f", result.strongestScore))
+                        .append("\\nاختلاف دو امتیاز اول: ")
+                        .append(String.format(java.util.Locale.US, "%.3f", result.margin))
+                        .append("\\n\\nامتیاز خام گزینه‌ها:\\n");
+                for (int i = 0; i < 4; i++) {
+                    report.append("ABCD".charAt(i)).append(": ")
+                            .append(String.format(java.util.Locale.US, "%.3f", q.darkness[i]))
+                            .append(i < 3 ? "    " : "");
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle("آزمایش حباب بزرگ")
+                        .setMessage(report.toString())
+                        .setPositiveButton("بستن", null)
+                        .show();
+            } catch (Exception e) {
+                updateStatus("خطای آزمایش حباب: " + e.getMessage());
+                android.util.Log.e("AzmoonyarOMR", "Large-bubble test failed", e);
+            }
+        });
+        page.addView(largeBubbleTestButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
