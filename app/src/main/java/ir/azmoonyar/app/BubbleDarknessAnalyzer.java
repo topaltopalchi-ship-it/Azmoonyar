@@ -81,11 +81,6 @@ public final class BubbleDarknessAnalyzer {
         // Relative local contrast is less sensitive to shadows than a fixed
         // global threshold. Clamp so the downstream classifier receives [0,1].
         double relativeDarkness = (paperMean - innerMean) / Math.max(48.0, paperMean);
-        // Mildly lift genuine low-contrast pencil/pen marks. Leave near-zero
-        // paper noise untouched so blank bubbles are not promoted by gain alone.
-        if (relativeDarkness > 0.08) {
-            relativeDarkness *= 1.15;
-        }
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
     }
 
