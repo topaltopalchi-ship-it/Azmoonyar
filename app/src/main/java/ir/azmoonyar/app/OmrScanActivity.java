@@ -254,6 +254,36 @@ public final class OmrScanActivity extends ComponentActivity {
                             .append(String.format(java.util.Locale.US, "%.3f", q.darkness[i]))
                             .append(i < 3 ? "    " : "");
                 }
+
+                // Independent experimental score from OpenCV adaptive thresholding.
+                // Production classification above remains based on the existing reader.
+                report.append("\\n\\nامتیاز OpenCV (آزمایشی):\\n");
+                if (OpenCvBubbleAnalyzer.initialize()) {
+                    double[] cx = new double[4];
+                    double[] cy = new double[4];
+                    double[] rp = new double[4];
+                    for (int i = 0; i < 4; i++) {
+                        SheetPerspectiveTransform.Point center =
+                                transform.toImage(centers[0][i][0], centers[0][i][1]);
+                        SheetPerspectiveTransform.Point edgeX = transform.toImage(
+                                Math.min(pageW, centers[0][i][0] + 12.0), centers[0][i][1]);
+                        SheetPerspectiveTransform.Point edgeY = transform.toImage(
+                                centers[0][i][0], Math.min(pageH, centers[0][i][1] + 12.0));
+                        cx[i] = center.x;
+                        cy[i] = center.y;
+                        rp[i] = (Math.hypot(edgeX.x - center.x, edgeX.y - center.y)
+                                + Math.hypot(edgeY.x - center.x, edgeY.y - center.y)) * 0.5;
+                    }
+                    double[] cvScores = OpenCvBubbleAnalyzer.scores(luma, width, height, cx, cy, rp);
+                    for (int i = 0; i < 4; i++) {
+                        report.append("ABCD".charAt(i)).append(": ")
+                                .append(String.format(java.util.Locale.US, "%.3f", cvScores[i]))
+                                .append(i < 3 ? "    " : "");
+                    }
+                    report.append("\\n(عدد بزرگ‌تر یعنی سهم پیکسل‌های تیره بیشتر است.)");
+                } else {
+                    report.append("کتابخانه بارگذاری نشد؛ امتیاز فعلی همچنان نمایش داده می‌شود.");
+                }
                 new AlertDialog.Builder(this)
                         .setTitle("آزمایش حباب بزرگ")
                         .setMessage(report.toString())
