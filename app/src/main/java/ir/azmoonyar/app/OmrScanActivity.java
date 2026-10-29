@@ -799,6 +799,43 @@ public final class OmrScanActivity extends ComponentActivity {
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
+
+            // Keep a small, anonymized calibration record for reverse-engineering OMR.
+            // Store raw four-option darkness scores beside the known answer key and the
+            // classifier result, so thresholds can be tuned from evidence rather than guesses.
+            try {
+                JSONArray samples;
+                try { samples = new JSONArray(prefs.getString("omr_calibration_samples", "[]")); }
+                catch (Exception ignored) { samples = new JSONArray(); }
+                JSONObject sample = new JSONObject();
+                sample.put("createdAt", System.currentTimeMillis());
+                sample.put("totalQuestions", total);
+                sample.put("answerKey", activeKey);
+                JSONArray sampleQuestions = new JSONArray();
+                for (int i = 0; i < questions.size(); i++) {
+                    OMRSheetReader.QuestionResult question = questions.get(i);
+                    OMRAnswerClassifier.Result classification = question.classification;
+                    JSONObject item = new JSONObject();
+                    item.put("question", i + 1);
+                    item.put("expectedOptionIndex", activeKey.charAt(i) - 'A');
+                    item.put("status", classification.status.name());
+                    item.put("predictedOptionIndex", classification.optionIndex);
+                    item.put("strongestScore", classification.strongestScore);
+                    item.put("margin", classification.margin);
+                    JSONArray scores = new JSONArray();
+                    for (double darkness : question.darkness) scores.put(darkness);
+                    item.put("optionScores", scores);
+                    sampleQuestions.put(item);
+                }
+                sample.put("questions", sampleQuestions);
+                samples.put(sample);
+                // Bound local storage; keep the 20 most recent calibration samples.
+                while (samples.length() > 20) samples.remove(0);
+                prefs.edit().putString("omr_calibration_samples", samples.toString()).apply();
+            } catch (Exception calibrationError) {
+                android.util.Log.e("AzmoonyarOMR", "Could not save calibration sample", calibrationError);
+            }
+
             // Wrong answers have no negative marking; blank answers also earn zero.
             ExamScorer.Result score = ExamScorer.score(
                     activeKey, answers, 1.0, 0.0, 0.0);
