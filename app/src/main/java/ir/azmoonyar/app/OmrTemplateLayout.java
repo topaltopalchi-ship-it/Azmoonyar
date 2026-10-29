@@ -23,11 +23,11 @@ public final class OmrTemplateLayout {
     private static final double COLUMN_VERTICAL_PADDING_MM = 1.0;
     private static final double NUMBER_COLUMN_MM = 7.0;
     private static final double COLUMNS_TOP_MM = 44.0;
-    private static final double TABLE_HEADER_MM = 6.0;
-    private static final double TABLE_ROW_MM = 7.9;
+    private static final double TABLE_HEADER_MM = 7.0;
+    private static final double TABLE_ROW_MM = 8.3;
     // Geometry below must exactly mirror printStandardAnswerSheets():
-    // .col has 0.25 mm border and 1 mm padding; the table header is 6 mm
-    // and each answer row is 7.9 mm. Do not use empirically guessed offsets.
+    // .col has a 0.25 mm border and 1 mm padding; the table header is 7 mm
+    // and each answer row is 8.3 mm. These values mirror the print CSS exactly.
 
     private OmrTemplateLayout() {}
 
