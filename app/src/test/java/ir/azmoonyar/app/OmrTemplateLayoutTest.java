@@ -22,14 +22,14 @@ public class OmrTemplateLayoutTest {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(100, 0);
         assertEquals(255.6, centers[49][0][1], EPSILON);
         assertEquals(119.09375, centers[50][0][0], EPSILON);
-        assertEquals(55.2, centers[50][0][1], EPSILON);
+        assertEquals(56.4, centers[50][0][1], EPSILON);
     }
 
     @Test public void returnsOnlyQuestionsRequestedForVariableLengthSheet() {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(23, 0);
         assertEquals(23, centers.length);
         assertEquals(24.59375, centers[0][0][0], EPSILON);
-        assertEquals(55.2, centers[0][0][1], EPSILON);
+        assertEquals(56.4, centers[0][0][1], EPSILON);
         assertEquals(239.0, centers[22][0][1], EPSILON);
     }
 
