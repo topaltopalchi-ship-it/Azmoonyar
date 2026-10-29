@@ -31,18 +31,23 @@ public final class ExternalSheetLayout {
             throw new IllegalArgumentException("Layout must be 'single' or 'double'");
         }
 
-        double y = y0 + (questionIndex + 0.5) * (y1 - y0) / questionCount;
         double x;
+        double y;
         if ("single".equalsIgnoreCase(layout)) {
             x = x0 + (optionIndex + 0.5) * (x1 - x0) / optionCount;
+            y = y0 + (questionIndex + 0.5) * (y1 - y0) / questionCount;
         } else {
-            double midpoint = (x0 + x1) / 2.0;
             int rightColumnQuestions = (questionCount + 1) / 2;
+            int columnIndex = questionIndex < rightColumnQuestions ? 0 : 1;
+            int rowIndex = questionIndex < rightColumnQuestions
+                    ? questionIndex : questionIndex - rightColumnQuestions;
+            int rowsInColumn = columnIndex == 0
+                    ? rightColumnQuestions : questionCount - rightColumnQuestions;
             double halfWidth = (x1 - x0) / 2.0;
             double offset = (optionIndex + 0.5) * halfWidth / optionCount;
-            x = questionIndex < rightColumnQuestions
-                    ? x1 - offset
-                    : x0 + offset;
+            // Numbering runs down the right column first, then down the left.
+            x = columnIndex == 0 ? x1 - offset : x0 + offset;
+            y = y0 + (rowIndex + 0.5) * (y1 - y0) / rowsInColumn;
         }
         return new double[] {x, y};
     }
