@@ -9,26 +9,28 @@ public class OmrTemplateLayoutTest {
     @Test public void mapsFirstQuestionToFirstColumnAndOptionsLeftToRight() {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(100, 0);
         assertEquals(100, centers.length);
-        assertEquals(173.8625, centers[0][0][0], EPSILON);
-        assertEquals(155.2875, centers[0][1][0], EPSILON);
-        assertEquals(136.7125, centers[0][2][0], EPSILON);
-        assertEquals(118.1375, centers[0][3][0], EPSILON);
-        assertEquals(56.575, centers[0][0][1], EPSILON);
+        // Coordinates follow the actual HTML print layout: four question columns,
+        // each with A-D bubble cells laid out left-to-right.
+        assertEquals(24.59375, centers[0][0][0], EPSILON);
+        assertEquals(33.28125, centers[0][1][0], EPSILON);
+        assertEquals(41.96875, centers[0][2][0], EPSILON);
+        assertEquals(50.65625, centers[0][3][0], EPSILON);
+        assertEquals(55.2, centers[0][0][1], EPSILON);
     }
 
-    @Test public void mapsQuestionFiftyAndFiftyOneToBottomAndTopOfTheirColumns() {
+    @Test public void mapsQuestionFiftyAndFiftyOneToTopOfThirdColumnAndNextRow() {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(100, 0);
-        assertEquals(274.625, centers[49][0][1], EPSILON);
-        assertEquals(78.8625, centers[50][0][0], EPSILON);
-        assertEquals(56.575, centers[50][0][1], EPSILON);
+        assertEquals(244.8, centers[49][0][1], EPSILON);
+        assertEquals(119.09375, centers[50][0][0], EPSILON);
+        assertEquals(55.2, centers[50][0][1], EPSILON);
     }
 
     @Test public void returnsOnlyQuestionsRequestedForVariableLengthSheet() {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(23, 0);
         assertEquals(23, centers.length);
-        assertEquals(173.8625, centers[0][0][0], EPSILON);
-        assertEquals(56.575, centers[0][0][1], EPSILON);
-        assertEquals(154.475, centers[22][0][1], EPSILON);
+        assertEquals(24.59375, centers[0][0][0], EPSILON);
+        assertEquals(55.2, centers[0][0][1], EPSILON);
+        assertEquals(229.0, centers[22][0][1], EPSILON);
     }
 
     @Test(expected = IllegalArgumentException.class)
