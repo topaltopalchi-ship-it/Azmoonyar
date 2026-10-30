@@ -44,7 +44,7 @@ public class BubbleDarknessAnalyzerTest {
         for (int y = 20; y <= 30; y++) {
             for (int x = 30; x <= 39; x++) {
                 int dx = x - 35, dy = y - 25;
-                if (dx * dx + dy * dy <= 4 * 4) marked[y * width + x] = 155;
+                if (dx * dx + dy * dy <= 4 * 4) marked[y * width + x] = (byte) 155;
             }
         }
         double empty = BubbleDarknessAnalyzer.score(blank, width, height, 25, 25, 12, 8);
