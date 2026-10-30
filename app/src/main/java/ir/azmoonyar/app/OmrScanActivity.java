@@ -58,7 +58,6 @@ public final class OmrScanActivity extends ComponentActivity {
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
-    private volatile boolean nameDialogShowing;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
     private volatile boolean voiceCommandListening;
@@ -168,8 +167,26 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
+        Button captureButton = new Button(this);
+        captureButton.setText("عکس بگیر و تصحیح کن");
+        captureButton.setTextSize(18);
+        captureButton.setAllCaps(false);
+        captureButton.setOnClickListener(v -> {
+            if (sheetConsumed) {
+                updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
+                return;
+            }
+            if (imageCapture == null) {
+                updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
+                return;
+            }
+            sheetConsumed = true;
+            captureRealPhotoAndCorrect();
+        });
+        page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
-        guidance.setText("نام شرکت‌کننده را ثبت کنید؛ سپس پاسخنامه را کامل و ثابت داخل کادر سبز قرار دهید تا اسکن خودکار انجام شود.");
+        guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
         guidance.setTextSize(13);
         guidance.setGravity(Gravity.CENTER);
@@ -183,10 +200,6 @@ public final class OmrScanActivity extends ComponentActivity {
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
         cameraExecutor = Executors.newSingleThreadExecutor();
-        if (participantName.trim().isEmpty()) {
-            waitingForNextName = true;
-            showNextParticipantDialog();
-        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
@@ -295,21 +308,15 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 stableMarkerFrames++;
                 missingMarkerFrames = 0;
-                if (stableMarkerFrames >= 8 && !sheetConsumed && !waitingForNextName
-                        && !participantName.trim().isEmpty() && imageCapture != null) {
-                    sheetConsumed = true;
-                    stableMarkerFrames = 0;
-                    ContextCompat.getMainExecutor(this).execute(this::captureRealPhotoAndCorrect);
-                }
+                // Capture is initiated only by the explicit on-screen button.
+                // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
-                if (sheetConsumed && waitingForNextName && markerCount < 2) {
-                    missingMarkerFrames++;
-                    if (missingMarkerFrames >= 10 && !nameDialogShowing) {
-                        missingMarkerFrames = 0;
-                        sheetConsumed = false;
-                        showNextParticipantDialog();
-                    }
+                // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
+                // flow when the previous sheet leaves the camera. Keep the preview available
+                // so the operator can capture diagnostic screenshots without a dialog blocking it.
+                if (sheetConsumed && markerCount < 2) {
+                    missingMarkerFrames = 0;
                 } else if (markerCount >= 2) {
                     missingMarkerFrames = 0;
                 }
@@ -325,7 +332,9 @@ public final class OmrScanActivity extends ComponentActivity {
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
                 } else if (transform != null) {
-                    message = "پاسخنامه شناسایی شد؛ ثابت نگه دارید تا اسکن خودکار انجام شود.";
+                    // Do not run the legacy live-bubble scanner in preview.
+                    // Preview is guidance only; capture starts only from the manual button.
+                    message = "پاسخنامه آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
@@ -627,7 +636,7 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /**
-     * Capture a full-quality JPEG automatically after stable live-frame registration.
+     * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
     private void captureRealPhotoAndCorrect() {
@@ -795,9 +804,8 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " دریافت شد؛ " + score.needsReview
-                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد. برگه را بردارید.");
-                waitingForNextName = true;
+                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
+                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
                 return;
             }
             JSONArray saved;
@@ -839,11 +847,11 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
-            updateSheetResultStatus("پاسخنامهٔ " + participantName + " با موفقیت دریافت و تصحیح شد."
-                    + " امتیاز: " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
-                    + " از " + total + "؛ صحیح: " + score.correct + "؛ غلط: " + score.wrong
-                    + "؛ سؤال‌های غلط: " + wrongList + ". برگه را بردارید.");
-            waitingForNextName = true;
+            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
+                    + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
+                    + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
+                    + " • شماره سؤال‌های غلط: " + wrongList
+                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
@@ -985,8 +993,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
     private void showNextParticipantDialog() {
         runOnUiThread(() -> {
-            if (finished || isFinishing() || isDestroyed() || nameDialogShowing) return;
-            nameDialogShowing = true;
+            if (finished || isFinishing() || isDestroyed()) return;
             EditText nameInput = new EditText(this);
             nameInput.setSingleLine(true);
             nameInput.setHint("نام شرکت‌کنندهٔ بعدی");
@@ -1015,23 +1022,14 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
-            boolean firstParticipant = participantName == null || participantName.trim().isEmpty();
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle(firstParticipant ? "ثبت نام شرکت‌کننده" : "آماده برای پاسخنامهٔ بعدی")
-                    .setMessage(firstParticipant ? "نام شرکت‌کننده را با میکروفون اعلام کنید."
-                            : "برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setTitle("آماده برای پاسخنامهٔ بعدی")
+                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
                     .setCancelable(false)
                     .create();
             voiceButton.setOnClickListener(v -> {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(this,
-                            new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
-                    voiceStatus.setText("برای ثبت نام با صدا، مجوز میکروفون را فعال کنید؛ سپس دوباره دکمه را بزنید.");
-                    return;
-                }
                 if (voiceRecognizer != null) voiceRecognizer.stop();
                 voiceRecognizer = new PersianVosk();
                 voiceButton.setEnabled(false);
@@ -1063,18 +1061,14 @@ public final class OmrScanActivity extends ComponentActivity {
                                 .putString("pending_scan_participant", nextName).apply();
                         if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
                         waitingForNextName = false;
-                        nameDialogShowing = false;
                         sheetConsumed = false;
                         voiceCaptureRequested = false;
+                        ensureVoicePermissionAndStart();
                         stableMarkerFrames = 0;
                         missingMarkerFrames = 0;
                         dialog.dismiss();
-                        updateStatus("نام «" + participantName + "» ثبت شد؛ پاسخنامه را داخل کادر قرار دهید.");
+                        updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
                     }));
-            dialog.setOnDismissListener(ignored -> {
-                if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
-                if (nameDialogShowing && !finished) nameDialogShowing = false;
-            });
             dialog.show();
         });
     }
@@ -1101,9 +1095,9 @@ public final class OmrScanActivity extends ComponentActivity {
             }
         } else if (requestCode == AUDIO_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                updateStatus("مجوز میکروفون فعال شد؛ برای ثبت نام، دکمهٔ ثبت نام با صدا را بزنید.");
+                startVoiceCaptureListener();
             } else {
-                updateStatus("برای ثبت نام صوتی، اجازهٔ دسترسی به میکروفون لازم است.");
+                updateStatus("برای گرفتن عکس با فرمان صوتی، اجازهٔ میکروفون لازم است.");
             }
         }
     }
