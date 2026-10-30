@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/enable-bubble-coordinate-overlay
+      - feature/openscanvision-evaluation
 
 permissions:
   contents: read
