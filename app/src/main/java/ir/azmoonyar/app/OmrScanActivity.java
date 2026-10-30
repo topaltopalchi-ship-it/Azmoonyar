@@ -1025,6 +1025,13 @@ public final class OmrScanActivity extends ComponentActivity {
                     .setCancelable(false)
                     .create();
             voiceButton.setOnClickListener(v -> {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+                    voiceStatus.setText("برای ثبت نام با صدا، مجوز میکروفون را فعال کنید؛ سپس دوباره دکمه را بزنید.");
+                    return;
+                }
                 if (voiceRecognizer != null) voiceRecognizer.stop();
                 voiceRecognizer = new PersianVosk();
                 voiceButton.setEnabled(false);
@@ -1094,9 +1101,9 @@ public final class OmrScanActivity extends ComponentActivity {
             }
         } else if (requestCode == AUDIO_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startVoiceCaptureListener();
+                updateStatus("مجوز میکروفون فعال شد؛ برای ثبت نام، دکمهٔ ثبت نام با صدا را بزنید.");
             } else {
-                updateStatus("برای گرفتن عکس با فرمان صوتی، اجازهٔ میکروفون لازم است.");
+                updateStatus("برای ثبت نام صوتی، اجازهٔ دسترسی به میکروفون لازم است.");
             }
         }
     }
