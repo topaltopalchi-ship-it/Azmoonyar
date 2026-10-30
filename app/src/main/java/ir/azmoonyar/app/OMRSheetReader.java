@@ -42,22 +42,15 @@ public final class OMRSheetReader {
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
             SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
             double bubbleRadiusMm) {
-        return read(luminance, imageWidth, imageHeight, transform, bubbleCentersMm,
-                bubbleRadiusMm, bubbleRadiusMm);
-    }
-
-    /** Reads bubbles using independent horizontal and vertical ellipse radii in mm. */
-    public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
-            SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
-            double bubbleRadiusXmm, double bubbleRadiusYmm) {
         if (luminance == null || imageWidth <= 0 || imageHeight <= 0
                 || (long) imageWidth * imageHeight > luminance.length
                 || transform == null || bubbleCentersMm == null
                 || bubbleCentersMm.length < 1 || bubbleCentersMm.length > 100
-                || !finite(bubbleRadiusXmm) || !finite(bubbleRadiusYmm)
-                || bubbleRadiusXmm < 1 || bubbleRadiusYmm < 1) {
+                || bubbleRadiusMm < 1
+                || Double.isNaN(bubbleRadiusMm) || Double.isInfinite(bubbleRadiusMm)) {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
+
         List<QuestionResult> results = new ArrayList<>();
         for (int q = 0; q < bubbleCentersMm.length; q++) {
             double[][] centers = bubbleCentersMm[q];
@@ -71,24 +64,18 @@ public final class OMRSheetReader {
                 }
                 double x = centers[option][0], y = centers[option][1];
                 SheetPerspectiveTransform.Point center = transform.toImage(x, y);
-                SheetPerspectiveTransform.Point left = transform.toImage(x - bubbleRadiusXmm, y);
-                SheetPerspectiveTransform.Point right = transform.toImage(x + bubbleRadiusXmm, y);
-                SheetPerspectiveTransform.Point top = transform.toImage(x, y - bubbleRadiusYmm);
-                SheetPerspectiveTransform.Point bottom = transform.toImage(x, y + bubbleRadiusYmm);
-                double radiusX = (Math.hypot(left.x-center.x,left.y-center.y)
-                        + Math.hypot(right.x-center.x,right.y-center.y)) * 0.5;
-                double radiusY = (Math.hypot(top.x-center.x,top.y-center.y)
-                        + Math.hypot(bottom.x-center.x,bottom.y-center.y)) * 0.5;
+                SheetPerspectiveTransform.Point edgeX = transform.toImage(
+                        Math.min(transform.getPageWidth(), x + bubbleRadiusMm), y);
+                SheetPerspectiveTransform.Point edgeY = transform.toImage(
+                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
+                double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
+                double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
+                double radiusPixels = (radiusX + radiusY) * 0.5;
                 scores[option] = BubbleDarknessAnalyzer.score(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
+                        imageWidth, imageHeight, center.x, center.y, radiusPixels);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
         return Collections.unmodifiableList(results);
     }
-
-    private static boolean finite(double value) {
-        return !Double.isNaN(value) && !Double.isInfinite(value);
-    }
-
 }
