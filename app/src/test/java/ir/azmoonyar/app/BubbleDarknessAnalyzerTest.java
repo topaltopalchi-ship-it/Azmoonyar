@@ -42,9 +42,9 @@ public class BubbleDarknessAnalyzerTest {
         // A light pencil stroke sits toward the right side of a 2:1 ellipse,
         // beyond the small central disk used by the former circular sampler.
         for (int y = 20; y <= 30; y++) {
-            for (int x = 30; x <= 39; x++) {
-                int dx = x - 35, dy = y - 25;
-                if (dx * dx + dy * dy <= 4 * 4) marked[y * width + x] = (byte) 155;
+            for (int x = 27; x <= 33; x++) {
+                int dx = x - 30, dy = y - 25;
+                if (dx * dx + dy * dy <= 3 * 3) marked[y * width + x] = (byte) 155;
             }
         }
         double empty = BubbleDarknessAnalyzer.score(blank, width, height, 25, 25, 12, 8);
