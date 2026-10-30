@@ -16,55 +16,50 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void detectsBlankQuestion() {
+    public void choosesHigherScoreWhenTwoOptionsAreMarked() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void choosesHighestAmongThreeMarkedOptions() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.42, 0.63, 0.31, 0.12});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(1, result.optionIndex);
+    }
+
+    @Test
+    public void blankOnlyWhenNoOptionHasMarkScore() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.11, 0.06});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void flagsMultipleMarkedBubbles() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
-        assertEquals(-1, result.optionIndex);
-    }
-
-    @Test
-    public void sendsWeakEvidenceToReview() {
+    public void treatsWeakScoresBelowMarkThresholdAsBlank() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.25, 0.18, 0.12, 0.10});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+    }
+
+    @Test
+    public void exactTieForHighestMarkedOptionGoesToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.71, 0.09});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
-    public void sendsLowMarginSingleMarkToReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.50, 0.39, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
-    }
-
-    @Test
-    public void detectsModerateRealPhotoMarkWhenClearlyStronger() {
+    public void acceptsSingleModerateMarkWithoutMarginRequirement() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.00, 0.00, 0.08, 0.40});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(3, result.optionIndex);
     }
 
     @Test
-    public void treatsLowContrastUnmarkedBubbleAsBlank() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
-    }
-
-    @Test
-    public void rejectsThresholdsOutsideNormalizedRange() {
+    public void rejectsInvalidThreshold() {
         try {
-            new OMRAnswerClassifier(-0.1, 0.0, 0.1);
-            fail("Expected invalid thresholds to be rejected");
-        } catch (IllegalArgumentException expected) {
-            // Expected.
-        }
-        try {
-            new OMRAnswerClassifier(0.5, 0.6, 0.1);
-            fail("Expected blank threshold above mark threshold to be rejected");
+            new OMRAnswerClassifier(1.1);
+            fail("Expected invalid threshold to be rejected");
         } catch (IllegalArgumentException expected) {
             // Expected.
         }
