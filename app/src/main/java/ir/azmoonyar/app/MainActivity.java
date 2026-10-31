@@ -1118,14 +1118,13 @@ public class MainActivity extends Activity {
         printHtmlDocument("AzmoonYar-Questionnaire-" + examName(), html.toString());
     }
 
-    /** Prints the standard OMR sheet as one A4 page per 100 questions. */
+    /** Prints the branded-free, proprietary A4 OMR answer sheet. Bubble and corner-marker
+     * coordinates remain identical to OmrTemplateLayout so the live scanner stays aligned. */
     private void printStandardAnswerSheets() {
         if (examName().trim().isEmpty()) {
             info("ابتدا آزمون را تعریف کن.");
             return;
         }
-        // The printable OMR master is always a fixed 100-question A4 sheet,
-        // independent of the current exam's configured question count.
         final int total = 100;
         try {
             String safeExam = escapeHtml(examName());
@@ -1135,22 +1134,24 @@ public class MainActivity extends Activity {
                 .append("body{margin:0;font-family:sans-serif;color:#111;direction:rtl}")
                 .append(".sheet{width:210mm;height:297mm;padding:10mm 12mm 9mm;position:relative;page-break-after:always;overflow:hidden}")
                 .append(".sheet:last-child{page-break-after:auto}")
-                .append(".head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;font-weight:bold;margin:0}")
-                .append(".sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
-                .append(".meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
-                .append(".instruction{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
-                .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr;outline:0.45mm solid #111;outline-offset:1mm}")
-                .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
+                .append(".head{position:absolute;top:8mm;left:12mm;right:12mm;height:7mm;text-align:center;font-size:15px;font-weight:bold;margin:0}")
+                .append(".sub{position:absolute;top:16mm;left:12mm;right:12mm;height:4mm;text-align:center;font-size:8px;margin:0}")
+                .append(".examline{position:absolute;top:22mm;left:12mm;right:12mm;height:5mm;font-size:9px;display:flex;justify-content:space-between;border-bottom:.25mm solid #555;padding-bottom:1mm}")
+                .append(".candidate{position:absolute;top:28mm;left:12mm;right:12mm;height:8mm;display:grid;grid-template-columns:1.2fr 1.2fr .8fr 1fr;gap:2mm;font-size:8px}")
+                .append(".field{border:.25mm solid #555;padding:1.2mm 1.5mm;white-space:nowrap}")
+                .append(".instruction{position:absolute;top:37mm;left:12mm;right:12mm;height:5mm;font-size:8px;text-align:center;margin:0}")
+                .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr;outline:.45mm solid #111;outline-offset:1mm}")
+                .append(".col{border:.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed}")
-                .append("th{font-size:8px;height:7mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append("td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border:0.2mm solid #c4c4c4;font-size:8.5px;direction:ltr}")
-                .append("td.num{width:7mm;font-weight:bold;text-align:center}")
-                .append("td.opt{width:auto}")
-                .append(".bubble{display:inline-block;width:5.2mm;height:4.1mm;border:0.4mm solid #111;border-radius:50%;vertical-align:middle}")
-                .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
+                .append("th{font-size:8px;height:7mm;border:0;border-bottom:.3mm solid #333;padding:0;direction:ltr}")
+                .append("td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border: .2mm solid #c4c4c4;font-size:8.5px;direction:ltr}")
+                .append("td.num{width:7mm;font-weight:bold;text-align:center}td.opt{width:auto}")
+                .append(".bubble{display:inline-block;width:5.2mm;height:4.1mm;border:.4mm solid #111;border-radius:50%;vertical-align:middle}")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
                 .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
+                .append(".result{position:absolute;left:12mm;right:12mm;bottom:8mm;height:17mm;border:.35mm solid #111;display:grid;grid-template-columns:repeat(5,1fr);direction:rtl}")
+                .append(".result div{border-left:.2mm solid #777;padding:1.5mm 1mm;text-align:center;font-size:8px}.result b{display:block;font-size:9px;margin-bottom:1mm}.blankline{display:block;border-bottom:.2mm solid #777;height:5mm;margin:0 2mm}")
                 .append("</style></head><body>");
             int pages = (total + 99) / 100;
             for (int page = 0; page < pages; page++) {
@@ -1159,15 +1160,21 @@ public class MainActivity extends Activity {
                 html.append("<section class='sheet'>")
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
                     .append("<i class='small-mark stl'></i><i class='small-mark str'></i><i class='small-mark sbl'></i><i class='small-mark sbr'></i>")
-                    .append("<h1 class='head'>آزمون‌یار | پاسخنامه چهارگزینه‌ای</h1>")
-                    .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page + 1).append(" از ").append(pages).append("</p>")
-                    .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
-                    .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
+                    .append("<h1 class='head'>پاسخنامهٔ چهارگزینه‌ای</h1>")
+                    .append("<p class='sub'>شماره برگه: ").append(page + 1).append(" از ").append(pages).append("</p>")
+                    .append("<div class='examline'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
+                    .append("<div class='candidate'>")
+                    .append("<div class='field'>نام: ................................</div>")
+                    .append("<div class='field'>نام خانوادگی: ........................</div>")
+                    .append("<div class='field'>شماره داوطلب: ............</div>")
+                    .append("<div class='field'>کلاس / گروه: ............</div>")
+                    .append("</div>")
+                    .append("<p class='instruction'>تاریخ: ............................   برای هر سؤال فقط یک گزینه را کاملاً پر کنید؛ از مداد پررنگ استفاده کنید.</p>")
                     .append("<div class='cols'>");
                 for (int col = 0; col < 4; col++) {
                     int colFirst = first + col * 25;
                     int colLast = Math.min(last, colFirst + 24);
-                    html.append("<div class='col'><table><colgroup><col style='width:7mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'></colgroup><thead><tr><th>Question</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
+                    html.append("<div class='col'><table><colgroup><col style='width:7mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'><col style='width:8.6875mm'></colgroup><thead><tr><th>سؤال</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>");
                     for (int q = colFirst; q <= colLast; q++) {
                         html.append("<tr><td class='num'>").append(q).append("</td>");
                         for (int option = 0; option < 4; option++) html.append("<td class='opt'><span class='bubble'></span></td>");
@@ -1175,7 +1182,14 @@ public class MainActivity extends Activity {
                     }
                     html.append("</tbody></table></div>");
                 }
-                html.append("</div></section>");
+                html.append("</div>")
+                    .append("<div class='result'>")
+                    .append("<div><b>صحیح</b><span class='blankline'></span></div>")
+                    .append("<div><b>غلط</b><span class='blankline'></span></div>")
+                    .append("<div><b>بی‌پاسخ</b><span class='blankline'></span></div>")
+                    .append("<div><b>نمره خام</b><span class='blankline'></span></div>")
+                    .append("<div><b>نمره نهایی</b><span class='blankline'></span></div>")
+                    .append("</div></section>");
             }
             html.append("</body></html>");
             WebView web = new WebView(this);
@@ -1185,16 +1199,14 @@ public class MainActivity extends Activity {
                 @Override public void onPageFinished(WebView view, String url) {
                     PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
                     if (pm != null) {
-                        pm.print("AzmoonYar-OMR-" + total,
-                            view.createPrintDocumentAdapter("AzmoonYar-OMR-" + total),
+                        pm.print("AnswerSheet-" + total,
+                            view.createPrintDocumentAdapter("AnswerSheet-" + total),
                             new PrintAttributes.Builder()
                                 .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                                // The OMR template uses absolute A4 millimeter coordinates.
-                                // Do not let Android's print framework add default margins
-                                // and scale the sheet into a smaller printable rectangle.
                                 .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                                 .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
-                                .build());                    } else {
+                                .build());
+                    } else {
                         info("قابلیت چاپ در این دستگاه در دسترس نیست.");
                     }
                 }
