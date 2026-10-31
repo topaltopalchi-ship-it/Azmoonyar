@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/enable-bubble-coordinate-overlay
+      - feature/faster-markers-next-sheet-name
 
 permissions:
   contents: read
