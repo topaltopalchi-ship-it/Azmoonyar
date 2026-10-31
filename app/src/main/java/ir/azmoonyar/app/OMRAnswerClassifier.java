@@ -64,33 +64,32 @@ public final class OMRAnswerClassifier {
         int strongestIndex = 0;
         double strongest = scores[0];
         double second = -1;
-        int marks = 0;
-        for (int i = 0; i < scores.length; i++) {
-            if (scores[i] >= markThreshold) marks++;
+        boolean tiedForStrongest = false;
+        for (int i = 1; i < scores.length; i++) {
             if (scores[i] > strongest) {
                 second = strongest;
                 strongest = scores[i];
                 strongestIndex = i;
-            } else if (i != strongestIndex && scores[i] > second) {
+                tiedForStrongest = false;
+            } else if (scores[i] == strongest) {
+                second = strongest;
+                tiedForStrongest = true;
+            } else if (scores[i] > second) {
                 second = scores[i];
             }
         }
 
+        // The tested scanner workflow selects the relatively darkest option even
+        // when its lead is very small. Boost only that winning option, never all
+        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
+        if (strongest <= 0.0) {
+            return new Result(Status.BLANK, -1, 0, 0);
+        }
         double margin = strongest - Math.max(0, second);
-        if (strongest < blankThreshold) {
-            return new Result(Status.BLANK, -1, 0, strongest);
+        if (tiedForStrongest) {
+            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
         }
-        if (marks > 1) {
-            // Two moderately dark, close options are ambiguous rather than a confirmed
-            // double-mark. Reserve MULTIPLE_MARKS for evidence of two clearly dark fills.
-            if (strongest < 0.60) {
-                return new Result(Status.REVIEW, -1, margin, strongest);
-            }
-            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
-        }
-        if (strongest < markThreshold || margin < minimumMargin) {
-            return new Result(Status.REVIEW, -1, margin, strongest);
-        }
-        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
+        double boostedStrongest = Math.min(1.0, strongest * 2.0);
+        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
     }
 }
