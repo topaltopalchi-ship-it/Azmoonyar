@@ -35,7 +35,7 @@ public final class OMRAnswerClassifier {
     public OMRAnswerClassifier() {
         // Conservative first test calibration: near-paper noise stays blank; a faint
         // but distinct mark can be accepted; weak or competing evidence goes to review.
-        this(0.22, 0.16, 0.12);
+        this(0.12, 0.08, 0.08);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
