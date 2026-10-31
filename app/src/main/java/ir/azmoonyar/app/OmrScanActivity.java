@@ -59,6 +59,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
+    // Reuse detector work buffers on the single camera-analysis thread to avoid per-frame GC.
+    private boolean[] markerVisited = new boolean[0];
+    private int[] markerQueue = new int[0];
     private PersianVosk voiceRecognizer;
     private volatile boolean voiceCommandListening;
     private volatile boolean voiceCaptureRequested;
@@ -339,7 +342,22 @@ public final class OmrScanActivity extends ComponentActivity {
                 // flow when the previous sheet leaves the camera. Keep the preview available
                 // so the operator can capture diagnostic screenshots without a dialog blocking it.
                 if (sheetConsumed && markerCount < 2) {
-                    missingMarkerFrames = 0;
+                    missingMarkerFrames++;
+                    if (missingMarkerFrames >= 3) {
+                        String pendingName = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                                .getString("pending_scan_participant", "").trim();
+                        if (!pendingName.isEmpty()) {
+                            participantName = pendingName;
+                            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                                    .remove("pending_scan_participant").apply();
+                            sheetConsumed = false;
+                            waitingForNextName = false;
+                            voiceCaptureRequested = false;
+                            stableMarkerFrames = 0;
+                            missingMarkerFrames = 0;
+                            updateStatus("برگهٔ قبلی برداشته شد؛ آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
+                        }
+                    }
                 } else if (markerCount >= 2) {
                     missingMarkerFrames = 0;
                 }
@@ -425,8 +443,12 @@ public final class OmrScanActivity extends ComponentActivity {
         final int sample = 2;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
-        final boolean[] visited = new boolean[gw * gh];
-        final int[] queue = new int[gw * gh];
+        final int gridSize = gw * gh;
+        if (markerVisited.length != gridSize) markerVisited = new boolean[gridSize];
+        if (markerQueue.length < gridSize) markerQueue = new int[gridSize];
+        final boolean[] visited = markerVisited;
+        final int[] queue = markerQueue;
+        java.util.Arrays.fill(visited, false);
         // The sheet may occupy only the middle 60–80% of the camera frame.
         // Search a wider outer corner window so perspective/margins do not put
         // the printed registration squares outside the detector's search area.
@@ -872,6 +894,8 @@ public final class OmrScanActivity extends ComponentActivity {
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
                 updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
+                waitingForNextName = true;
+                showNextParticipantDialog();
                 return;
             }
             JSONArray saved;
@@ -917,7 +941,9 @@ public final class OmrScanActivity extends ComponentActivity {
                     + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
                     + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
                     + " • شماره سؤال‌های غلط: " + wrongList
-                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+                    + ". نام نفر بعدی را وارد کنید؛ سپس برگهٔ فعلی را بردارید.");
+            waitingForNextName = true;
+            showNextParticipantDialog();
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
@@ -1095,7 +1121,7 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("آماده برای پاسخنامهٔ بعدی")
-                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setMessage("نام نفر بعدی را همین حالا ثبت کنید. اسکن او پس از برداشتن برگهٔ فعلی آغاز می‌شود.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
                     .setCancelable(false)
@@ -1132,13 +1158,12 @@ public final class OmrScanActivity extends ComponentActivity {
                                 .putString("pending_scan_participant", nextName).apply();
                         if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
                         waitingForNextName = false;
-                        sheetConsumed = false;
+                        // Keep the current sheet consumed until the camera confirms it was removed.
                         voiceCaptureRequested = false;
-                        ensureVoicePermissionAndStart();
                         stableMarkerFrames = 0;
                         missingMarkerFrames = 0;
                         dialog.dismiss();
-                        updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
+                        updateStatus("نام " + participantName + " ذخیره شد؛ برگهٔ فعلی را بردارید.");
                     }));
             dialog.show();
         });
