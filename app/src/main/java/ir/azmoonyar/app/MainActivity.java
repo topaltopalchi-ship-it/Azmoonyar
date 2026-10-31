@@ -1140,7 +1140,7 @@ public class MainActivity extends Activity {
             html.append("<html><head><meta charset='utf-8'><style>")
                 .append("@page{size:A4 portrait;margin:0}*{box-sizing:border-box}")
                 .append("body{margin:0;font-family:sans-serif;color:#111;direction:rtl}")
-                .append(".sheet{width:210mm;height:297mm;padding:10mm 12mm 9mm;position:relative;page-break-after:always;overflow:hidden}")
+                .append(".sheet{width:210mm;height:297mm;padding:10mm 12mm 9mm;position:relative;page-break-after:always;overflow:hidden}.sheet:before{content:'';position:absolute;inset:4mm;border:.35mm solid #111;pointer-events:none;z-index:1}")
                 .append(".sheet:last-child{page-break-after:auto}")
                 .append(".head{position:absolute;top:8mm;left:12mm;right:12mm;height:7mm;text-align:center;font-size:15px;font-weight:bold;margin:0}")
                 .append(".sub{position:absolute;top:16mm;left:12mm;right:12mm;height:4mm;text-align:center;font-size:8px;margin:0}")
