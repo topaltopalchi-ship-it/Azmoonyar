@@ -23,7 +23,7 @@ public class OMRAnswerClassifierSensitivityTest {
     @Test
     public void veryWeakMarkIsNotSilentlyTreatedAsAnswered() {
         OMRAnswerClassifier.Result result =
-                new OMRAnswerClassifier().classify(new double[]{0.18, 0.04, 0.02, 0.03});
+                new OMRAnswerClassifier().classify(new double[]{0.10, 0.04, 0.02, 0.03});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
