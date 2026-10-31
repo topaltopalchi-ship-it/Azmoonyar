@@ -12,6 +12,11 @@ public final class OmrTemplateLayout {
     public static final int QUESTIONS_PER_COLUMN = 25;
     public static final int OPTIONS_PER_QUESTION = 4;
 
+    // Exact outer dimensions from MainActivity.printStandardAnswerSheets():
+    // .bubble{width:5.2mm;height:4.1mm}. Reader expects semi-axes.
+    public static final double BUBBLE_HALF_WIDTH_MM = 2.6;
+    public static final double BUBBLE_HALF_HEIGHT_MM = 2.05;
+
     public static final double NEW_MARKER_SIZE_MM = 16.0;
     public static final double NEW_MARKER_CENTER_INSET_MM = 13.0;
     public static final double LEGACY_MARKER_CENTER_INSET_MM = 6.5;
