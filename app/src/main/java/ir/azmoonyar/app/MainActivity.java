@@ -1149,7 +1149,7 @@ public class MainActivity extends Activity {
                 .append("td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border: .2mm solid #c4c4c4;font-size:8.5px;direction:ltr}")
                 .append("td.num{width:7mm;font-weight:bold;text-align:center}td.opt{width:auto}")
                 .append(".bubble{display:inline-block;width:5.2mm;height:4.1mm;border:.4mm solid #111;border-radius:50%;vertical-align:middle}")
-                .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
+                .append(".marks{position:absolute;width:16mm;height:16mm;background:linear-gradient(#fff,#fff) center/4mm 4mm no-repeat,linear-gradient(#000,#000) center/8mm 8mm no-repeat,linear-gradient(#fff,#fff) center/11mm 11mm no-repeat,#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
                 .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append(".result{position:absolute;left:25mm;right:25mm;bottom:8mm;height:17mm;border:.35mm solid #111;display:grid;grid-template-columns:repeat(5,1fr);direction:rtl}")
