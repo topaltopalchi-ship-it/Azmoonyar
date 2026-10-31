@@ -41,13 +41,13 @@ public final class OMRSheetReader {
      */
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
             SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
-            double bubbleRadiusMm) {
+            double bubbleHalfWidthMm, double bubbleHalfHeightMm) {
         if (luminance == null || imageWidth <= 0 || imageHeight <= 0
                 || (long) imageWidth * imageHeight > luminance.length
                 || transform == null || bubbleCentersMm == null
                 || bubbleCentersMm.length < 1 || bubbleCentersMm.length > 100
-                || bubbleRadiusMm < 1
-                || Double.isNaN(bubbleRadiusMm) || Double.isInfinite(bubbleRadiusMm)) {
+                || bubbleHalfWidthMm < 1 || bubbleHalfHeightMm < 1
+                || !Double.isFinite(bubbleHalfWidthMm) || !Double.isFinite(bubbleHalfHeightMm)) {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
 
@@ -65,9 +65,9 @@ public final class OMRSheetReader {
                 double x = centers[option][0], y = centers[option][1];
                 SheetPerspectiveTransform.Point center = transform.toImage(x, y);
                 SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                        Math.min(transform.getPageWidth(), x + bubbleRadiusMm), y);
+                        Math.min(transform.getPageWidth(), x + bubbleHalfWidthMm), y);
                 SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
+                        x, Math.min(transform.getPageHeight(), y + bubbleHalfHeightMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
                 scores[option] = BubbleDarknessAnalyzer.score(luminance,
