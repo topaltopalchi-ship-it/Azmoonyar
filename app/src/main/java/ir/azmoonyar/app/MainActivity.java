@@ -1157,6 +1157,10 @@ public class MainActivity extends Activity {
                 .append(".bubble{display:inline-block;width:5.2mm;height:4.1mm;border:.4mm solid #111;border-radius:50%;vertical-align:middle}")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:linear-gradient(#fff,#fff) center/4mm 4mm no-repeat,linear-gradient(#000,#000) center/8mm 8mm no-repeat,linear-gradient(#fff,#fff) center/11mm 11mm no-repeat,#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
+                .append(".side-mark,.gap-mark{position:absolute;width:3mm;height:3mm;background:#000;display:block;z-index:4;pointer-events:none}")
+                .append(".sl1{left:5mm;top:83mm}.sl2{left:5mm;top:148mm}.sl3{left:5mm;top:213mm}")
+                .append(".sr1{right:5mm;top:83mm}.sr2{right:5mm;top:148mm}.sr3{right:5mm;top:213mm}")
+                .append(".gm1{left:57.75mm;top:145mm}.gm2{left:105mm;top:145mm}.gm3{left:152.25mm;top:145mm}")
                 .append(".result{position:absolute;left:25mm;right:25mm;bottom:8mm;height:17mm;border:.35mm solid #111;display:grid;grid-template-columns:repeat(5,1fr);direction:rtl}")
                 .append(".result div{border-left:.2mm solid #777;padding:1.5mm 1mm;text-align:center;font-size:8px}.result b{display:block;font-size:9px;margin-bottom:1mm}.blankline{display:block;border-bottom:.2mm solid #777;height:5mm;margin:0 2mm}")
                 .append("</style></head><body>");
@@ -1166,6 +1170,9 @@ public class MainActivity extends Activity {
                 int last = Math.min(total, first + 99);
                 html.append("<section class='sheet'>")
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
+                    .append("<i class='side-mark sl1'></i><i class='side-mark sl2'></i><i class='side-mark sl3'></i>")
+                    .append("<i class='side-mark sr1'></i><i class='side-mark sr2'></i><i class='side-mark sr3'></i>")
+                    .append("<i class='gap-mark gm1'></i><i class='gap-mark gm2'></i><i class='gap-mark gm3'></i>")
                     .append("<h1 class='head'>پاسخنامهٔ چهارگزینه‌ای</h1>")
                     .append("<p class='sub'>شماره برگه: ").append(page + 1).append(" از ").append(pages).append("</p>")
                     .append("<div class='examline'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
