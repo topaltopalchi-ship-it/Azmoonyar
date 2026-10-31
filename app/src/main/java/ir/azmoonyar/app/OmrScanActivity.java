@@ -20,8 +20,6 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 import android.widget.ScrollView;
-import android.animation.ValueAnimator;
-import android.graphics.drawable.GradientDrawable;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
@@ -173,7 +171,6 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setText("عکس بگیر و تصحیح کن");
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
-        styleAnimatedPillButton(captureButton, 18);
         captureButton.setOnClickListener(v -> {
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
@@ -188,25 +185,29 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
 
-        Button exitButton = new Button(this);
-        exitButton.setText("خروج از اسکن");
-        exitButton.setAllCaps(false);
-        exitButton.setTextSize(15);
-        styleAnimatedPillButton(exitButton, 16);
-        exitButton.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("خروج از اسکن")
-                .setMessage("آیا می‌خواهید اسکن پاسخنامه‌ها را متوقف کنید؟")
-                .setNegativeButton("ادامهٔ اسکن", null)
-                .setPositiveButton("خروج", (dialog, which) -> {
-                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
-                    finished = true;
-                    finish();
-                })
-                .show());
-        page.addView(exitButton, new LinearLayout.LayoutParams(-1, -2));
-
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
+        Button coordinateButton = new Button(this);
+        coordinateButton.setText("نمایش حلقه‌های مختصات");
+        coordinateButton.setTextSize(15);
+        coordinateButton.setAllCaps(false);
+        coordinateButton.setOnClickListener(v -> {
+            byte[] luma = diagnosticLuma;
+            int width = diagnosticWidth;
+            int height = diagnosticHeight;
+            SheetPerspectiveTransform transform = diagnosticTransform;
+            SheetPerspectiveTransform.Point[] markers = diagnosticMarkerPoints;
+            double markerSize = diagnosticMarkerSizeMm;
+            double[][][] centers = diagnosticCenters;
+            if (luma == null || width <= 0 || height <= 0 || transform == null
+                    || markers == null || markers.length != 4 || centers == null) {
+                updateStatus("ابتدا پاسخنامه را کامل داخل کادر دوربین نگه دارید تا چهار مربع گوشه شناسایی شوند.");
+                return;
+            }
+            showBubbleCoordinateOverlay(luma, width, height, transform, centers, markers, markerSize);
+        });
+        page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
@@ -231,37 +232,6 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
-    /** Gives primary scan controls a pill shape with a continuously cycling colored border. */
-    private void styleAnimatedPillButton(Button button, int textSizeSp) {
-        float density = getResources().getDisplayMetrics().density;
-        button.setAllCaps(false);
-        button.setTextColor(Color.WHITE);
-        button.setTextSize(textSizeSp);
-        button.setTypeface(null, android.graphics.Typeface.BOLD);
-        button.setMinHeight(Math.round(58 * density));
-        button.setPadding(Math.round(22 * density), Math.round(12 * density),
-                Math.round(22 * density), Math.round(12 * density));
-        GradientDrawable background = new GradientDrawable();
-        background.setShape(GradientDrawable.RECTANGLE);
-        background.setCornerRadius(1000f);
-        background.setColor(Color.rgb(16, 54, 125));
-        background.setStroke(Math.max(2, Math.round(3 * density)), Color.rgb(34, 211, 238));
-        button.setBackground(background);
-        button.setElevation(Math.round(4 * density));
-
-        ValueAnimator borderAnimator = ValueAnimator.ofArgb(
-                Color.rgb(34, 211, 238),
-                Color.rgb(52, 211, 153),
-                Color.rgb(250, 204, 21),
-                Color.rgb(244, 114, 182),
-                Color.rgb(34, 211, 238));
-        borderAnimator.setDuration(2600);
-        borderAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        borderAnimator.addUpdateListener(animation -> background.setStroke(
-                Math.max(2, Math.round(3 * density)), (Integer) animation.getAnimatedValue()));
-        borderAnimator.start();
-    }
-
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> providerFuture =
                 ProcessCameraProvider.getInstance(this);
@@ -278,7 +248,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new android.util.Size(640, 480))
+                        .setTargetResolution(new android.util.Size(1280, 960))
                         .build();
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
@@ -452,7 +422,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
         // Work on a half-resolution luma image. Accept both the legacy 3 mm
         // outlined marks and new 16 mm solid vector marks.
-        final int sample = 1;
+        final int sample = 2;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
@@ -824,9 +794,7 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers,
-                            OmrTemplateLayout.BUBBLE_HALF_WIDTH_MM,
-                            OmrTemplateLayout.BUBBLE_HALF_HEIGHT_MM);
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
@@ -902,7 +870,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                finishSheetAndAskNext("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
+                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
                 return;
             }
@@ -945,13 +913,13 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
-            finishSheetAndAskNext("تصحیح خودکار انجام شد: " + participantName
+            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
                     + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
                     + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
-                    + " • شماره سؤال‌های غلط: " + wrongList);
+                    + " • شماره سؤال‌های غلط: " + wrongList
+                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
-            finishSheetAndAskNext("خواندن برگهٔ " + participantName + " با خطا روبه‌رو شد: "
-                    + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+            updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
     }
 
@@ -1126,11 +1094,10 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("ثبت برگهٔ بعدی")
-                    .setMessage("اسکن برگهٔ قبلی تمام شد. نام شرکت‌کنندهٔ برگهٔ بعدی را تایپ کنید یا با صدا بگویید.")
+                    .setTitle("آماده برای پاسخنامهٔ بعدی")
+                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
-                    .setNegativeButton("خروج", null)
                     .setCancelable(false)
                     .create();
             voiceButton.setOnClickListener(v -> {
@@ -1153,14 +1120,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     }
                 });
             });
-            dialog.setOnShowListener(ignored -> {
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
-                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
-                    finished = true;
-                    dialog.dismiss();
-                    finish();
-                });
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(v -> {
                         String nextName = nameInput.getText().toString().trim();
                         if (nextName.isEmpty()) {
                             nameInput.setError("نام شرکت‌کننده را وارد کنید.");
@@ -1178,19 +1139,9 @@ public final class OmrScanActivity extends ComponentActivity {
                         missingMarkerFrames = 0;
                         dialog.dismiss();
                         updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
-                    });
-            });
+                    }));
             dialog.show();
         });
-    }
-
-    private void finishSheetAndAskNext(String message) {
-        lastSheetResultMessage = message;
-        waitingForNextName = true;
-        voiceCommandListening = false;
-        stopVoiceCaptureListener();
-        updateStatus(message);
-        showNextParticipantDialog();
     }
 
     private void updateSheetResultStatus(String message) {

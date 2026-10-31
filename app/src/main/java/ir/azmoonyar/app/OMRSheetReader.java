@@ -41,13 +41,13 @@ public final class OMRSheetReader {
      */
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
             SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
-            double bubbleHalfWidthMm, double bubbleHalfHeightMm) {
+            double bubbleRadiusMm) {
         if (luminance == null || imageWidth <= 0 || imageHeight <= 0
                 || (long) imageWidth * imageHeight > luminance.length
                 || transform == null || bubbleCentersMm == null
                 || bubbleCentersMm.length < 1 || bubbleCentersMm.length > 100
-                || bubbleHalfWidthMm < 1 || bubbleHalfHeightMm < 1
-                || !Double.isFinite(bubbleHalfWidthMm) || !Double.isFinite(bubbleHalfHeightMm)) {
+                || bubbleRadiusMm < 1
+                || Double.isNaN(bubbleRadiusMm) || Double.isInfinite(bubbleRadiusMm)) {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
 
@@ -65,13 +65,14 @@ public final class OMRSheetReader {
                 double x = centers[option][0], y = centers[option][1];
                 SheetPerspectiveTransform.Point center = transform.toImage(x, y);
                 SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                        Math.min(transform.getPageWidth(), x + bubbleHalfWidthMm), y);
+                        Math.min(transform.getPageWidth(), x + bubbleRadiusMm), y);
                 SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                        x, Math.min(transform.getPageHeight(), y + bubbleHalfHeightMm));
+                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
+                double radiusPixels = (radiusX + radiusY) * 0.5;
                 scores[option] = BubbleDarknessAnalyzer.score(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
+                        imageWidth, imageHeight, center.x, center.y, radiusPixels);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }

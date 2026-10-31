@@ -30,17 +30,19 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void sendsNearlyEqualWeakBubblesToReview() {
+    public void selectsSlightlyDarkerBubbleAndDoublesOnlyItsScore() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.251, 0.250, 0.12, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
-        assertEquals(-1, result.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+        org.junit.Assert.assertEquals(0.502, result.strongestScore, 0.000001);
     }
 
     @Test
-    public void sendsWinnerWithTinyMarginToReview() {
+    public void selectsWinnerEvenWhenDifferenceIsVerySmall() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
-        assertEquals(-1, result.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+        org.junit.Assert.assertEquals(1.0, result.strongestScore, 0.000001);
     }
 
     @Test
@@ -51,10 +53,11 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void treatsTinyRelativeDifferencesAsBlankNoise() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.07, 0.06});
-        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
-        assertEquals(-1, result.optionIndex);
+    public void selectsNonzeroDarkestBubbleEvenAtLowContrast() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(2, result.optionIndex);
+        org.junit.Assert.assertEquals(0.20, result.strongestScore, 0.000001);
     }
 
     @Test
