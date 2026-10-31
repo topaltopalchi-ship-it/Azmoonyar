@@ -824,7 +824,7 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 2.15, 1.70);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
