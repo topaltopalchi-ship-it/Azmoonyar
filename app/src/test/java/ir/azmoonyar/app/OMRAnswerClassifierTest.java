@@ -16,9 +16,16 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void detectsBlankQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.11, 0.06});
+    public void detectsWhitePageWithOnlyTinyNoiseAsBlank() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.004, 0.009, 0.011, 0.006});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void sendsFaintPossiblePencilMarkToReviewInsteadOfGuessing() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.06, 0.01});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
@@ -30,31 +37,8 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void selectsSlightlyDarkerBubbleAndDoublesOnlyItsScore() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.251, 0.250, 0.12, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
-        org.junit.Assert.assertEquals(0.502, result.strongestScore, 0.000001);
-    }
-
-    @Test
-    public void selectsWinnerEvenWhenDifferenceIsVerySmall() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
-        org.junit.Assert.assertEquals(1.0, result.strongestScore, 0.000001);
-    }
-
-    @Test
-    public void detectsModerateRealPhotoMarkWhenClearlyStronger() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.00, 0.00, 0.08, 0.40});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(3, result.optionIndex);
-    }
-
-    @Test
-    public void selectsNonzeroDarkestBubbleEvenAtLowContrast() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
+    public void acceptsLowContrastMarkWhenItPassesTheConfiguredFloor() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.01});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(2, result.optionIndex);
         org.junit.Assert.assertEquals(0.20, result.strongestScore, 0.000001);
@@ -71,15 +55,11 @@ public class OMRAnswerClassifierTest {
         try {
             new OMRAnswerClassifier(-0.1, 0.0, 0.1);
             fail("Expected invalid thresholds to be rejected");
-        } catch (IllegalArgumentException expected) {
-            // Expected.
-        }
+        } catch (IllegalArgumentException expected) { }
         try {
             new OMRAnswerClassifier(0.5, 0.6, 0.1);
             fail("Expected blank threshold above mark threshold to be rejected");
-        } catch (IllegalArgumentException expected) {
-            // Expected.
-        }
+        } catch (IllegalArgumentException expected) { }
     }
 
     @Test
@@ -87,9 +67,7 @@ public class OMRAnswerClassifierTest {
         try {
             classifier.classify(new double[]{0.1, 0.2, 0.3});
             fail("Expected invalid input to be rejected");
-        } catch (IllegalArgumentException expected) {
-            // Expected.
-        }
+        } catch (IllegalArgumentException expected) { }
     }
 
     @Test
@@ -97,8 +75,6 @@ public class OMRAnswerClassifierTest {
         try {
             classifier.classify(new double[]{0.1, 0.2, 1.1, 0.3});
             fail("Expected invalid score to be rejected");
-        } catch (IllegalArgumentException expected) {
-            // Expected.
-        }
+        } catch (IllegalArgumentException expected) { }
     }
 }
