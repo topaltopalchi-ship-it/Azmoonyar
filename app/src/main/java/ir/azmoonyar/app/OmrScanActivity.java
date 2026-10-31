@@ -54,7 +54,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
-    private volatile boolean finished;
+    private volatile boolean finished, nextParticipantDialogVisible;
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
@@ -1100,7 +1100,8 @@ public final class OmrScanActivity extends ComponentActivity {
 
     private void showNextParticipantDialog() {
         runOnUiThread(() -> {
-            if (finished || isFinishing() || isDestroyed()) return;
+            if (finished || isFinishing() || isDestroyed() || nextParticipantDialogVisible) return;
+            nextParticipantDialogVisible = true;
             EditText nameInput = new EditText(this);
             nameInput.setSingleLine(true);
             nameInput.setHint("نام شرکت‌کنندهٔ بعدی");
@@ -1139,9 +1140,11 @@ public final class OmrScanActivity extends ComponentActivity {
             // Back/cancel from this prompt means the operator is leaving the scanner,
             // not that the current sheet should be silently re-used.
             dialog.setOnCancelListener(ignored -> {
+                nextParticipantDialogVisible = false;
                 if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
                 finish();
             });
+            dialog.setOnDismissListener(ignored -> nextParticipantDialogVisible = false);
             voiceButton.setOnClickListener(v -> {
                 if (voiceRecognizer != null) voiceRecognizer.stop();
                 voiceRecognizer = new PersianVosk();
@@ -1183,6 +1186,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     }));
             dialog.show();
         });
+    }
+
+    @Override public void onBackPressed() {
+        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+        finished = true;
+        finish();
     }
 
     private void updateSheetResultStatus(String message) {
