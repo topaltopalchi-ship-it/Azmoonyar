@@ -248,7 +248,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new android.util.Size(1280, 960))
+                        .setTargetResolution(new android.util.Size(640, 480))
                         .build();
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
@@ -422,7 +422,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
         // Work on a half-resolution luma image. Accept both the legacy 3 mm
         // outlined marks and new 16 mm solid vector marks.
-        final int sample = 2;
+        final int sample = 1;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
