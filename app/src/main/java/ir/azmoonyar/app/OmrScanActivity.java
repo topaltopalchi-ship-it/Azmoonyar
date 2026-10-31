@@ -188,6 +188,16 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
 
+        Button exitButton = new Button(this);
+        exitButton.setText("خروج از آزمون‌گیر");
+        exitButton.setTextSize(15);
+        exitButton.setAllCaps(false);
+        exitButton.setOnClickListener(v -> {
+            if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+            finish();
+        });
+        page.addView(exitButton, new LinearLayout.LayoutParams(-1, -2));
+
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
         Button coordinateButton = new Button(this);
@@ -338,9 +348,9 @@ public final class OmrScanActivity extends ComponentActivity {
                 // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
-                // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
-                // flow when the previous sheet leaves the camera. Keep the preview available
-                // so the operator can capture diagnostic screenshots without a dialog blocking it.
+                // Re-arm the next sheet only after the previous sheet has left the camera.
+                // Three consecutive missing-marker frames prevent accidental re-arming from a
+                // single blurred frame while keeping the operator's manual capture workflow.
                 if (sheetConsumed && markerCount < 2) {
                     missingMarkerFrames++;
                     if (missingMarkerFrames >= 3) {
@@ -1123,9 +1133,15 @@ public final class OmrScanActivity extends ComponentActivity {
                     .setTitle("آماده برای پاسخنامهٔ بعدی")
                     .setMessage("نام نفر بعدی را همین حالا ثبت کنید. اسکن او پس از برداشتن برگهٔ فعلی آغاز می‌شود.")
                     .setView(content)
-                    .setPositiveButton("شروع اسکن بعدی", null)
-                    .setCancelable(false)
+                    .setPositiveButton("ثبت نام و ادامه", null)
+                    .setCancelable(true)
                     .create();
+            // Back/cancel from this prompt means the operator is leaving the scanner,
+            // not that the current sheet should be silently re-used.
+            dialog.setOnCancelListener(ignored -> {
+                if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                finish();
+            });
             voiceButton.setOnClickListener(v -> {
                 if (voiceRecognizer != null) voiceRecognizer.stop();
                 voiceRecognizer = new PersianVosk();
