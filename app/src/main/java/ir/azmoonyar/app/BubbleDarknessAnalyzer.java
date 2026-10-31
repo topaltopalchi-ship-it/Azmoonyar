@@ -25,47 +25,59 @@ public final class BubbleDarknessAnalyzer {
      */
     public static double score(byte[] luminance, int width, int height,
                                double centerX, double centerY, double radius) {
+        return score(luminance, width, height, centerX, centerY, radius, radius);
+    }
+
+    /**
+     * Elliptical sampling for printed oval bubbles. radiusX and radiusY are the
+     * local image-space semi-axes derived from the sheet perspective transform.
+     */
+    public static double score(byte[] luminance, int width, int height,
+                               double centerX, double centerY,
+                               double radiusX, double radiusY) {
         if (luminance == null || width <= 0 || height <= 0
                 || (long) width * height > luminance.length
-                || !finite(radius) || !finite(centerX) || !finite(centerY)
-                || radius < 2 || centerX < 0 || centerY < 0
+                || !finite(radiusX) || !finite(radiusY)
+                || !finite(centerX) || !finite(centerY)
+                || radiusX < 2 || radiusY < 2 || centerX < 0 || centerY < 0
                 || centerX >= width || centerY >= height) {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
-        int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
-        int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
+        double innerScale = 0.58;
+        double ringInnerScale = 1.18;
+        double ringOuterScale = 1.55;
+        double innerX = radiusX * innerScale, innerY = radiusY * innerScale;
+        double ringInX = radiusX * ringInnerScale, ringInY = radiusY * ringInnerScale;
+        double ringOutX = radiusX * ringOuterScale, ringOutY = radiusY * ringOuterScale;
+        double maxExtentX = ringOutX, maxExtentY = ringOutY;
         // Do not score a partially visible bubble: clipping the reference ring at
         // an image edge can make an off-sheet bubble look confidently blank/filled.
-        if (centerX - ringOuter < 0 || centerY - ringOuter < 0
-                || centerX + ringOuter >= width || centerY + ringOuter >= height) {
+        if (centerX - maxExtentX < 0 || centerY - maxExtentY < 0
+                || centerX + maxExtentX >= width || centerY + maxExtentY >= height) {
             throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
         }
 
-        int minX = Math.max(0, (int) Math.floor(centerX - ringOuter));
-        int maxX = Math.min(width - 1, (int) Math.ceil(centerX + ringOuter));
-        int minY = Math.max(0, (int) Math.floor(centerY - ringOuter));
-        int maxY = Math.min(height - 1, (int) Math.ceil(centerY + ringOuter));
+        int minX = Math.max(0, (int) Math.floor(centerX - maxExtentX));
+        int maxX = Math.min(width - 1, (int) Math.ceil(centerX + maxExtentX));
+        int minY = Math.max(0, (int) Math.floor(centerY - maxExtentY));
+        int maxY = Math.min(height - 1, (int) Math.ceil(centerY + maxExtentY));
 
         long innerSum = 0;
         int innerCount = 0;
         long paperSum = 0;
         int paperCount = 0;
-        double innerR2 = (double) innerRadius * innerRadius;
-        double ringIn2 = (double) ringInner * ringInner;
-        double ringOut2 = (double) ringOuter * ringOuter;
-
         for (int y = minY; y <= maxY; y++) {
-            double dy = y - centerY;
+            double ny = (y - centerY) / radiusY;
             for (int x = minX; x <= maxX; x++) {
-                double dx = x - centerX;
-                double d2 = (double) dx * dx + (double) dy * dy;
+                double nx = (x - centerX) / radiusX;
+                double normalizedDistance = nx * nx + ny * ny;
                 int value = luminance[y * width + x] & 0xff;
-                if (d2 <= innerR2) {
+                if (normalizedDistance <= innerScale * innerScale) {
                     innerSum += value;
                     innerCount++;
-                } else if (d2 >= ringIn2 && d2 <= ringOut2) {
+                } else if (normalizedDistance >= ringInnerScale * ringInnerScale
+                        && normalizedDistance <= ringOuterScale * ringOuterScale) {
                     paperSum += value;
                     paperCount++;
                 }
