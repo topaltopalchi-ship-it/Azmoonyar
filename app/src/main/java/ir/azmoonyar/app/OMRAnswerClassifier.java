@@ -33,11 +33,9 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
-        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        // Conservative first test calibration: near-paper noise stays blank; a faint
+        // but distinct mark can be accepted; weak or competing evidence goes to review.
+        this(0.22, 0.16, 0.12);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -63,33 +61,41 @@ public final class OMRAnswerClassifier {
 
         int strongestIndex = 0;
         double strongest = scores[0];
-        double second = -1;
-        boolean tiedForStrongest = false;
+        double second = 0.0;
         for (int i = 1; i < scores.length; i++) {
             if (scores[i] > strongest) {
                 second = strongest;
                 strongest = scores[i];
                 strongestIndex = i;
-                tiedForStrongest = false;
-            } else if (scores[i] == strongest) {
-                second = strongest;
-                tiedForStrongest = true;
             } else if (scores[i] > second) {
                 second = scores[i];
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
+        double margin = strongest - second;
+
+        // A row whose four bubbles are all at or below the local paper/noise
+        // floor is genuinely blank. Do not select the relatively darkest bubble
+        // merely because it is a little darker than the other empty bubbles.
+        if (strongest <= blankThreshold) {
+            return new Result(Status.BLANK, -1, margin, strongest);
         }
-        double margin = strongest - Math.max(0, second);
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+
+        // Two independently strong dark regions indicate multiple marks. The
+        // higher floor avoids treating paper texture or a faint ambiguous trace
+        // as a second selected option.
+        if (strongest >= 0.55 && second >= 0.50) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+
+        // A faint mark is accepted only when it clears the mark floor and is
+        // sufficiently separated from the other three bubbles. Borderline cases
+        // are explicitly reviewed rather than guessed as right, wrong, or blank.
+        if (strongest < markThreshold || margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+
+        return new Result(Status.ANSWERED, strongestIndex, margin,
+                Math.min(1.0, strongest * 2.0));
     }
 }
