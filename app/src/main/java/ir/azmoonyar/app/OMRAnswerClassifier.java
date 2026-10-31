@@ -1,23 +1,17 @@
 package ir.azmoonyar.app;
 
 /**
- * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
- *
- * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
- * and 1 is fully dark. Geometry detection, perspective correction, local background
- * normalization and image-quality checks must happen before calling this class.
- * Weak or ambiguous evidence is sent for review instead of guessed.
+ * Conservative classifier for four locally normalized bubble-darkness scores.
+ * Very weak page noise is blank; borderline evidence is reviewed; only a
+ * sufficiently dark, clearly dominant bubble is accepted automatically.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
     public static final class Result {
         public final Status status;
-        /** Zero-based option index for ANSWERED, otherwise -1. */
         public final int optionIndex;
-        /** Difference between strongest and second-strongest bubble scores. */
         public final double margin;
-        /** Strongest normalized darkness score. */
         public final double strongestScore;
 
         private Result(Status status, int optionIndex, double margin, double strongestScore) {
@@ -33,11 +27,9 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
-        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        // Deliberately separate definite blank, uncertain faint mark, and accepted mark.
+        // These are conservative starting values; real marked/blank sheets must calibrate them.
+        this(0.08, 0.025, 0.015);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -79,17 +71,21 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
-        }
         double margin = strongest - Math.max(0, second);
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+        if (strongest <= blankThreshold) {
+            return new Result(Status.BLANK, -1, margin, strongest);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+        if (tiedForStrongest || margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+
+        // Two substantial bubbles are not silently reduced to the darker one.
+        if (second >= markThreshold) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
+        }
+        if (strongest < markThreshold) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+        return new Result(Status.ANSWERED, strongestIndex, margin, Math.min(1.0, strongest * 2.0));
     }
 }
