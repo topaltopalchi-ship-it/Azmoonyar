@@ -185,6 +185,22 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
 
+        Button exitButton = new Button(this);
+        exitButton.setText("خروج از اسکن");
+        exitButton.setAllCaps(false);
+        exitButton.setTextSize(15);
+        exitButton.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("خروج از اسکن")
+                .setMessage("آیا می‌خواهید اسکن پاسخنامه‌ها را متوقف کنید؟")
+                .setNegativeButton("ادامهٔ اسکن", null)
+                .setPositiveButton("خروج", (dialog, which) -> {
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    finished = true;
+                    finish();
+                })
+                .show());
+        page.addView(exitButton, new LinearLayout.LayoutParams(-1, -2));
+
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
         Button coordinateButton = new Button(this);
