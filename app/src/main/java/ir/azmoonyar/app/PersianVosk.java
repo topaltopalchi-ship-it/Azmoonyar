@@ -73,6 +73,8 @@ public final class PersianVosk {
                         MAIN.post(() -> {
                             try {
                                 recognizer = new Recognizer(model, 16000.0f);
+                                // Allow more time to begin speaking and finish a full name after a pause.
+                                recognizer.setEndpointerDelays(8.0f, 1.3f, 30.0f);
                                 speechService = new SpeechService(recognizer, 16000.0f);
                                 speechService.startListening(new RecognitionListener() {
                                     @Override public void onPartialResult(String hypothesis) {
