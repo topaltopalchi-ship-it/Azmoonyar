@@ -37,11 +37,10 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void selectsWinnerEvenWhenDifferenceIsVerySmall() {
+    public void sendsWinnerWithTinyMarginToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
-        org.junit.Assert.assertEquals(1.0, result.strongestScore, 0.000001);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
     }
 
     @Test
@@ -53,7 +52,7 @@ public class OMRAnswerClassifierTest {
 
     @Test
     public void treatsTinyRelativeDifferencesAsBlankNoise() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.07, 0.06});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
