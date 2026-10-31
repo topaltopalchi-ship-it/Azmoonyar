@@ -44,9 +44,11 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        double innerScale = 0.58;
-        double ringInnerScale = 1.18;
-        double ringOuterScale = 1.55;
+        // Sample a larger central ellipse while staying clear of the printed outline.
+        double innerScale = 0.68;
+        // Keep the local paper ring compact so it does not reach neighboring bubbles.
+        double ringInnerScale = 1.12;
+        double ringOuterScale = 1.35;
         double innerX = radiusX * innerScale, innerY = radiusY * innerScale;
         double ringInX = radiusX * ringInnerScale, ringInY = radiusY * ringInnerScale;
         double ringOutX = radiusX * ringOuterScale, ringOutY = radiusY * ringOuterScale;
