@@ -885,7 +885,6 @@ public class MainActivity extends Activity {
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".mark{position:absolute;width:16mm;height:16mm;background:linear-gradient(#fff,#fff) center/4mm 4mm no-repeat,linear-gradient(#000,#000) center/8mm 8mm no-repeat,linear-gradient(#fff,#fff) center/11mm 11mm no-repeat,#000; border:0;display:block;z-index:2;pointer-events:none}.tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}.edge-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.el1{left:5mm;top:58mm}.el2{left:5mm;top:108mm}.el3{left:5mm;top:158mm}.er1{right:5mm;top:58mm}.er2{right:5mm;top:108mm}.er3{right:5mm;top:158mm}.gap-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:3;pointer-events:none}.g1{left:56.5mm;top:60mm}.g2{left:103.5mm;top:145mm}.g3{left:150.5mm;top:230mm}")
                 .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
                 .append(".answer-page .sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:25mm;left:12mm;right:12mm;height:6mm;font-size:10px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:8mm;white-space:nowrap}")
@@ -952,10 +951,6 @@ public class MainActivity extends Activity {
                     int last = printLayoutQuestionCount;
                     html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
-                        .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
-                        .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
-                        .append("<span class='edge-mark el1'></span><span class='edge-mark el2'></span><span class='edge-mark el3'></span><span class='edge-mark er1'></span><span class='edge-mark er2'></span><span class='edge-mark er3'></span>")
-                        .append("<span class='gap-mark g1'></span><span class='gap-mark g2'></span><span class='gap-mark g3'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
                         .append("<p class='sub'>برگه ").append(page).append(" از ").append(pageCount).append("</p>")
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
@@ -1151,7 +1146,6 @@ public class MainActivity extends Activity {
                 .append(".bubble{display:inline-block;width:5.2mm;height:4.1mm;border:.4mm solid #111;border-radius:50%;vertical-align:middle}")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:linear-gradient(#fff,#fff) center/4mm 4mm no-repeat,linear-gradient(#000,#000) center/8mm 8mm no-repeat,linear-gradient(#fff,#fff) center/11mm 11mm no-repeat,#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
-                .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append(".result{position:absolute;left:25mm;right:25mm;bottom:8mm;height:17mm;border:.35mm solid #111;display:grid;grid-template-columns:repeat(5,1fr);direction:rtl}")
                 .append(".result div{border-left:.2mm solid #777;padding:1.5mm 1mm;text-align:center;font-size:8px}.result b{display:block;font-size:9px;margin-bottom:1mm}.blankline{display:block;border-bottom:.2mm solid #777;height:5mm;margin:0 2mm}")
                 .append("</style></head><body>");
@@ -1161,9 +1155,6 @@ public class MainActivity extends Activity {
                 int last = Math.min(total, first + 99);
                 html.append("<section class='sheet'>")
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
-                    .append("<i class='small-mark stl'></i><i class='small-mark str'></i><i class='small-mark sbl'></i><i class='small-mark sbr'></i>")
-                    .append("<i class='edge-mark el1'></i><i class='edge-mark el2'></i><i class='edge-mark el3'></i><i class='edge-mark er1'></i><i class='edge-mark er2'></i><i class='edge-mark er3'></i>")
-                    .append("<i class='gap-mark g1'></i><i class='gap-mark g2'></i><i class='gap-mark g3'></i>")
                     .append("<h1 class='head'>پاسخنامهٔ چهارگزینه‌ای</h1>")
                     .append("<p class='sub'>شماره برگه: ").append(page + 1).append(" از ").append(pages).append("</p>")
                     .append("<div class='examline'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
