@@ -20,6 +20,8 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.ImageView;
 import android.widget.ScrollView;
+import android.animation.ValueAnimator;
+import android.graphics.drawable.GradientDrawable;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
@@ -171,6 +173,7 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setText("عکس بگیر و تصحیح کن");
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
+        styleAnimatedPillButton(captureButton, 18);
         captureButton.setOnClickListener(v -> {
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
@@ -189,6 +192,7 @@ public final class OmrScanActivity extends ComponentActivity {
         exitButton.setText("خروج از اسکن");
         exitButton.setAllCaps(false);
         exitButton.setTextSize(15);
+        styleAnimatedPillButton(exitButton, 16);
         exitButton.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle("خروج از اسکن")
                 .setMessage("آیا می‌خواهید اسکن پاسخنامه‌ها را متوقف کنید؟")
@@ -203,27 +207,6 @@ public final class OmrScanActivity extends ComponentActivity {
 
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
-        Button coordinateButton = new Button(this);
-        coordinateButton.setText("نمایش حلقه‌های مختصات");
-        coordinateButton.setTextSize(15);
-        coordinateButton.setAllCaps(false);
-        coordinateButton.setOnClickListener(v -> {
-            byte[] luma = diagnosticLuma;
-            int width = diagnosticWidth;
-            int height = diagnosticHeight;
-            SheetPerspectiveTransform transform = diagnosticTransform;
-            SheetPerspectiveTransform.Point[] markers = diagnosticMarkerPoints;
-            double markerSize = diagnosticMarkerSizeMm;
-            double[][][] centers = diagnosticCenters;
-            if (luma == null || width <= 0 || height <= 0 || transform == null
-                    || markers == null || markers.length != 4 || centers == null) {
-                updateStatus("ابتدا پاسخنامه را کامل داخل کادر دوربین نگه دارید تا چهار مربع گوشه شناسایی شوند.");
-                return;
-            }
-            showBubbleCoordinateOverlay(luma, width, height, transform, centers, markers, markerSize);
-        });
-        page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
-
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
@@ -246,6 +229,37 @@ public final class OmrScanActivity extends ComponentActivity {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
         }
+    }
+
+    /** Gives primary scan controls a pill shape with a continuously cycling colored border. */
+    private void styleAnimatedPillButton(Button button, int textSizeSp) {
+        float density = getResources().getDisplayMetrics().density;
+        button.setAllCaps(false);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(textSizeSp);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setMinHeight(Math.round(58 * density));
+        button.setPadding(Math.round(22 * density), Math.round(12 * density),
+                Math.round(22 * density), Math.round(12 * density));
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.RECTANGLE);
+        background.setCornerRadius(1000f);
+        background.setColor(Color.rgb(16, 54, 125));
+        background.setStroke(Math.max(2, Math.round(3 * density)), Color.rgb(34, 211, 238));
+        button.setBackground(background);
+        button.setElevation(Math.round(4 * density));
+
+        ValueAnimator borderAnimator = ValueAnimator.ofArgb(
+                Color.rgb(34, 211, 238),
+                Color.rgb(52, 211, 153),
+                Color.rgb(250, 204, 21),
+                Color.rgb(244, 114, 182),
+                Color.rgb(34, 211, 238));
+        borderAnimator.setDuration(2600);
+        borderAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        borderAnimator.addUpdateListener(animation -> background.setStroke(
+                Math.max(2, Math.round(3 * density)), (Integer) animation.getAnimatedValue()));
+        borderAnimator.start();
     }
 
     private void startCamera() {
