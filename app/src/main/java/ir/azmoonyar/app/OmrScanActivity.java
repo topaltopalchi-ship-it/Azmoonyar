@@ -870,7 +870,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
+                finishSheetAndAskNext("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
                 return;
             }
@@ -913,13 +913,13 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
-            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
+            finishSheetAndAskNext("تصحیح خودکار انجام شد: " + participantName
                     + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
                     + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
-                    + " • شماره سؤال‌های غلط: " + wrongList
-                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+                    + " • شماره سؤال‌های غلط: " + wrongList);
         } catch (Exception e) {
-            updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
+            finishSheetAndAskNext("خواندن برگهٔ " + participantName + " با خطا روبه‌رو شد: "
+                    + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
         }
     }
 
@@ -1094,10 +1094,11 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("آماده برای پاسخنامهٔ بعدی")
-                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setTitle("ثبت برگهٔ بعدی")
+                    .setMessage("اسکن برگهٔ قبلی تمام شد. نام شرکت‌کنندهٔ برگهٔ بعدی را تایپ کنید یا با صدا بگویید.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
+                    .setNegativeButton("خروج", null)
                     .setCancelable(false)
                     .create();
             voiceButton.setOnClickListener(v -> {
@@ -1120,8 +1121,14 @@ public final class OmrScanActivity extends ComponentActivity {
                     }
                 });
             });
-            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                    .setOnClickListener(v -> {
+            dialog.setOnShowListener(ignored -> {
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    finished = true;
+                    dialog.dismiss();
+                    finish();
+                });
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                         String nextName = nameInput.getText().toString().trim();
                         if (nextName.isEmpty()) {
                             nameInput.setError("نام شرکت‌کننده را وارد کنید.");
@@ -1139,9 +1146,19 @@ public final class OmrScanActivity extends ComponentActivity {
                         missingMarkerFrames = 0;
                         dialog.dismiss();
                         updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
-                    }));
+                    });
+            });
             dialog.show();
         });
+    }
+
+    private void finishSheetAndAskNext(String message) {
+        lastSheetResultMessage = message;
+        waitingForNextName = true;
+        voiceCommandListening = false;
+        stopVoiceCaptureListener();
+        updateStatus(message);
+        showNextParticipantDialog();
     }
 
     private void updateSheetResultStatus(String message) {
