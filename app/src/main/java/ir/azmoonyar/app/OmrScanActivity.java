@@ -188,8 +188,9 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
             SharedPreferences calibrationPrefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-            if (!calibrationPrefs.contains("white_calibration_median")) {
-                updateStatus("ابتدا کالیبراسیون را با یک برگ سفید A4 انجام دهید.");
+            if (!calibrationPrefs.contains("white_calibration_median")
+                    || !calibrationPrefs.contains("white_calibration_grid")) {
+                updateStatus("ابتدا کالیبراسیون مکانی جدید را با برگ سفید A4 انجام دهید؛ کالیبراسیون قدیمی کافی نیست.");
                 return;
             }
             if (sheetConsumed) {
