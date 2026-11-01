@@ -59,6 +59,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile boolean calibrationCaptureRequested;
+    private volatile boolean diagnosticCaptureRequested;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
     private volatile boolean voiceCommandListening;
@@ -206,6 +207,27 @@ public final class OmrScanActivity extends ComponentActivity {
                     }).show();
         });
         page.addView(calibrationButton, new LinearLayout.LayoutParams(-1, -2));
+        Button diagnosticButton = new Button(this);
+        diagnosticButton.setText("ثبت گزارش تشخیصی حباب‌ها");
+        diagnosticButton.setTextSize(16);
+        diagnosticButton.setAllCaps(false);
+        diagnosticButton.setOnClickListener(v -> {
+            if (sheetConsumed || imageCapture == null) {
+                updateStatus("دوربین آماده نیست یا عملیات قبلی هنوز تمام نشده است.");
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("گزارش تشخیصی بدون تصحیح")
+                    .setMessage("از پاسخنامهٔ نمونه عکس گرفته می‌شود و امتیاز هر ۱۰۰ سؤال و چهار گزینه ثبت خواهد شد. هیچ نمره یا نتیجهٔ آزمونی تغییر نمی‌کند.")
+                    .setNegativeButton("انصراف", null)
+                    .setPositiveButton("ثبت گزارش", (dialog, which) -> {
+                        diagnosticCaptureRequested = true;
+                        sheetConsumed = true;
+                        captureRealPhotoAndCorrect();
+                    }).show();
+        });
+        page.addView(diagnosticButton, new LinearLayout.LayoutParams(-1, -2));
+
 
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
@@ -799,6 +821,35 @@ public final class OmrScanActivity extends ComponentActivity {
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+
+            if (diagnosticCaptureRequested) {
+                diagnosticCaptureRequested = false;
+                JSONArray report = new JSONArray();
+                for (int q = 0; q < questions.size(); q++) {
+                    OMRSheetReader.QuestionResult result = questions.get(q);
+                    JSONObject item = new JSONObject();
+                    item.put("question", q + 1);
+                    JSONArray scores = new JSONArray();
+                    for (int option = 0; option < 4; option++) scores.put(result.darkness[option]);
+                    item.put("optionScoresABCD", scores);
+                    item.put("classification", result.classification.status.name());
+                    item.put("selectedOptionIndex", result.classification.optionIndex);
+                    item.put("strongestScore", result.classification.strongestScore);
+                    item.put("margin", result.classification.margin);
+                    report.put(item);
+                }
+                JSONObject diagnostic = new JSONObject();
+                diagnostic.put("capturedAt", System.currentTimeMillis());
+                diagnostic.put("templateId", OmrTemplateLayout.TEMPLATE_ID);
+                diagnostic.put("questionCount", questions.size());
+                diagnostic.put("source", "manual_diagnostic_photo");
+                diagnostic.put("questions", report);
+                prefs.edit().putString("omr_last_diagnostic_report", diagnostic.toString()).apply();
+                sheetConsumed = false;
+                updateSheetResultStatus("گزارش تشخیصی " + questions.size()
+                        + " سؤال ذخیره شد؛ هیچ نمره یا صف بازبینی تغییر نکرد.");
+                return;
+            }
 
             if (calibrationCaptureRequested) {
                 calibrationCaptureRequested = false;
