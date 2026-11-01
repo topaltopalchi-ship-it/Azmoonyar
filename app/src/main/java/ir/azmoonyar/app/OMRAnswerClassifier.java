@@ -54,6 +54,22 @@ public final class OMRAnswerClassifier {
         this.minimumMargin = minimumMargin;
     }
 
+    /** First inspect only the answer-key aperture in the virtual mask. If it is not
+     * marked, fall back to all four bubbles to distinguish wrong, blank, multiple,
+     * and uncertain responses. */
+    public Result classifyThroughMask(double apertureDarkness, int maskedOption,
+            double[] fallbackDarkness) {
+        if (Double.isNaN(apertureDarkness) || Double.isInfinite(apertureDarkness)
+                || apertureDarkness < 0 || apertureDarkness > 1
+                || maskedOption < 0 || maskedOption > 3) {
+            throw new IllegalArgumentException("دادهٔ سوراخ نقاب معتبر نیست.");
+        }
+        if (apertureDarkness >= markThreshold) {
+            return new Result(Status.ANSWERED, maskedOption, 1.0, apertureDarkness);
+        }
+        return classify(fallbackDarkness);
+    }
+
     public Result classify(double[] darkness) {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
