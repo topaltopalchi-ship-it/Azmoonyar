@@ -667,7 +667,10 @@ public final class OmrScanActivity extends ComponentActivity {
      * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
-    /** Capture a plain white A4 page and store a lighting reference. */
+    /**
+     * Capture a plain white A4 page and store a spatial illumination reference.
+     * The operator must keep the page aligned to the same A4 guide for later scans.
+     */
     private void captureWhitePaperCalibration() {
         if (imageCapture == null || finished) {
             sheetConsumed = false;
@@ -680,54 +683,93 @@ public final class OmrScanActivity extends ComponentActivity {
             updateStatus("ذخیره‌سازی کالیبراسیون ممکن نشد.");
             return;
         }
-        java.io.File file = new java.io.File(dir, "white_calibration_" + System.currentTimeMillis() + ".jpg");
-        ImageCapture.OutputFileOptions options = new ImageCapture.OutputFileOptions.Builder(file).build();
-        updateStatus("برگ سفید A4 را ثابت داخل کادر نگه دارید؛ در حال ثبت کالیبراسیون…");
+        java.io.File file = new java.io.File(dir,
+                "white_calibration_" + System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions options =
+                new ImageCapture.OutputFileOptions.Builder(file).build();
+        updateStatus("یک برگ سفید و بدون نوشتهٔ A4 را دقیقاً داخل کادر نگه دارید؛ در حال ثبت نور زمینه…");
         imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
+                        Bitmap bitmap = null;
                         try {
-                            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+                            android.graphics.BitmapFactory.Options bounds =
+                                    new android.graphics.BitmapFactory.Options();
                             bounds.inJustDecodeBounds = true;
                             android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+                            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                                throw new java.io.IOException("تصویر برگ سفید خوانده نشد.");
+                            }
                             int sample = 1;
-                            while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 1600) sample *= 2;
-                            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-                            opts.inSampleSize = sample;
-                            Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
-                            if (bitmap == null) throw new java.io.IOException("تصویر خوانده نشد");
-                            try {
-                                int w = bitmap.getWidth(), h = bitmap.getHeight();
-                                int left = w / 5, right = w - left, top = h / 5, bottom = h - top;
-                                int[] values = new int[((right-left)*(bottom-top) + 3) / 4];
-                                int n = 0;
-                                long sum = 0, sum2 = 0;
-                                for (int y = top; y < bottom; y += 2) {
-                                    for (int x = left; x < right; x += 2) {
-                                        int c = bitmap.getPixel(x, y);
-                                        int lum = (Color.red(c)*299 + Color.green(c)*587 + Color.blue(c)*114)/1000;
-                                        if (n < values.length) values[n++] = lum;
-                                        sum += lum; sum2 += (long)lum*lum;
+                            while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 1600) {
+                                sample *= 2;
+                            }
+                            android.graphics.BitmapFactory.Options decode =
+                                    new android.graphics.BitmapFactory.Options();
+                            decode.inSampleSize = sample;
+                            decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                            bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), decode);
+                            if (bitmap == null) throw new java.io.IOException("تصویر برگ سفید خوانده نشد.");
+
+                            final int columns = 8, rows = 12;
+                            int w = bitmap.getWidth(), h = bitmap.getHeight();
+                            int left = w / 10, right = w - left;
+                            int top = h / 10, bottom = h - top;
+                            JSONArray grid = new JSONArray();
+                            int[] cellMedians = new int[columns * rows];
+                            int cellIndex = 0;
+                            for (int gy = 0; gy < rows; gy++) {
+                                int y0 = top + (bottom - top) * gy / rows;
+                                int y1 = top + (bottom - top) * (gy + 1) / rows;
+                                for (int gx = 0; gx < columns; gx++) {
+                                    int x0 = left + (right - left) * gx / columns;
+                                    int x1 = left + (right - left) * (gx + 1) / columns;
+                                    int capacity = Math.max(1, ((x1-x0+3)/4) * ((y1-y0+3)/4));
+                                    int[] samples = new int[capacity];
+                                    int n = 0;
+                                    for (int y = y0 + 2; y < y1; y += 4) {
+                                        for (int x = x0 + 2; x < x1; x += 4) {
+                                            int color = bitmap.getPixel(x, y);
+                                            int lum = (Color.red(color)*299 + Color.green(color)*587
+                                                    + Color.blue(color)*114)/1000;
+                                            if (n < samples.length) samples[n++] = lum;
+                                        }
                                     }
+                                    if (n < 12) throw new java.io.IOException(
+                                            "بخشی از برگ سفید در تصویر به‌اندازهٔ کافی دیده نمی‌شود؛ کل A4 را داخل کادر قرار دهید.");
+                                    java.util.Arrays.sort(samples, 0, n);
+                                    int median = samples[n / 2];
+                                    if (median < 135) throw new java.io.IOException(
+                                            "نور بخشی از برگ کم است یا سایه روی آن افتاده؛ نور را یکنواخت کنید.");
+                                    cellMedians[cellIndex++] = median;
+                                    grid.put(median);
                                 }
-                                if (n < 100) throw new java.io.IOException("سطح سفید کافی در تصویر دیده نشد");
-                                java.util.Arrays.sort(values, 0, n);
-                                int median = values[n/2];
-                                double mean = sum/(double)n;
-                                double deviation = Math.sqrt(Math.max(0, sum2/(double)n - mean*mean));
-                                if (median < 145 || deviation > 55) {
-                                    throw new java.io.IOException("نور کم یا ناهمگون است؛ برگ را زیر نور یکنواخت‌تر قرار دهید");
-                                }
-                                getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                                        .putInt("white_calibration_median", median)
-                                        .putFloat("white_calibration_deviation", (float)deviation)
-                                        .putLong("white_calibration_time", System.currentTimeMillis())
-                                        .apply();
-                                runOnUiThread(() -> updateStatus("کالیبراسیون نور انجام شد. حالا پاسخنامه را داخل کادر بگذارید و عکس بگیرید."));
-                            } finally { bitmap.recycle(); }
+                            }
+                            int sorted[] = cellMedians.clone();
+                            java.util.Arrays.sort(sorted);
+                            int pageMedian = (sorted[sorted.length/2] + sorted[sorted.length/2-1]) / 2;
+                            int low = sorted[sorted.length/10];
+                            int high = sorted[sorted.length*9/10];
+                            if (pageMedian < 155 || high - low > 65) {
+                                throw new java.io.IOException(
+                                        "روشنایی برگ سفید یکنواخت نیست یا صفحه کامل دیده نمی‌شود؛ سایه و بازتاب نور را برطرف کنید.");
+                            }
+
+                            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+                            boolean saved = prefs.edit()
+                                    .putInt("white_calibration_median", pageMedian)
+                                    .putString("white_calibration_grid", grid.toString())
+                                    .putInt("white_calibration_grid_columns", columns)
+                                    .putInt("white_calibration_grid_rows", rows)
+                                    .putLong("white_calibration_time", System.currentTimeMillis())
+                                    .commit();
+                            if (!saved) throw new java.io.IOException("ذخیرهٔ اطلاعات کالیبراسیون انجام نشد.");
+                            updateStatus("کالیبراسیون برگ سفید A4 با موفقیت انجام شد. هنگام اسکن پاسخنامه، همان فاصله و کادر دوربین را حفظ کنید.");
                         } catch (Exception e) {
-                            runOnUiThread(() -> updateStatus("کالیبراسیون انجام نشد: " + e.getMessage()));
+                            updateStatus("کالیبراسیون انجام نشد: "
+                                    + (e.getMessage() == null ? "تصویر معتبر نیست." : e.getMessage()));
                         } finally {
+                            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
                             sheetConsumed = false;
                             if (file.exists()) file.delete();
                         }
@@ -738,6 +780,60 @@ public final class OmrScanActivity extends ComponentActivity {
                         if (file.exists()) file.delete();
                     }
                 });
+    }
+
+    /**
+     * Corrects broad lighting gradients using the white-page calibration grid.
+     * This is applied only after marker detection, so registration geometry is untouched.
+     */
+    private void applyWhitePaperCalibration(byte[] luma, int width, int height,
+            SharedPreferences prefs) {
+        try {
+            String encoded = prefs.getString("white_calibration_grid", null);
+            int columns = prefs.getInt("white_calibration_grid_columns", 0);
+            int rows = prefs.getInt("white_calibration_grid_rows", 0);
+            if (encoded == null || columns < 2 || rows < 2) return; // legacy calibration
+            JSONArray grid = new JSONArray(encoded);
+            if (grid.length() != columns * rows || (long) width * height > luma.length) return;
+
+            double[] reference = new double[grid.length()];
+            double[] sorted = new double[grid.length()];
+            for (int i = 0; i < grid.length(); i++) {
+                reference[i] = grid.getDouble(i);
+                if (reference[i] < 100 || reference[i] > 255) return;
+                sorted[i] = reference[i];
+            }
+            java.util.Arrays.sort(sorted);
+            double target = sorted[sorted.length / 2];
+            final double left = 0.10 * (width - 1), top = 0.10 * (height - 1);
+            final double usableW = 0.80 * (width - 1), usableH = 0.80 * (height - 1);
+
+            // Bilinear interpolation keeps the correction smooth between measured cells.
+            for (int y = 0; y < height; y++) {
+                double gy = Math.max(0, Math.min(rows - 1,
+                        ((y - top) / usableH) * (rows - 1)));
+                int y0 = (int) gy, y1 = Math.min(rows - 1, y0 + 1);
+                double fy = gy - y0;
+                for (int x = 0; x < width; x++) {
+                    double gx = Math.max(0, Math.min(columns - 1,
+                            ((x - left) / usableW) * (columns - 1)));
+                    int x0 = (int) gx, x1 = Math.min(columns - 1, x0 + 1);
+                    double fx = gx - x0;
+                    double a = reference[y0 * columns + x0] * (1 - fx)
+                            + reference[y0 * columns + x1] * fx;
+                    double b = reference[y1 * columns + x0] * (1 - fx)
+                            + reference[y1 * columns + x1] * fx;
+                    double localWhite = a * (1 - fy) + b * fy;
+                    double gain = Math.max(0.72, Math.min(1.35, target / Math.max(1, localWhite)));
+                    int index = y * width + x;
+                    int corrected = (int) Math.round((luma[index] & 0xff) * gain);
+                    luma[index] = (byte) Math.max(0, Math.min(255, corrected));
+                }
+            }
+        } catch (Exception calibrationError) {
+            android.util.Log.w("AzmoonyarOMR", "White-page calibration unavailable; using raw luma",
+                    calibrationError);
+        }
     }
 
     private void captureRealPhotoAndCorrect() {
@@ -846,6 +942,9 @@ public final class OmrScanActivity extends ComponentActivity {
             int total = diagnosticCaptureRequested ? OmrTemplateLayout.QUESTIONS_PER_PAGE
                     : Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
+            // Apply the saved blank-A4 illumination reference to the captured answer image.
+            // Keep the original local paper-ring contrast measurement in OMRSheetReader.
+            applyWhitePaperCalibration(luma, width, height, prefs);
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 2.15, 1.70);
 
