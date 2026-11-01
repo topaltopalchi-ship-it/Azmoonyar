@@ -23,9 +23,9 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void flagsMultipleMarkedBubbles() {
+    public void sendsMultipleMarkedBubblesToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
@@ -37,7 +37,7 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void flagsTwoStrongCloseBubblesAsMultipleMarks() {
+    public void sendsTwoStrongCloseBubblesToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
         assertEquals(-1, result.optionIndex);
