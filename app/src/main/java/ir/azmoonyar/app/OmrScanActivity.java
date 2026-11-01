@@ -58,6 +58,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
+    private volatile boolean calibrationCaptureRequested;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
     private volatile boolean voiceCommandListening;
@@ -184,6 +185,27 @@ public final class OmrScanActivity extends ComponentActivity {
             captureRealPhotoAndCorrect();
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
+
+        Button calibrationButton = new Button(this);
+        calibrationButton.setText("کالیبره‌کردن با پاسخنامهٔ خالی");
+        calibrationButton.setTextSize(16);
+        calibrationButton.setAllCaps(false);
+        calibrationButton.setOnClickListener(v -> {
+            if (sheetConsumed || imageCapture == null) {
+                updateStatus("دوربین آماده نیست یا عملیات قبلی هنوز تمام نشده است.");
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("کالیبراسیون پاسخنامه")
+                    .setMessage("یک پاسخنامهٔ چاپ‌شدهٔ خالی با همان قالب، همان تعداد سؤال و چهار مربع گوشه داخل کادر بگذارید. این عکس برای کالیبراسیون ذخیره می‌شود و هیچ آزمونی تصحیح نخواهد شد.")
+                    .setNegativeButton("انصراف", null)
+                    .setPositiveButton("ثبت برگهٔ خالی", (dialog, which) -> {
+                        calibrationCaptureRequested = true;
+                        sheetConsumed = true;
+                        captureRealPhotoAndCorrect();
+                    }).show();
+        });
+        page.addView(calibrationButton, new LinearLayout.LayoutParams(-1, -2));
 
         // Expose the coordinate diagnostic that was previously implemented but
         // had no UI entry point, so operators can verify bubble alignment on a live sheet.
@@ -692,6 +714,7 @@ public final class OmrScanActivity extends ComponentActivity {
                         try {
                             processSavedPhotoFile(photoFile);
                         } catch (Exception error) {
+                            calibrationCaptureRequested = false;
                             updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
                             sheetConsumed = false;
                         }
@@ -772,6 +795,35 @@ public final class OmrScanActivity extends ComponentActivity {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
+            double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
+            List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+
+            if (calibrationCaptureRequested) {
+                calibrationCaptureRequested = false;
+                double[][] blankScores = new double[questions.size()][4];
+                for (int q = 0; q < questions.size(); q++) {
+                    for (int option = 0; option < 4; option++) {
+                        blankScores[q][option] = questions.get(q).darkness[option];
+                    }
+                }
+                MaskedOmrEngine.Calibration calibration = MaskedOmrEngine.calibrate(
+                        blankScores, OmrTemplateLayout.TEMPLATE_ID, System.currentTimeMillis());
+                prefs.edit()
+                        .putString(MaskedOmrEngine.PREF_CALIBRATION_DATA,
+                                MaskedOmrEngine.encode(calibration))
+                        .putLong(MaskedOmrEngine.PREF_CALIBRATION_TIME,
+                                calibration.capturedAtMillis)
+                        .putString(MaskedOmrEngine.PREF_CALIBRATION_TEMPLATE,
+                                calibration.templateId)
+                        .putInt("masked_omr_calibration_question_count", total)
+                        .apply();
+                sheetConsumed = false;
+                updateSheetResultStatus("کالیبراسیون ذخیره شد (" + total
+                        + " سؤال). هنوز آستانهٔ تشخیص با آزمون واقعی اعتبارسنجی نشده؛ تصحیح عادی بدون تغییر ادامه دارد.");
+                return;
+            }
+
             String answerKey = prefs.getString("answer_key", "");
             // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
             // not from the legacy answer_key field. Prefer a complete saved model key,
@@ -785,16 +837,15 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
             }
             if (participantName.trim().isEmpty()) {
+                sheetConsumed = false;
                 updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
                 return;
             }
             if (!isValidAnswerKey(answerKey, total)) {
+                sheetConsumed = false;
                 updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ معتبر و کامل پیدا نشد. بانک سؤال و پاسخ صحیح هر سؤال را بررسی کنید.");
                 return;
             }
-            double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
-            List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
