@@ -721,6 +721,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
                         if (photoFile.exists()) photoFile.delete();
+                        calibrationCaptureRequested = false;
                         updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دکمهٔ عکس‌گرفتن را دوباره لمس کنید.");
                         sheetConsumed = false;
                     }
