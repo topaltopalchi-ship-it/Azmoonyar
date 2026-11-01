@@ -51,13 +51,13 @@ public class OMRAndScoringTest {
 
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
-        assertEquals(2, result.wrong);
+        assertEquals(1, result.wrong);
         assertEquals(1, result.blank);
         assertEquals(1, result.multipleMarks);
-        assertEquals(0, result.needsReview);
-        assertEquals(0.5, result.earnedPoints, 0.0001);
+        assertEquals(1, result.needsReview);
+        assertEquals(0.75, result.earnedPoints, 0.0001);
         assertEquals(4.0, result.maximumPoints, 0.0001);
-        assertEquals(12.5, result.percentage(), 0.0001);
+        assertTrue(Double.isNaN(result.percentage()));
     }
 
     @Test public void scorerDoesNotPublishPercentageWhileReviewIsNeeded() {
