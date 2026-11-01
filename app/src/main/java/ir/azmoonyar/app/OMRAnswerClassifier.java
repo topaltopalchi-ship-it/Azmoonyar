@@ -79,11 +79,12 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
+        // Respect the calibrated blank and faint-mark bands before comparing options.
+        if (strongest <= blankThreshold) {
+            return new Result(Status.BLANK, -1, 0, strongest);
+        }
+        if (strongest < markThreshold) {
+            return new Result(Status.REVIEW, -1, 0, strongest);
         }
         double runnerUp = Math.max(0, second);
         double margin = strongest - runnerUp;
