@@ -58,7 +58,6 @@ public final class OmrScanActivity extends ComponentActivity {
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
-    private volatile boolean calibrationCaptureRequested;
     private volatile boolean diagnosticCaptureRequested;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
@@ -187,26 +186,6 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(captureButton, new LinearLayout.LayoutParams(-1, -2));
 
-        Button calibrationButton = new Button(this);
-        calibrationButton.setText("کالیبره‌کردن با پاسخنامهٔ خالی");
-        calibrationButton.setTextSize(16);
-        calibrationButton.setAllCaps(false);
-        calibrationButton.setOnClickListener(v -> {
-            if (sheetConsumed || imageCapture == null) {
-                updateStatus("دوربین آماده نیست یا عملیات قبلی هنوز تمام نشده است.");
-                return;
-            }
-            new AlertDialog.Builder(this)
-                    .setTitle("کالیبراسیون پاسخنامه")
-                    .setMessage("یک پاسخنامهٔ چاپ‌شدهٔ خالی با همان قالب، همان تعداد سؤال و چهار مربع گوشه داخل کادر بگذارید. این عکس برای کالیبراسیون ذخیره می‌شود و هیچ آزمونی تصحیح نخواهد شد.")
-                    .setNegativeButton("انصراف", null)
-                    .setPositiveButton("ثبت برگهٔ خالی", (dialog, which) -> {
-                        calibrationCaptureRequested = true;
-                        sheetConsumed = true;
-                        captureRealPhotoAndCorrect();
-                    }).show();
-        });
-        page.addView(calibrationButton, new LinearLayout.LayoutParams(-1, -2));
         Button diagnosticButton = new Button(this);
         diagnosticButton.setText("ثبت گزارش تشخیصی حباب‌ها");
         diagnosticButton.setTextSize(16);
@@ -297,8 +276,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
                 provider.unbindAll();
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview, analysis, imageCapture);
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,                        preview, analysis, imageCapture);
             } catch (Exception error) {
                 updateStatus("راه‌اندازی دوربین ناموفق بود؛ مجوز دوربین و دستگاه را بررسی کنید.");
             }
@@ -597,8 +575,7 @@ public final class OmrScanActivity extends ComponentActivity {
         }
 
         // SECOND CRITERION: check the spacing between the four chosen squares.
-        // The primary 16 mm corner marks have centers 184 mm apart horizontally
-        // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
+        // The primary 16 mm corner marks have centers 184 mm apart horizontally        // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
         // apart (24.5 mm to 185.5 mm). Prefer/accept a set whose measured
         // inter-corner spacing is consistent with the physical size of the
         // selected marks; this catches a small square being mistaken for a
@@ -736,14 +713,12 @@ public final class OmrScanActivity extends ComponentActivity {
                         try {
                             processSavedPhotoFile(photoFile);
                         } catch (Exception error) {
-                            calibrationCaptureRequested = false;
                             updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
                             sheetConsumed = false;
                         }
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
                         if (photoFile.exists()) photoFile.delete();
-                        calibrationCaptureRequested = false;
                         updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دکمهٔ عکس‌گرفتن را دوباره لمس کنید.");
                         sheetConsumed = false;
                     }
@@ -852,31 +827,6 @@ public final class OmrScanActivity extends ComponentActivity {
                 return;
             }
 
-            if (calibrationCaptureRequested) {
-                calibrationCaptureRequested = false;
-                double[][] blankScores = new double[questions.size()][4];
-                for (int q = 0; q < questions.size(); q++) {
-                    for (int option = 0; option < 4; option++) {
-                        blankScores[q][option] = questions.get(q).darkness[option];
-                    }
-                }
-                MaskedOmrEngine.Calibration calibration = MaskedOmrEngine.calibrate(
-                        blankScores, OmrTemplateLayout.TEMPLATE_ID, System.currentTimeMillis());
-                prefs.edit()
-                        .putString(MaskedOmrEngine.PREF_CALIBRATION_DATA,
-                                MaskedOmrEngine.encode(calibration))
-                        .putLong(MaskedOmrEngine.PREF_CALIBRATION_TIME,
-                                calibration.capturedAtMillis)
-                        .putString(MaskedOmrEngine.PREF_CALIBRATION_TEMPLATE,
-                                calibration.templateId)
-                        .putInt("masked_omr_calibration_question_count", total)
-                        .apply();
-                sheetConsumed = false;
-                updateSheetResultStatus("کالیبراسیون ذخیره شد (" + total
-                        + " سؤال). هنوز آستانهٔ تشخیص با آزمون واقعی اعتبارسنجی نشده؛ تصحیح عادی بدون تغییر ادامه دارد.");
-                return;
-            }
-
             String answerKey = prefs.getString("answer_key", "");
             // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
             // not from the legacy answer_key field. Prefer a complete saved model key,
@@ -897,12 +847,13 @@ public final class OmrScanActivity extends ComponentActivity {
             if (!isValidAnswerKey(answerKey, total)) {
                 sheetConsumed = false;
                 updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ معتبر و کامل پیدا نشد. بانک سؤال و پاسخ صحیح هر سؤال را بررسی کنید.");
-                return;
-            }
+                return;            }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
+
+            showVirtualAnswerMask(luma, width, height, transform, centers, activeKey);
 
             // Keep a small, anonymized calibration record for reverse-engineering OMR.
             // Store raw four-option darkness scores beside the known answer key and the
@@ -1024,6 +975,72 @@ public final class OmrScanActivity extends ComponentActivity {
                     + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
+        }
+    }
+
+
+    /**
+     * Shows the virtual white answer-key stencil over a reduced photo copy.
+     * The scoring pipeline always samples the original luminance buffer.
+     */
+    private void showVirtualAnswerMask(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform, double[][][] centers, String answerKey) {
+        try {
+            final int maxDimension = 1600;
+            final double scale = Math.min(1.0, maxDimension / (double) Math.max(width, height));
+            final int displayWidth = Math.max(1, (int) Math.round(width * scale));
+            final int displayHeight = Math.max(1, (int) Math.round(height * scale));
+            SheetPerspectiveTransform.Point tl = transform.toImage(0, 0);
+            SheetPerspectiveTransform.Point tr = transform.toImage(OmrTemplateLayout.PAGE_WIDTH_MM, 0);
+            SheetPerspectiveTransform.Point br = transform.toImage(OmrTemplateLayout.PAGE_WIDTH_MM, OmrTemplateLayout.PAGE_HEIGHT_MM);
+            SheetPerspectiveTransform.Point bl = transform.toImage(0, OmrTemplateLayout.PAGE_HEIGHT_MM);
+            SheetPerspectiveTransform displayTransform = SheetPerspectiveTransform.fromPageCorners(
+                    new SheetPerspectiveTransform.Point(tl.x * scale, tl.y * scale),
+                    new SheetPerspectiveTransform.Point(tr.x * scale, tr.y * scale),
+                    new SheetPerspectiveTransform.Point(br.x * scale, br.y * scale),
+                    new SheetPerspectiveTransform.Point(bl.x * scale, bl.y * scale),
+                    OmrTemplateLayout.PAGE_WIDTH_MM, OmrTemplateLayout.PAGE_HEIGHT_MM);
+            Bitmap photo = Bitmap.createBitmap(displayWidth, displayHeight, Bitmap.Config.ARGB_8888);
+            int[] pixels = new int[displayWidth * displayHeight];
+            for (int y = 0; y < displayHeight; y++) {
+                int sourceY = Math.min(height - 1, (int) (y / scale));
+                for (int x = 0; x < displayWidth; x++) {
+                    int sourceX = Math.min(width - 1, (int) (x / scale));
+                    int gray = luma[sourceY * width + sourceX] & 0xff;
+                    pixels[y * displayWidth + x] = Color.rgb(gray, gray, gray);
+                }
+            }
+            photo.setPixels(pixels, 0, displayWidth, 0, 0, displayWidth, displayHeight);
+            Bitmap mask = VirtualAnswerMask.render(displayWidth, displayHeight, displayTransform, centers, answerKey);
+            new Canvas(photo).drawBitmap(mask, 0, 0, null);
+            mask.recycle();
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) { photo.recycle(); return; }
+                ImageView image = new ImageView(this);
+                image.setImageBitmap(photo);
+                image.setAdjustViewBounds(true);
+                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ScrollView scroll = new ScrollView(this);
+                scroll.addView(image, new ScrollView.LayoutParams(-1, -2));
+                TextView note = new TextView(this);
+                note.setText("نقاب سفید مجازی؛ فقط محل پاسخ‌های صحیح شفاف است. تصحیح از عکس اصلی انجام می‌شود.");
+                note.setTextSize(14);
+                note.setPadding(16, 12, 16, 8);
+                LinearLayout content = new LinearLayout(this);
+                content.setOrientation(LinearLayout.VERTICAL);
+                content.addView(note);
+                content.addView(scroll, new LinearLayout.LayoutParams(-1,
+                        (int) (getResources().getDisplayMetrics().heightPixels * 0.62f)));
+                new AlertDialog.Builder(this).setTitle("نقاب مجازی پاسخنامه")
+                        .setView(content).setPositiveButton("بستن", (d, w) -> {
+                            image.setImageDrawable(null); photo.recycle();
+                        }).setOnCancelListener(d -> {
+                            image.setImageDrawable(null); photo.recycle();
+                        }).show();
+            });
+        } catch (RuntimeException error) {
+            android.util.Log.e("AzmoonyarOMR", "Virtual answer mask display failed", error);
+            updateStatus("تصحیح از عکس اصلی ادامه یافت؛ نمایش نقاب مجازی ناموفق بود.");
         }
     }
 
@@ -1197,8 +1214,7 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
-            AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("آماده برای پاسخنامهٔ بعدی")
+            AlertDialog dialog = new AlertDialog.Builder(this)                    .setTitle("آماده برای پاسخنامهٔ بعدی")
                     .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
