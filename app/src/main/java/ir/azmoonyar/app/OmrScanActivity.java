@@ -730,8 +730,14 @@ public final class OmrScanActivity extends ComponentActivity {
 
                             final int columns = 8, rows = 12;
                             int w = bitmap.getWidth(), h = bitmap.getHeight();
-                            int left = w / 10, right = w - left;
-                            int top = h / 10, bottom = h - top;
+                            // Match the exact centered A4 guide drawn over PreviewView (FIT_CENTER),
+                            // rather than sampling arbitrary 10%-90% camera-frame margins.
+                            double guideW = Math.min(w * 0.88, h * 0.88 * (210.0 / 297.0));
+                            double guideH = guideW * (297.0 / 210.0);
+                            int left = (int) Math.round((w - guideW) / 2.0);
+                            int right = (int) Math.round(left + guideW);
+                            int top = (int) Math.round((h - guideH) / 2.0);
+                            int bottom = (int) Math.round(top + guideH);
                             JSONArray grid = new JSONArray();
                             int[] cellMedians = new int[columns * rows];
                             int cellIndex = 0;
@@ -822,8 +828,14 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             java.util.Arrays.sort(sorted);
             double target = sorted[sorted.length / 2];
-            final double left = 0.10 * (width - 1), top = 0.10 * (height - 1);
-            final double usableW = 0.80 * (width - 1), usableH = 0.80 * (height - 1);
+            // Use the same centered A4 guide geometry as calibration capture.
+            // This keeps the 8x12 illumination map registered to the paper area.
+            final double guideW = Math.min((width - 1) * 0.88,
+                    (height - 1) * 0.88 * (210.0 / 297.0));
+            final double guideH = guideW * (297.0 / 210.0);
+            final double left = ((width - 1) - guideW) / 2.0;
+            final double top = ((height - 1) - guideH) / 2.0;
+            final double usableW = guideW, usableH = guideH;
 
             // Bilinear interpolation keeps the correction smooth between measured cells.
             for (int y = 0; y < height; y++) {
