@@ -1,6 +1,9 @@
 name: Android Build
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - version-masked
 permissions:
   contents: read
 jobs:
