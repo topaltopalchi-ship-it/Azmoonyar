@@ -276,7 +276,8 @@ public final class OmrScanActivity extends ComponentActivity {
                 analysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
                 provider.unbindAll();
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,                        preview, analysis, imageCapture);
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview, analysis, imageCapture);
             } catch (Exception error) {
                 updateStatus("راه‌اندازی دوربین ناموفق بود؛ مجوز دوربین و دستگاه را بررسی کنید.");
             }
@@ -575,7 +576,8 @@ public final class OmrScanActivity extends ComponentActivity {
         }
 
         // SECOND CRITERION: check the spacing between the four chosen squares.
-        // The primary 16 mm corner marks have centers 184 mm apart horizontally        // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
+        // The primary 16 mm corner marks have centers 184 mm apart horizontally
+        // (13 mm to 197 mm), while the auxiliary 3 mm squares are only 161 mm
         // apart (24.5 mm to 185.5 mm). Prefer/accept a set whose measured
         // inter-corner spacing is consistent with the physical size of the
         // selected marks; this catches a small square being mistaken for a
@@ -847,7 +849,8 @@ public final class OmrScanActivity extends ComponentActivity {
             if (!isValidAnswerKey(answerKey, total)) {
                 sheetConsumed = false;
                 updateSheetResultStatus("برگه شناسایی شد، اما کلید پاسخ معتبر و کامل پیدا نشد. بانک سؤال و پاسخ صحیح هر سؤال را بررسی کنید.");
-                return;            }
+                return;
+            }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
@@ -1214,7 +1217,8 @@ public final class OmrScanActivity extends ComponentActivity {
             content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
             content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
-            AlertDialog dialog = new AlertDialog.Builder(this)                    .setTitle("آماده برای پاسخنامهٔ بعدی")
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("آماده برای پاسخنامهٔ بعدی")
                     .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
                     .setView(content)
                     .setPositiveButton("شروع اسکن بعدی", null)
