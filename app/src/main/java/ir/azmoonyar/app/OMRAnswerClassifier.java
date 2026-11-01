@@ -57,6 +57,11 @@ public final class OMRAnswerClassifier {
     /** First inspect only the answer-key aperture in the virtual mask. If it is not
      * marked, fall back to all four bubbles to distinguish wrong, blank, multiple,
      * and uncertain responses. */
+    public boolean isMaskApertureMarked(double apertureDarkness) {
+        return !Double.isNaN(apertureDarkness) && !Double.isInfinite(apertureDarkness)
+                && apertureDarkness >= markThreshold;
+    }
+
     public Result classifyThroughMask(double apertureDarkness, int maskedOption,
             double[] fallbackDarkness) {
         if (Double.isNaN(apertureDarkness) || Double.isInfinite(apertureDarkness)
