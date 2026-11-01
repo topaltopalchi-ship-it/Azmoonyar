@@ -35,9 +35,9 @@ public final class OMRAnswerClassifier {
     public OMRAnswerClassifier() {
         // Calibrated against the current phone-photo diagnostics: clearly stronger marks
         // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by more than 0.10 (10 percentage points).
+        // a mark must reach 0.28, and the strongest bubble must lead by more than 0.12 (12 percentage points).
         // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.10);
+        this(0.28, 0.16, 0.12);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -93,8 +93,8 @@ public final class OMRAnswerClassifier {
         }
 
         // A single option is accepted only when it exceeds EACH of the other
-        // three options by strictly more than 10 percentage points. Since second
-        // is the highest of the remaining three, this is strongest - second > 0.10.
+        // three options by strictly more than 12 percentage points. Since second
+        // is the highest of the remaining three, this is strongest - second > 0.12.
         // Every smaller/equal gap goes to the human review queue (never auto-graded).
         if (margin <= minimumMargin) {
             return new Result(Status.REVIEW, -1, margin,
