@@ -79,6 +79,7 @@ public final class OMRAnswerClassifier {
             }
         }
 
+        double margin = strongest - Math.max(0, second);
         if (strongest <= blankThreshold) {
             return new Result(Status.BLANK, -1, margin, strongest);
         }
