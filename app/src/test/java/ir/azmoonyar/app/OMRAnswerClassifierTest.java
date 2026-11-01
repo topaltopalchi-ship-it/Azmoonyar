@@ -64,6 +64,43 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void maskApertureMarkImmediatelyConfirmsKeyedAnswer() {
+        OMRAnswerClassifier.Result result = classifier.classifyThroughMask(
+                0.72, 2, new double[]{0.0, 0.0, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(2, result.optionIndex);
+    }
+
+    @Test
+    public void missedMaskApertureFallsBackAndFindsWrongOption() {
+        OMRAnswerClassifier.Result result = classifier.classifyThroughMask(
+                0.08, 0, new double[]{0.08, 0.77, 0.10, 0.04});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(1, result.optionIndex);
+    }
+
+    @Test
+    public void missedMaskApertureAndFourEmptyBubblesRemainBlank() {
+        OMRAnswerClassifier.Result result = classifier.classifyThroughMask(
+                0.05, 3, new double[]{0.04, 0.09, 0.11, 0.06});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+    }
+
+    @Test
+    public void missedMaskApertureAndTwoFilledOptionsAreMultipleMarks() {
+        OMRAnswerClassifier.Result result = classifier.classifyThroughMask(
+                0.06, 0, new double[]{0.71, 0.15, 0.68, 0.09});
+        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+    }
+
+    @Test
+    public void conflictingFullBubbleAndMaskEvidenceNeedsReview() {
+        OMRAnswerClassifier.Result result = classifier.classifyThroughMask(
+                0.10, 1, new double[]{0.10, 0.81, 0.08, 0.05});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+    }
+
+    @Test
     public void rejectsThresholdsOutsideNormalizedRange() {
         try {
             new OMRAnswerClassifier(-0.1, 0.0, 0.1);
