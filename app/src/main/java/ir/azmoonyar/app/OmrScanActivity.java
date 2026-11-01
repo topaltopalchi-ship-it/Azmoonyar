@@ -975,8 +975,25 @@ public final class OmrScanActivity extends ComponentActivity {
             // Apply the saved blank-A4 illumination reference to the captured answer image.
             // Keep the original local paper-ring contrast measurement in OMRSheetReader.
             applyWhitePaperCalibration(luma, width, height, prefs);
-            List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 2.15, 1.70);
+            String maskKey = prefs.getString("answer_key", "");
+            if (!isValidAnswerKey(maskKey, total)) {
+                maskKey = prefs.getString("answer_key_model_A", "");
+            }
+            if (!isValidAnswerKey(maskKey, total)) {
+                maskKey = buildAnswerKeyFromQuestionBank(
+                        prefs.getString("question_bank_json", "[]"), total);
+            }
+            List<OMRSheetReader.QuestionResult> questions;
+            if (isValidAnswerKey(maskKey, total)) {
+                questions = new OMRSheetReader().readWithAnswerMask(luma, width, height,
+                        transform, centers, 2.15, 1.70, maskKey.substring(0, total));
+            } else if (diagnosticCaptureRequested) {
+                questions = new OMRSheetReader().read(luma, width, height,
+                        transform, centers, 2.15, 1.70);
+            } else {
+                questions = new OMRSheetReader().read(luma, width, height,
+                        transform, centers, 2.15, 1.70);
+            }
 
             if (diagnosticCaptureRequested) {
                 diagnosticCaptureRequested = false;
