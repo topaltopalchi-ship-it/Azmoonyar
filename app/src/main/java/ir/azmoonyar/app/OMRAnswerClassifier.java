@@ -72,7 +72,13 @@ public final class OMRAnswerClassifier {
         if (apertureDarkness >= markThreshold) {
             return new Result(Status.ANSWERED, maskedOption, 1.0, apertureDarkness);
         }
-        return classify(fallbackDarkness);
+        Result fallback = classify(fallbackDarkness);
+        // If the full-bubble pass favors the keyed option while its actual mask
+        // aperture failed, the evidence conflicts: do not silently accept it.
+        if (fallback.status == Status.ANSWERED && fallback.optionIndex == maskedOption) {
+            return new Result(Status.REVIEW, -1, fallback.margin, fallback.strongestScore);
+        }
+        return fallback;
     }
 
     public Result classify(double[] darkness) {
