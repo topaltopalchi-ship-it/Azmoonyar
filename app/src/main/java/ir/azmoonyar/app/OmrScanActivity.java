@@ -710,6 +710,23 @@ public final class OmrScanActivity extends ComponentActivity {
                             decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
                             bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), decode);
                             if (bitmap == null) throw new java.io.IOException("تصویر برگ سفید خوانده نشد.");
+                            // Match the EXIF orientation handling used for answer-sheet photos.
+                            android.media.ExifInterface calibrationExif =
+                                    new android.media.ExifInterface(file.getAbsolutePath());
+                            int calibrationOrientation = calibrationExif.getAttributeInt(
+                                    android.media.ExifInterface.TAG_ORIENTATION,
+                                    android.media.ExifInterface.ORIENTATION_NORMAL);
+                            int calibrationDegrees =
+                                    calibrationOrientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                                    : calibrationOrientation == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                                    : calibrationOrientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+                            if (calibrationDegrees != 0) {
+                                android.graphics.Matrix matrix = new android.graphics.Matrix();
+                                matrix.postRotate(calibrationDegrees);
+                                Bitmap upright = Bitmap.createBitmap(bitmap, 0, 0,
+                                        bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+                                if (upright != bitmap) { bitmap.recycle(); bitmap = upright; }
+                            }
 
                             final int columns = 8, rows = 12;
                             int w = bitmap.getWidth(), h = bitmap.getHeight();
