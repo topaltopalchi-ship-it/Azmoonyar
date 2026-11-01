@@ -85,10 +85,25 @@ public final class OMRAnswerClassifier {
         if (strongest <= 0.0) {
             return new Result(Status.BLANK, -1, 0, 0);
         }
-        double margin = strongest - Math.max(0, second);
+        double runnerUp = Math.max(0, second);
+        double margin = strongest - runnerUp;
         if (tiedForStrongest) {
             return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
         }
+
+        // Preserve Altay's darkest-option-wins behavior when the winner is
+        // clearly separated. Two independently strong bubbles are multiple marks;
+        // a close pair of weaker-but-visible bubbles is ambiguous and needs review.
+        if (runnerUp >= markThreshold) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin,
+                    Math.min(1.0, strongest * 2.0));
+        }
+        double relativeLead = margin / Math.max(strongest, 0.000001);
+        if (runnerUp > blankThreshold && relativeLead <= minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin,
+                    Math.min(1.0, strongest * 2.0));
+        }
+
         double boostedStrongest = Math.min(1.0, strongest * 2.0);
         return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
     }
