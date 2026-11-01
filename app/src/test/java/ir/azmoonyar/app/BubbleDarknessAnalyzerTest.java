@@ -54,4 +54,27 @@ public class BubbleDarknessAnalyzerTest {
             // Expected: partially visible bubbles must go to review, not scoring.
         }
     }
+
+    @Test
+    public void measuresRotatedAndShearedOvalUsingProjectedBasis() {
+        int width = 81, height = 81;
+        byte[] image = new byte[width * height];
+        java.util.Arrays.fill(image, (byte) 245);
+        double cx = 40, cy = 40;
+        double ax = 8, ay = 5;
+        double bx = -3, by = 6;
+        double determinant = ax * by - ay * bx;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                double dx = x - cx, dy = y - cy;
+                double u = (dx * by - dy * bx) / determinant;
+                double v = (ax * dy - ay * dx) / determinant;
+                if (u * u + v * v <= 0.58 * 0.58) image[y * width + x] = 45;
+            }
+        }
+        double score = BubbleDarknessAnalyzer.scoreProjectedEllipse(
+                image, width, height, cx, cy, ax, ay, bx, by);
+        assertTrue("A clearly filled rotated oval must produce a strong darkness score",
+                score > 0.55);
+    }
 }
