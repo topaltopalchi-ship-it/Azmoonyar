@@ -74,10 +74,12 @@ public final class OMRSheetReader {
                         Math.min(transform.getPageWidth(), x + bubbleRadiusXmm), y);
                 SheetPerspectiveTransform.Point edgeY = transform.toImage(
                         x, Math.min(transform.getPageHeight(), y + bubbleRadiusYmm));
-                double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
-                double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
-                scores[option] = BubbleDarknessAnalyzer.scoreEllipse(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
+                // Pass the full projected basis vectors, not only their lengths.
+                // The page can be rotated or sheared in the camera image.
+                scores[option] = BubbleDarknessAnalyzer.scoreProjectedEllipse(luminance,
+                        imageWidth, imageHeight, center.x, center.y,
+                        edgeX.x - center.x, edgeX.y - center.y,
+                        edgeY.x - center.x, edgeY.y - center.y);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
