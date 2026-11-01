@@ -9,6 +9,10 @@ package ir.azmoonyar.app;
  * Weak or ambiguous evidence is sent for review instead of guessed.
  */
 public final class OMRAnswerClassifier {
+    // A second bubble at or above this level is independently marked; lower near-ties
+    // remain REVIEW instead of being guessed as a single answer.
+    private static final double MULTIPLE_MARK_THRESHOLD = 0.50;
+
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
     public static final class Result {
@@ -86,7 +90,7 @@ public final class OMRAnswerClassifier {
 
         // Two independently strong fills are a multiple mark. A second score
         // near the winner but below this level is ambiguous, not a second mark.
-        if (second >= 0.50) {
+        if (second >= MULTIPLE_MARK_THRESHOLD) {
             return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
         }
 
