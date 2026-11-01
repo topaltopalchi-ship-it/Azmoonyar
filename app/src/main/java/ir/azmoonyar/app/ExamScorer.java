@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * Pure-Java scoring rules for a fixed A-D answer key.
- * REVIEW responses are deliberately left unscored until manual review.
+ * REVIEW and MULTIPLE_MARKS responses are deliberately left unscored until manual review.
  */
 public final class ExamScorer {
     private ExamScorer() {}
@@ -36,7 +36,7 @@ public final class ExamScorer {
 
     /**
      * Scores responses in question order. Key must contain one A-D character per response.
-     * REVIEW responses remain unresolved and unscored; multiple marks count as wrong.
+     * REVIEW and MULTIPLE_MARKS responses remain unresolved and unscored.
      */
     public static Result score(String answerKey, List<OMRAnswerClassifier.Result> responses,
             double correctPoints, double wrongPoints, double blankPoints) {
@@ -79,9 +79,10 @@ public final class ExamScorer {
                     earned += blankPoints;
                     break;
                 case MULTIPLE_MARKS:
+                    // A double-marked question is ambiguous: preserve it for
+                    // manual review instead of silently grading it as wrong.
                     multiple++;
-                    wrong++;
-                    earned += wrongPoints;
+                    review++;
                     break;
                 case REVIEW:
                     review++;
