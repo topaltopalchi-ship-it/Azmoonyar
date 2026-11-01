@@ -113,4 +113,4 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-# Rebuild requested on the restored Altay source baseline.
+# Signed release build requested for the isolated version-masked test branch.
