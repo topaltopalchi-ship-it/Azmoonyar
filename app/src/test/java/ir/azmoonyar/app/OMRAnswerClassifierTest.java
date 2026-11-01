@@ -79,6 +79,58 @@ public class OMRAnswerClassifierTest {
         }
     }
 
+
+    @Test
+    public void sheetReaderFindsARealisticSingleFilledBubbleInSyntheticPhoto() {
+        final int width = 1000, height = 1400;
+        final double scale = 4.5;
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
+                new SheetPerspectiveTransform.Point(20, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20 + 297 * scale),
+                new SheetPerspectiveTransform.Point(20, 20 + 297 * scale),
+                210, 297);
+        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(1, 0);
+        byte[] photo = new byte[width * height];
+        java.util.Arrays.fill(photo, (byte) 255);
+
+        SheetPerspectiveTransform.Point center = transform.toImage(
+                centers[0][2][0], centers[0][2][1]);
+        int cx = (int) Math.round(center.x), cy = (int) Math.round(center.y);
+        for (int y = cy - 5; y <= cy + 5; y++) {
+            for (int x = cx - 5; x <= cx + 5; x++) {
+                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= 25) {
+                    photo[y * width + x] = 0;
+                }
+            }
+        }
+
+        java.util.List<OMRSheetReader.QuestionResult> read =
+                new OMRSheetReader().read(photo, width, height, transform, centers, 1.45);
+        assertEquals(1, read.size());
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, read.get(0).classification.status);
+        assertEquals(2, read.get(0).classification.optionIndex);
+    }
+
+    @Test
+    public void sheetReaderTreatsUnmarkedSyntheticPhotoAsBlank() {
+        final int width = 1000, height = 1400;
+        final double scale = 4.5;
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
+                new SheetPerspectiveTransform.Point(20, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20 + 297 * scale),
+                new SheetPerspectiveTransform.Point(20, 20 + 297 * scale),
+                210, 297);
+        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(1, 0);
+        byte[] photo = new byte[width * height];
+        java.util.Arrays.fill(photo, (byte) 255);
+
+        java.util.List<OMRSheetReader.QuestionResult> read =
+                new OMRSheetReader().read(photo, width, height, transform, centers, 1.45);
+        assertEquals(OMRAnswerClassifier.Status.BLANK, read.get(0).classification.status);
+    }
+
     @Test
     public void rejectsWrongNumberOfBubbles() {
         try {
