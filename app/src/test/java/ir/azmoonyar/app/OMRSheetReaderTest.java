@@ -106,6 +106,33 @@ public class OMRSheetReaderTest {
                         - result.get(1).classification.strongestScore) < 0.08);
     }
 
+    @Test public void maskChecksKeyedApertureThenFindsWrongMarkedOption() {
+        final int width = 1000, height = 1400;
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
+                new SheetPerspectiveTransform.Point(20, 20),
+                new SheetPerspectiveTransform.Point(965, 20),
+                new SheetPerspectiveTransform.Point(965, 1356),
+                new SheetPerspectiveTransform.Point(20, 1356), 210, 297);
+        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(1, 0);
+        byte[] photo = new byte[width * height];
+        java.util.Arrays.fill(photo, (byte) 245);
+        // The mask exposes A (the key), but the student filled B instead.
+        SheetPerspectiveTransform.Point wrong = transform.toImage(
+                centers[0][1][0], centers[0][1][1]);
+        int cx = (int) Math.round(wrong.x), cy = (int) Math.round(wrong.y);
+        for (int y = cy - 7; y <= cy + 7; y++) {
+            for (int x = cx - 9; x <= cx + 9; x++) {
+                double nx = (x - cx) / 8.0, ny = (y - cy) / 6.0;
+                if (nx * nx + ny * ny <= 1.0) photo[y * width + x] = 35;
+            }
+        }
+        List<OMRSheetReader.QuestionResult> result = new OMRSheetReader().readWithAnswerMask(
+                photo, width, height, transform, centers, 2.15, 1.70, "A");
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.get(0).classification.status);
+        assertEquals("A non-keyed fill must be identified as the student's wrong option",
+                1, result.get(0).classification.optionIndex);
+    }
+
     @Test public void rejectsEmptyOrOversizedPageInsteadOfReturningEmptyResults() {
         byte[] image = new byte[120 * 60];
         SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
