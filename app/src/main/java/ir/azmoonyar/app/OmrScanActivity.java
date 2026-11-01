@@ -983,17 +983,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 maskKey = buildAnswerKeyFromQuestionBank(
                         prefs.getString("question_bank_json", "[]"), total);
             }
-            List<OMRSheetReader.QuestionResult> questions;
-            if (isValidAnswerKey(maskKey, total)) {
-                questions = new OMRSheetReader().readWithAnswerMask(luma, width, height,
-                        transform, centers, 2.15, 1.70, maskKey.substring(0, total));
-            } else if (diagnosticCaptureRequested) {
-                questions = new OMRSheetReader().read(luma, width, height,
-                        transform, centers, 2.15, 1.70);
-            } else {
-                questions = new OMRSheetReader().read(luma, width, height,
-                        transform, centers, 2.15, 1.70);
-            }
+            // The perforated mask locates the student's mark, never the correct answer.
+            // Scan all four apertures first; the answer key is applied only after selection.
+            List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().readWithAnswerMask(luma, width, height,
+                            transform, centers, 2.15, 1.70);
 
             if (diagnosticCaptureRequested) {
                 diagnosticCaptureRequested = false;
