@@ -3,41 +3,35 @@ package ir.azmoonyar.app;
 /**
  * Color-independent bubble measurement for OMR.
  *
- * Supply the camera's grayscale/luma plane (for CameraX YUV_420_888 this is
- * the Y plane). The score compares the inner area of a bubble with a nearby
- * paper-reference ring, so printed bubble outlines and uneven illumination
- * have less influence. It intentionally measures darkness, not ink hue.
- *
- * This is a measurement primitive, not a complete sheet detector: callers must
- * first locate the sheet, correct perspective, and map bubble centers/radii.
+ * Uses an elliptical ROI in image space so a printed oval remains correctly
+ * sampled after perspective projection. The reference ring is local to each
+ * bubble, reducing sensitivity to broad illumination gradients.
  */
 public final class BubbleDarknessAnalyzer {
     private BubbleDarknessAnalyzer() {}
 
-    /**
-     * @param luminance grayscale/luma bytes, one byte per pixel
-     * @param width image width
-     * @param height image height
-     * @param centerX bubble center x in image coordinates
-     * @param centerY bubble center y in image coordinates
-     * @param radius bubble radius in image pixels
-     * @return normalized relative darkness in [0,1]; larger means more filled
-     */
+    /** Backward-compatible circular measurement. */
     public static double score(byte[] luminance, int width, int height,
                                double centerX, double centerY, double radius) {
+        return scoreEllipse(luminance, width, height, centerX, centerY, radius, radius);
+    }
+
+    /**
+     * Measures local relative darkness inside an ellipse.
+     * radiusX and radiusY are the projected semi-axis lengths in image pixels.
+     */
+    public static double scoreEllipse(byte[] luminance, int width, int height,
+            double centerX, double centerY, double radiusX, double radiusY) {
         if (luminance == null || width <= 0 || height <= 0
                 || (long) width * height > luminance.length
-                || !finite(radius) || !finite(centerX) || !finite(centerY)
-                || radius < 2 || centerX < 0 || centerY < 0
+                || !finite(radiusX) || !finite(radiusY) || !finite(centerX) || !finite(centerY)
+                || radiusX < 2 || radiusY < 2 || centerX < 0 || centerY < 0
                 || centerX >= width || centerY >= height) {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
-        int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
-        int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
-        // Do not score a partially visible bubble: clipping the reference ring at
-        // an image edge can make an off-sheet bubble look confidently blank/filled.
+        double maxRadius = Math.max(radiusX, radiusY);
+        int ringOuter = Math.max(2, (int) Math.ceil(maxRadius * 1.55));
         if (centerX - ringOuter < 0 || centerY - ringOuter < 0
                 || centerX + ringOuter >= width || centerY + ringOuter >= height) {
             throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
@@ -48,24 +42,22 @@ public final class BubbleDarknessAnalyzer {
         int minY = Math.max(0, (int) Math.floor(centerY - ringOuter));
         int maxY = Math.min(height - 1, (int) Math.ceil(centerY + ringOuter));
 
-        long innerSum = 0;
-        int innerCount = 0;
-        long paperSum = 0;
-        int paperCount = 0;
-        double innerR2 = (double) innerRadius * innerRadius;
-        double ringIn2 = (double) ringInner * ringInner;
-        double ringOut2 = (double) ringOuter * ringOuter;
+        long innerSum = 0, paperSum = 0;
+        int innerCount = 0, paperCount = 0;
+        double innerLimit = 0.58 * 0.58;
+        double ringInner = 1.18 * 1.18;
+        double ringOuterNorm = 1.55 * 1.55;
 
         for (int y = minY; y <= maxY; y++) {
-            double dy = y - centerY;
+            double dy = (y - centerY) / radiusY;
             for (int x = minX; x <= maxX; x++) {
-                double dx = x - centerX;
-                double d2 = (double) dx * dx + (double) dy * dy;
+                double dx = (x - centerX) / radiusX;
+                double normalized = dx * dx + dy * dy;
                 int value = luminance[y * width + x] & 0xff;
-                if (d2 <= innerR2) {
+                if (normalized <= innerLimit) {
                     innerSum += value;
                     innerCount++;
-                } else if (d2 >= ringIn2 && d2 <= ringOut2) {
+                } else if (normalized >= ringInner && normalized <= ringOuterNorm) {
                     paperSum += value;
                     paperCount++;
                 }
@@ -78,14 +70,8 @@ public final class BubbleDarknessAnalyzer {
 
         double innerMean = innerSum / (double) innerCount;
         double paperMean = paperSum / (double) paperCount;
-        // Relative local contrast is less sensitive to shadows than a fixed
-        // global threshold. Clamp so the downstream classifier receives [0,1].
         double relativeDarkness = (paperMean - innerMean) / Math.max(48.0, paperMean);
-        // Restore the previously tested mild gain for genuine low-contrast marks.
-        // Keep near-zero paper noise untouched so blank bubbles are not promoted.
-        if (relativeDarkness > 0.08) {
-            relativeDarkness *= 1.15;
-        }
+        if (relativeDarkness > 0.08) relativeDarkness *= 1.15;
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
     }
 
