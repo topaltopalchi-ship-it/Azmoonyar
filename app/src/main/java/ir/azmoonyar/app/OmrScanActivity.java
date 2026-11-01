@@ -817,7 +817,8 @@ public final class OmrScanActivity extends ComponentActivity {
             SheetPerspectiveTransform transform) {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-            int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
+            int total = diagnosticCaptureRequested ? OmrTemplateLayout.QUESTIONS_PER_PAGE
+                    : Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
