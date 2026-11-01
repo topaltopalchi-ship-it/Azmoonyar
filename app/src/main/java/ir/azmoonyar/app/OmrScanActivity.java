@@ -168,11 +168,30 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
+        Button calibrationButton = new Button(this);
+        calibrationButton.setText("۱) کالیبراسیون با برگ سفید A4");
+        calibrationButton.setTextSize(16);
+        calibrationButton.setAllCaps(false);
+        calibrationButton.setOnClickListener(v -> {
+            if (imageCapture == null || sheetConsumed) {
+                updateStatus("دوربین آماده نیست یا در حال ثبت عکس است؛ کمی صبر کنید.");
+                return;
+            }
+            sheetConsumed = true;
+            captureWhitePaperCalibration();
+        });
+        page.addView(calibrationButton, new LinearLayout.LayoutParams(-1, -2));
+
         Button captureButton = new Button(this);
-        captureButton.setText("عکس بگیر و تصحیح کن");
+        captureButton.setText("۲) عکس بگیر و تصحیح کن");
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
+            SharedPreferences calibrationPrefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+            if (!calibrationPrefs.contains("white_calibration_median")) {
+                updateStatus("ابتدا کالیبراسیون را با یک برگ سفید A4 انجام دهید.");
+                return;
+            }
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
                 return;
@@ -648,6 +667,79 @@ public final class OmrScanActivity extends ComponentActivity {
      * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
+    /** Capture a plain white A4 page and store a lighting reference. */
+    private void captureWhitePaperCalibration() {
+        if (imageCapture == null || finished) {
+            sheetConsumed = false;
+            updateStatus("دوربین برای کالیبراسیون آماده نیست.");
+            return;
+        }
+        java.io.File dir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+        if (!dir.exists() && !dir.mkdirs()) {
+            sheetConsumed = false;
+            updateStatus("ذخیره‌سازی کالیبراسیون ممکن نشد.");
+            return;
+        }
+        java.io.File file = new java.io.File(dir, "white_calibration_" + System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions options = new ImageCapture.OutputFileOptions.Builder(file).build();
+        updateStatus("برگ سفید A4 را ثابت داخل کادر نگه دارید؛ در حال ثبت کالیبراسیون…");
+        imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
+                        try {
+                            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+                            bounds.inJustDecodeBounds = true;
+                            android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+                            int sample = 1;
+                            while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 1600) sample *= 2;
+                            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+                            opts.inSampleSize = sample;
+                            Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
+                            if (bitmap == null) throw new java.io.IOException("تصویر خوانده نشد");
+                            try {
+                                int w = bitmap.getWidth(), h = bitmap.getHeight();
+                                int left = w / 5, right = w - left, top = h / 5, bottom = h - top;
+                                int[] values = new int[((right-left)*(bottom-top) + 3) / 4];
+                                int n = 0;
+                                long sum = 0, sum2 = 0;
+                                for (int y = top; y < bottom; y += 2) {
+                                    for (int x = left; x < right; x += 2) {
+                                        int c = bitmap.getPixel(x, y);
+                                        int lum = (Color.red(c)*299 + Color.green(c)*587 + Color.blue(c)*114)/1000;
+                                        if (n < values.length) values[n++] = lum;
+                                        sum += lum; sum2 += (long)lum*lum;
+                                    }
+                                }
+                                if (n < 100) throw new java.io.IOException("سطح سفید کافی در تصویر دیده نشد");
+                                java.util.Arrays.sort(values, 0, n);
+                                int median = values[n/2];
+                                double mean = sum/(double)n;
+                                double deviation = Math.sqrt(Math.max(0, sum2/(double)n - mean*mean));
+                                if (median < 145 || deviation > 55) {
+                                    throw new java.io.IOException("نور کم یا ناهمگون است؛ برگ را زیر نور یکنواخت‌تر قرار دهید");
+                                }
+                                getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                                        .putInt("white_calibration_median", median)
+                                        .putFloat("white_calibration_deviation", (float)deviation)
+                                        .putLong("white_calibration_time", System.currentTimeMillis())
+                                        .apply();
+                                runOnUiThread(() -> updateStatus("کالیبراسیون نور انجام شد. حالا پاسخنامه را داخل کادر بگذارید و عکس بگیرید."));
+                            } finally { bitmap.recycle(); }
+                        } catch (Exception e) {
+                            runOnUiThread(() -> updateStatus("کالیبراسیون انجام نشد: " + e.getMessage()));
+                        } finally {
+                            sheetConsumed = false;
+                            if (file.exists()) file.delete();
+                        }
+                    }
+                    @Override public void onError(@NonNull ImageCaptureException error) {
+                        sheetConsumed = false;
+                        updateStatus("ثبت برگ سفید ناموفق بود؛ دوباره تلاش کنید.");
+                        if (file.exists()) file.delete();
+                    }
+                });
+    }
+
     private void captureRealPhotoAndCorrect() {
         if (imageCapture == null || finished) {
             updateSheetResultStatus("دوربین برای ثبت عکس آماده نیست؛ دوباره تلاش کنید.");
