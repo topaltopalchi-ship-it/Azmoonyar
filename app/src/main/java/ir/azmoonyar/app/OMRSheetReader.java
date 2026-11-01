@@ -121,7 +121,7 @@ public final class OMRSheetReader {
                     transform, centers[maskedOption], bubbleRadiusXmm, bubbleRadiusYmm);
             double[] scores = new double[4];
             OMRAnswerClassifier.Result classification;
-            if (apertureScore >= 0.28) {
+            if (classifier.isMaskApertureMarked(apertureScore)) {
                 // The correct-answer aperture itself contains a clear mark.
                 scores[maskedOption] = apertureScore;
                 classification = classifier.classifyThroughMask(apertureScore,
