@@ -35,9 +35,9 @@ public final class OMRAnswerClassifier {
     public OMRAnswerClassifier() {
         // Calibrated against the current phone-photo diagnostics: clearly stronger marks
         // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
+        // a mark must reach 0.28, and the strongest bubble must lead by more than 0.10 (10 percentage points).
         // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        this(0.28, 0.16, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -95,12 +95,12 @@ public final class OMRAnswerClassifier {
         // The darkest option wins unless the two leading scores are genuinely close.
         // Only a close pair of independently strong bubbles is classified as multiple;
         // a close pair with weaker evidence is sent for review.
-        double relativeLead = margin / Math.max(strongest, 0.000001);
-        if (runnerUp >= markThreshold && relativeLead <= minimumMargin) {
+        // The gap is an absolute difference on the normalized 0..1 scale.
+        if (runnerUp >= markThreshold && margin <= minimumMargin) {
             return new Result(Status.MULTIPLE_MARKS, -1, margin,
                     Math.min(1.0, strongest * 2.0));
         }
-        if (runnerUp > blankThreshold && relativeLead <= minimumMargin) {
+        if (runnerUp > blankThreshold && margin <= minimumMargin) {
             return new Result(Status.REVIEW, -1, margin,
                     Math.min(1.0, strongest * 2.0));
         }
