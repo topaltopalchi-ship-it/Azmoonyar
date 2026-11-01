@@ -79,17 +79,22 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
+        if (strongest <= blankThreshold) {
+            return new Result(Status.BLANK, -1, margin, strongest);
         }
-        double margin = strongest - Math.max(0, second);
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+
+        // Two independently strong fills are a multiple mark. A second score
+        // near the winner but below this level is ambiguous, not a second mark.
+        if (second >= 0.50) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+
+        // Evidence between blank and mark thresholds, or an insufficient lead,
+        // must be reviewed rather than promoted to an answer.
+        if (strongest < markThreshold || margin < minimumMargin || tiedForStrongest) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+
+        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
     }
 }
