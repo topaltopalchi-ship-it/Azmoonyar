@@ -31,6 +31,8 @@ jobs:
           test -s "$KEYSTORE"
           keytool -list -keystore "$KEYSTORE" -storepass "$AZMOONYAR_KEYSTORE_PASSWORD" -alias "$AZMOONYAR_KEY_ALIAS" >/dev/null
           echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+      - name: Run OMR and app unit tests
+        run: gradle testDebugUnitTest
       - name: Compile debug and release variants
         run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
