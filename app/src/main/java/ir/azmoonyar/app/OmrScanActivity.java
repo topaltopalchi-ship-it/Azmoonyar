@@ -847,7 +847,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     : Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 2.15, 1.70);
 
             if (diagnosticCaptureRequested) {
                 diagnosticCaptureRequested = false;
