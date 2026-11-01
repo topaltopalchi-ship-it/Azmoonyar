@@ -34,20 +34,26 @@ public final class OMRSheetReader {
         this.classifier = classifier;
     }
 
-    /**
-     * @param bubbleCentersMm each question contains exactly four [x,y] centers
-     *                        in the canonical printed page coordinate system
-     * @param bubbleRadiusMm printed bubble radius in the same coordinate units
-     */
+    /** Backward-compatible circular sampling overload for older callers and tests. */
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
             SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
             double bubbleRadiusMm) {
+        return read(luminance, imageWidth, imageHeight, transform, bubbleCentersMm,
+                bubbleRadiusMm, bubbleRadiusMm);
+    }
+
+    /**
+     * Reads the printed oval using its actual horizontal and vertical semi-axes.
+     * The current A4 form prints 4.3 x 3.4 mm bubbles, hence 2.15 x 1.70 mm.
+     */
+    public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
+            SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
+            double bubbleRadiusXmm, double bubbleRadiusYmm) {
         if (luminance == null || imageWidth <= 0 || imageHeight <= 0
                 || (long) imageWidth * imageHeight > luminance.length
                 || transform == null || bubbleCentersMm == null
                 || bubbleCentersMm.length < 1 || bubbleCentersMm.length > 100
-                || bubbleRadiusMm < 1
-                || Double.isNaN(bubbleRadiusMm) || Double.isInfinite(bubbleRadiusMm)) {
+                || !validRadius(bubbleRadiusXmm) || !validRadius(bubbleRadiusYmm)) {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
 
@@ -65,18 +71,20 @@ public final class OMRSheetReader {
                 double x = centers[option][0], y = centers[option][1];
                 SheetPerspectiveTransform.Point center = transform.toImage(x, y);
                 SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                        Math.min(transform.getPageWidth(), x + bubbleRadiusMm), y);
+                        Math.min(transform.getPageWidth(), x + bubbleRadiusXmm), y);
                 SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
+                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusYmm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
-                // Preserve the projected oval shape. Averaging these radii into
-                // one circle can sample outside the printed bubble under perspective.
                 scores[option] = BubbleDarknessAnalyzer.scoreEllipse(luminance,
                         imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
         return Collections.unmodifiableList(results);
+    }
+
+    private static boolean validRadius(double radius) {
+        return radius >= 1 && !Double.isNaN(radius) && !Double.isInfinite(radius);
     }
 }
