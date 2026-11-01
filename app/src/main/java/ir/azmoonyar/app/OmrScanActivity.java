@@ -940,23 +940,37 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
+            JSONArray blankQuestions = new JSONArray();
+            JSONArray answerDetails = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
                 OMRAnswerClassifier.Result answer = questions.get(i).classification;
-                boolean wrong = answer.status == OMRAnswerClassifier.Status.MULTIPLE_MARKS;
-                if (answer.status == OMRAnswerClassifier.Status.ANSWERED) {
-                    wrong = answer.optionIndex != (activeKey.charAt(i) - 'A');
+                int questionNumber = i + 1;
+                JSONObject answerDetail = new JSONObject();
+                answerDetail.put("question", questionNumber);
+                answerDetail.put("correctOption", String.valueOf(activeKey.charAt(i)));
+                answerDetail.put("status", answer.status.name());
+                answerDetail.put("selectedOption", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        ? String.valueOf((char) ('A' + answer.optionIndex)) : JSONObject.NULL);
+                answerDetail.put("strongestScore", answer.strongestScore);
+                answerDetail.put("margin", answer.margin);
+                answerDetails.put(answerDetail);
+
+                if (answer.status == OMRAnswerClassifier.Status.BLANK) {
+                    blankQuestions.put(questionNumber);
                 }
+                boolean wrong = answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        && answer.optionIndex != (activeKey.charAt(i) - 'A');
                 if (wrong) {
-                    int questionNumber = i + 1;
                     wrongQuestions.put(questionNumber);
                     JSONObject detail = new JSONObject();
                     detail.put("question", questionNumber);
                     detail.put("correctOption", String.valueOf(activeKey.charAt(i)));
-                    detail.put("selectedOption", answer.status == OMRAnswerClassifier.Status.ANSWERED
-                            ? String.valueOf((char) ('A' + answer.optionIndex)) : "MULTIPLE_MARKS");
+                    detail.put("selectedOption", String.valueOf((char) ('A' + answer.optionIndex)));
                     wrongDetails.put(detail);
                 }
             }
+            record.put("answerDetails", answerDetails);
+            record.put("blankQuestions", blankQuestions);
             record.put("score", score.percentage());
             record.put("earnedPoints", score.earnedPoints);
             record.put("correct", score.correct);
