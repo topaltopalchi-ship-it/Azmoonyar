@@ -92,15 +92,11 @@ public final class OMRAnswerClassifier {
             return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
         }
 
-        // The darkest option wins unless the two leading scores are genuinely close.
-        // Only a close pair of independently strong bubbles is classified as multiple;
-        // a close pair with weaker evidence is sent for review.
-        // The gap is an absolute difference on the normalized 0..1 scale.
-        if (runnerUp >= markThreshold && margin <= minimumMargin) {
-            return new Result(Status.MULTIPLE_MARKS, -1, margin,
-                    Math.min(1.0, strongest * 2.0));
-        }
-        if (runnerUp > blankThreshold && margin <= minimumMargin) {
+        // A single option is accepted only when it exceeds EACH of the other
+        // three options by strictly more than 10 percentage points. Since second
+        // is the highest of the remaining three, this is strongest - second > 0.10.
+        // Every smaller/equal gap goes to the human review queue (never auto-graded).
+        if (margin <= minimumMargin) {
             return new Result(Status.REVIEW, -1, margin,
                     Math.min(1.0, strongest * 2.0));
         }
