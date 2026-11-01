@@ -51,6 +51,20 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void exactTwelvePointGapGoesToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.52, 0.40, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void gapGreaterThanTwelvePointsAcceptsDarkerOption() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.521, 0.400, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
     public void detectsModerateRealPhotoMarkWhenClearlyStronger() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.00, 0.00, 0.08, 0.40});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
