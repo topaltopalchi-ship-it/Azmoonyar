@@ -63,6 +63,49 @@ public class OMRSheetReaderTest {
         assertEquals(0, result.get(0).classification.optionIndex);
     }
 
+
+    @Test public void samplesRealOvalDimensionsConsistentlyAcrossRows() {
+        final int width = 1000, height = 1400;
+        final double scale = 4.5;
+        SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
+                new SheetPerspectiveTransform.Point(20, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20),
+                new SheetPerspectiveTransform.Point(20 + 210 * scale, 20 + 297 * scale),
+                new SheetPerspectiveTransform.Point(20, 20 + 297 * scale),
+                210, 297);
+        double[][][] centers = {
+                {{45, 55}, {60, 55}, {75, 55}, {90, 55}},
+                {{45, 95}, {60, 95}, {75, 95}, {90, 95}}
+        };
+        byte[] photo = new byte[width * height];
+        java.util.Arrays.fill(photo, (byte) 245);
+
+        // Fill A on the first row and D on the second with equal elliptical marks.
+        int[] selectedOptions = {0, 3};
+        for (int q = 0; q < centers.length; q++) {
+            SheetPerspectiveTransform.Point p = transform.toImage(
+                    centers[q][selectedOptions[q]][0], centers[q][selectedOptions[q]][1]);
+            int cx = (int) Math.round(p.x), cy = (int) Math.round(p.y);
+            for (int y = cy - 8; y <= cy + 8; y++) {
+                for (int x = cx - 10; x <= cx + 10; x++) {
+                    double nx = (x - cx) / 9.0, ny = (y - cy) / 7.0;
+                    if (nx * nx + ny * ny <= 1.0) photo[y * width + x] = 55;
+                }
+            }
+        }
+
+        List<OMRSheetReader.QuestionResult> result = new OMRSheetReader().read(
+                photo, width, height, transform, centers, 2.15, 1.70);
+        assertEquals(2, result.size());
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.get(0).classification.status);
+        assertEquals(0, result.get(0).classification.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.get(1).classification.status);
+        assertEquals(3, result.get(1).classification.optionIndex);
+        assertTrue("Equivalent oval marks on different rows should have comparable scores",
+                Math.abs(result.get(0).classification.strongestScore
+                        - result.get(1).classification.strongestScore) < 0.08);
+    }
+
     @Test public void rejectsEmptyOrOversizedPageInsteadOfReturningEmptyResults() {
         byte[] image = new byte[120 * 60];
         SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromPageCorners(
