@@ -92,14 +92,14 @@ public final class OMRAnswerClassifier {
             return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
         }
 
-        // Preserve Altay's darkest-option-wins behavior when the winner is
-        // clearly separated. Two independently strong bubbles are multiple marks;
-        // a close pair of weaker-but-visible bubbles is ambiguous and needs review.
-        if (runnerUp >= markThreshold) {
+        // The darkest option wins unless the two leading scores are genuinely close.
+        // Only a close pair of independently strong bubbles is classified as multiple;
+        // a close pair with weaker evidence is sent for review.
+        double relativeLead = margin / Math.max(strongest, 0.000001);
+        if (runnerUp >= markThreshold && relativeLead <= minimumMargin) {
             return new Result(Status.MULTIPLE_MARKS, -1, margin,
                     Math.min(1.0, strongest * 2.0));
         }
-        double relativeLead = margin / Math.max(strongest, 0.000001);
         if (runnerUp > blankThreshold && relativeLead <= minimumMargin) {
             return new Result(Status.REVIEW, -1, margin,
                     Math.min(1.0, strongest * 2.0));
