@@ -30,6 +30,30 @@ public class SheetPerspectiveTransformTest {
         assertPoint(bl, transform.toImage(0, 297));
     }
 
+
+    @Test public void bubbleLayoutMatchesPrintedFourColumnA4Geometry() {
+        double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(100, 0);
+        assertEquals(100, centers.length);
+
+        // CSS: 12 mm side margins, four columns with 3 mm gaps,
+        // 0.25 mm column borders, 1 mm padding, 7 mm number cell,
+        // 8.3 mm answer rows and a 7 mm header.
+        assertEquals(24.59375, centers[0][0][0], 1e-5);
+        assertEquals(33.28125, centers[0][1][0], 1e-5);
+        assertEquals(56.4, centers[0][0][1], 1e-5);
+        assertEquals(56.4 + 24 * 8.3, centers[24][0][1], 1e-5);
+        assertEquals(24.59375 + 3 * (44.25 + 3.0), centers[75][0][0], 1e-5);
+    }
+
+    @Test public void rejectsQuestionCountOutsidePrintedTemplateCapacity() {
+        try {
+            OmrTemplateLayout.bubbleCentersForPage(101, 0);
+            fail("Expected more than 100 questions to be rejected for one page");
+        } catch (IllegalArgumentException expected) {
+            // Expected: this template is a single A4 page with 100 bubbles rows.
+        }
+    }
+
     @Test public void rejectsDegenerateCorners() {
         try {
             SheetPerspectiveTransform.fromPageCorners(
