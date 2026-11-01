@@ -70,9 +70,10 @@ public final class OMRSheetReader {
                         x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
-                double radiusPixels = (radiusX + radiusY) * 0.5;
-                scores[option] = BubbleDarknessAnalyzer.score(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusPixels);
+                // Preserve the projected oval shape. Averaging these radii into
+                // one circle can sample outside the printed bubble under perspective.
+                scores[option] = BubbleDarknessAnalyzer.scoreEllipse(luminance,
+                        imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
