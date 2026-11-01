@@ -17,11 +17,12 @@ public class ExamScorerTest {
                 classify(0.7, 0.1, 0.68, 0.1)), 1.0, 0.0, 0.0);
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
-        assertEquals(2, result.wrong);
+        assertEquals(1, result.wrong);
         assertEquals(1, result.blank);
         assertEquals(1, result.multipleMarks);
-        assertTrue(result.isComplete());
-        assertEquals(25.0, result.percentage(), 0.001);
+        assertEquals(1, result.needsReview);
+        assertFalse(result.isComplete());
+        assertTrue(Double.isNaN(result.percentage()));
     }
 
     @Test public void reviewLeavesResultIncompleteAndPercentageUnavailable() {
@@ -30,6 +31,16 @@ public class ExamScorerTest {
         assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
+    }
+
+
+    @Test public void allFourBlankOptionsAreUnansweredAndNotReview() {
+        ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(
+                classify(0.04, 0.05, 0.03, 0.06)), 1.0, 0.0, 0.0);
+        assertEquals(1, result.blank);
+        assertEquals(0, result.needsReview);
+        assertTrue(result.isComplete());
+        assertEquals(0.0, result.percentage(), 0.001);
     }
 
     @Test public void appliesNegativeWrongAnswerPenalty() {
