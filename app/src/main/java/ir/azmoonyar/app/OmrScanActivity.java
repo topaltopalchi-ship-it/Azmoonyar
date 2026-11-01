@@ -56,7 +56,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
-    private int stableMarkerFrames, missingMarkerFrames;
+    private volatile int stableMarkerFrames;
+    private int missingMarkerFrames;
+    private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
@@ -178,6 +180,10 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             if (imageCapture == null) {
                 updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
+                return;
+            }
+            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+                updateStatus("چهار مربع گوشه هنوز پایدار نیستند؛ گوشی و برگه را ثابت نگه دارید تا پیام آمادگی ظاهر شود.");
                 return;
             }
             sheetConsumed = true;
@@ -354,10 +360,11 @@ public final class OmrScanActivity extends ComponentActivity {
                             : (lastSheetResultMessage.isEmpty()
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
+                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
+                    // Require a short run of consecutive valid frames before declaring readiness.
+                    message = "پاسخنامه پایدار و آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
                 } else if (transform != null) {
-                    // Do not run the legacy live-bubble scanner in preview.
-                    // Preview is guidance only; capture starts only from the manual button.
-                    message = "پاسخنامه آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
+                    message = "چهار مربع پیدا شدند؛ گوشی و برگه را ثابت نگه دارید…";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
@@ -747,6 +754,8 @@ public final class OmrScanActivity extends ComponentActivity {
             if (detection.count != 4) {
                 throw new java.io.IOException("Could not locate all four sheet registration marks");
             }
+            // The saved full-resolution photo is validated independently; preview
+            // readiness never authorizes scoring if the captured geometry is invalid.
             double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
             double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
             double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
