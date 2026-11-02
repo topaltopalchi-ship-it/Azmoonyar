@@ -1119,7 +1119,8 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /** Displays the captured blank A4 luminance as a false-color light/shadow map. */
-    private void showBlankSheetLightMap(byte[] luma, int width, int height,\n            double[] scores, double[] xs, double[] ys) {
+    private void showBlankSheetLightMap(byte[] luma, int width, int height,
+            double[] scores, double[] xs, double[] ys) {
         if (luma == null || width <= 0 || height <= 0
                 || (long) width * height > 12000000L) return;
         try {
