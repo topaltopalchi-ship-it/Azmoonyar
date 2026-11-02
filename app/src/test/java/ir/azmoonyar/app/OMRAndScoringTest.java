@@ -7,6 +7,19 @@ import static org.junit.Assert.*;
 public class OMRAndScoringTest {
     private final OMRAnswerClassifier classifier = new OMRAnswerClassifier();
 
+    @Test public void paperSurfaceDarknessMeasuresAbsoluteLuminance() {
+        byte[] bright = new byte[21 * 21];
+        byte[] shadow = new byte[21 * 21];
+        Arrays.fill(bright, (byte) 240);
+        Arrays.fill(shadow, (byte) 190);
+        double brightScore = BubbleDarknessAnalyzer.paperSurfaceDarkness(
+                bright, 21, 21, 10, 10, 8);
+        double shadowScore = BubbleDarknessAnalyzer.paperSurfaceDarkness(
+                shadow, 21, 21, 10, 10, 8);
+        assertTrue(brightScore > 0.0);
+        assertTrue(shadowScore > brightScore);
+    }
+
     @Test public void classifiesClearSingleMark() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
