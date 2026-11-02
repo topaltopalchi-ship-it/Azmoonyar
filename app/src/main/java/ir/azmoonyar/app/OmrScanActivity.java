@@ -292,16 +292,91 @@ public final class OmrScanActivity extends ComponentActivity {
         int width = diagnosticWidth, height = diagnosticHeight;
         SheetPerspectiveTransform transform = diagnosticTransform;
         double[][][] centers = diagnosticCenters;
-        if (luma == null || width <= 0 || height <= 0 || transform == null
-                || centers == null || centers.length == 0 || stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
-            new AlertDialog.Builder(this)
-                    .setTitle("کالیبراسیون")
-                    .setMessage("یک پاسخنامهٔ کاملاً خالی را با هر چهار مربع گوشه داخل کادر سبز قرار دهید. برای کالیبراسیون دقیق، فعلاً برگه باید همان نشانه‌های گوشهٔ قالب را داشته باشد.")
+        if (luma == null || width <= 0 || height <= 0
+                || (long) width * height > 12000000L) {
+            new AlertDialog.Builder(this).setTitle("کالیبراسیون")
+                    .setMessage("تصویر دوربین آماده نیست. برگهٔ A4 سفید را روی سطحی تیره بگذارید، صاف و کامل داخل کادر نگه دارید و دوباره تلاش کنید.")
                     .setPositiveButton("متوجه شدم", null).show();
             return;
         }
 
-        int count = 0;
+        int count;
+        double[] scores;
+        double[] xs;
+        double[] ys;
+        int index = 0;
+        if (transform == null || centers == null || centers.length == 0) {
+            // Unmarked A4: sample a grid over the central paper area.
+            final int columns = 8, rows = 8;
+            double radius = Math.max(3.0, Math.min(width / 100.0, height / 140.0));
+            count = columns * rows;
+            scores = new double[count];
+            xs = new double[count];
+            ys = new double[count];
+            try {
+                for (int row = 0; row < rows; row++) {
+                    for (int col = 0; col < columns; col++) {
+                        double nx = 0.20 + 0.60 * (col + 0.5) / columns;
+                        double ny = 0.16 + 0.68 * (row + 0.5) / rows;
+                        scores[index] = BubbleDarknessAnalyzer.score(luma, width, height,
+                                nx * width, ny * height, radius);
+                        xs[index] = nx;
+                        ys[index] = ny;
+                        index++;
+                    }
+                }
+            } catch (IllegalArgumentException badSample) {
+                new AlertDialog.Builder(this).setTitle("کالیبراسیون برگهٔ سفید")
+                        .setMessage("نمونه‌برداری از سطح کاغذ کامل نشد. برگه را صاف، بدون سایه و کاملاً داخل کادر A4 قرار دهید و پس‌زمینهٔ تیره انتخاب کنید.")
+                        .setPositiveButton("متوجه شدم", null).show();
+                return;
+            }
+        } else {
+            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+                updateStatus("برای کالیبراسیون پاسخنامهٔ قالب‌دار، برگه را ثابت نگه دارید.");
+                return;
+            }
+            count = 0;
+            for (double[][] question : centers) {
+                if (question == null || question.length != 4) continue;
+                count += 4;
+            }
+            if (count < 32) {
+                updateStatus("تعداد ناحیه‌های نمونه‌برداری برای کالیبراسیون کافی نیست.");
+                return;
+            }
+            scores = new double[count];
+            xs = new double[count];
+            ys = new double[count];
+            try {
+                for (double[][] question : centers) {
+                    if (question == null || question.length != 4) continue;
+                    for (double[] centerMm : question) {
+                        if (centerMm == null || centerMm.length != 2) continue;
+                        SheetPerspectiveTransform.Point center = transform.toImage(centerMm[0], centerMm[1]);
+                        SheetPerspectiveTransform.Point edgeX = transform.toImage(
+                                Math.min(transform.getPageWidth(), centerMm[0] + 1.45), centerMm[1]);
+                        SheetPerspectiveTransform.Point edgeY = transform.toImage(
+                                centerMm[0], Math.min(transform.getPageHeight(), centerMm[1] + 1.45));
+                        double radius = (Math.hypot(edgeX.x - center.x, edgeX.y - center.y)
+                                + Math.hypot(edgeY.x - center.x, edgeY.y - center.y)) * 0.5;
+                        scores[index] = BubbleDarknessAnalyzer.score(luma, width, height,
+                                center.x, center.y, radius);
+                        xs[index] = centerMm[0] / transform.getPageWidth();
+                        ys[index] = centerMm[1] / transform.getPageHeight();
+                        index++;
+                    }
+                }
+            } catch (IllegalArgumentException badSample) {
+                updateStatus("نمونه‌برداری کامل نشد؛ برگه را صاف‌تر و کامل داخل کادر قرار دهید.");
+                return;
+            }
+        }
+        if (index > 0 && index != count) {
+            scores = java.util.Arrays.copyOf(scores, index);
+            xs = java.util.Arrays.copyOf(xs, index);
+            ys = java.util.Arrays.copyOf(ys, index);
+        }
         for (double[][] question : centers) {
             if (question == null || question.length != 4) continue;
             count += 4;
@@ -364,7 +439,9 @@ public final class OmrScanActivity extends ComponentActivity {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(24, 8, 24, 4);
         TextView instructions = new TextView(this);
-        instructions.setText("۴۰۰ محل حباب از تصویر فعلی نمونه‌برداری شد. مقدار اصلاح را تغییر دهید تا میانه، پراکندگی و اختلاف ناحیه‌ای هم‌زمان در محدودهٔ سبز قرار گیرند.");
+        instructions.setText(measured.length == 64
+                ? "۶۴ نقطه از سطح مرکزی برگهٔ A4 سفید نمونه‌برداری شد. برگه باید صاف، داخل کادر و روی زمینهٔ تیره باشد؛ این بررسی یکنواختی نور و نویز زمینه است."
+                : "۴۰۰ محل حباب از پاسخنامهٔ خالی نمونه‌برداری شد. مقدار اصلاح را تغییر دهید تا میانه، پراکندگی و اختلاف ناحیه‌ای هم‌زمان در محدودهٔ سبز قرار گیرند.");
         panel.addView(instructions);
         TextView valueLabel = new TextView(this);
         panel.addView(valueLabel);
@@ -507,6 +584,16 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int rotation = image.getImageInfo().getRotationDegrees();
             UprightLuma upright = rotateToUpright(luma, width, height, rotation);
+            long plainCalibrationNow = android.os.SystemClock.elapsedRealtime();
+            if (plainCalibrationNow - lastDiagnosticFrameSaved > 300) {
+                diagnosticLuma = upright.pixels.clone();
+                diagnosticWidth = upright.width;
+                diagnosticHeight = upright.height;
+                diagnosticTransform = null;
+                diagnosticMarkerPoints = null;
+                diagnosticCenters = null;
+                lastDiagnosticFrameSaved = plainCalibrationNow;
+            }
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
