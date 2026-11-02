@@ -2,6 +2,9 @@ name: Android Release APK and AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - altay-noor
 
 permissions:
   contents: read
