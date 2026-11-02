@@ -20,4 +20,18 @@ public class OMRFrameScoreAggregatorTest {
             assertTrue(expected.getMessage().contains("Scores"));
         }
     }
+    @Test public void conflictingClearFrameAnswersRequireReview() {
+        OMRAnswerClassifier classifier = new OMRAnswerClassifier();
+        java.util.List<OMRSheetReader.QuestionResult> first = java.util.Arrays.asList(
+                new OMRSheetReader.QuestionResult(0, new double[]{0.80, 0.10, 0.08, 0.07},
+                        classifier.classify(new double[]{0.80, 0.10, 0.08, 0.07})));
+        java.util.List<OMRSheetReader.QuestionResult> second = java.util.Arrays.asList(
+                new OMRSheetReader.QuestionResult(0, new double[]{0.10, 0.82, 0.08, 0.07},
+                        classifier.classify(new double[]{0.10, 0.82, 0.08, 0.07})));
+        java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> result =
+                OMRFrameScoreAggregator.aggregate(java.util.Arrays.asList(first, second), classifier);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.get(0).classification.status);
+        assertEquals(-1, result.get(0).classification.optionIndex);
+    }
+
 }
