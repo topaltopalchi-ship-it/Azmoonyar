@@ -323,7 +323,7 @@ public final class OmrScanActivity extends ComponentActivity {
             AutomaticRegionalCalibration.Result result =
                     AutomaticRegionalCalibration.evaluate(scores, xs, ys);
             if (!result.acceptable) {
-                showBlankSheetLightMap(luma, width, height);
+                showBlankSheetLightMap(luma, width, height, scores, xs, ys);
                 new AlertDialog.Builder(this).setTitle("نور نامناسب")
                         .setMessage(String.format(java.util.Locale.US,
                                 "یکنواختی نور کافی نیست (کیفیت %.0f از 100). برگه را به سطح روشن‌تر و بدون سایه منتقل کنید و دوباره کالیبره کنید.",
@@ -1119,7 +1119,7 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     /** Displays the captured blank A4 luminance as a false-color light/shadow map. */
-    private void showBlankSheetLightMap(byte[] luma, int width, int height) {
+    private void showBlankSheetLightMap(byte[] luma, int width, int height,\n            double[] scores, double[] xs, double[] ys) {
         if (luma == null || width <= 0 || height <= 0
                 || (long) width * height > 12000000L) return;
         try {
@@ -1157,6 +1157,49 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
             }
             map.setPixels(pixels, 0, outW, 0, 0, outW, outH);
+            // Suitability overlay: classify each page quadrant by local sample stability
+            // and its deviation from the blank-sheet global baseline.
+            @SuppressWarnings("unchecked") java.util.ArrayList<Double>[] zones = new java.util.ArrayList[] {
+                    new java.util.ArrayList<>(), new java.util.ArrayList<>(),
+                    new java.util.ArrayList<>(), new java.util.ArrayList<>()};
+            for (int i = 0; i < scores.length; i++) {
+                int zone = (ys[i] >= .5 ? 2 : 0) + (xs[i] >= .5 ? 1 : 0);
+                zones[zone].add(scores[i]);
+            }
+            double globalMedian = calibrationMedian(scores);
+            Canvas suitabilityCanvas = new Canvas(map);
+            Paint suitabilityPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            suitabilityPaint.setStyle(Paint.Style.FILL);
+            Paint zoneLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            zoneLabelPaint.setColor(Color.WHITE);
+            zoneLabelPaint.setTextSize(Math.max(15f, outW / 32f));
+            zoneLabelPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            String[] zoneNames = {"بالا چپ", "بالا راست", "پایین چپ", "پایین راست"};
+            StringBuilder zoneReport = new StringBuilder();
+            for (int zone = 0; zone < 4; zone++) {
+                double[] zoneValues = new double[zones[zone].size()];
+                for (int k = 0; k < zoneValues.length; k++) zoneValues[k] = zones[zone].get(k);
+                double median = calibrationMedian(zoneValues);
+                double[] deviations = new double[zoneValues.length];
+                for (int k = 0; k < zoneValues.length; k++) deviations[k] = Math.abs(zoneValues[k] - median);
+                double mad = calibrationMedian(deviations);
+                double baselineDelta = Math.abs(median - globalMedian);
+                boolean green = mad <= .02 && baselineDelta <= .04 && zoneValues.length >= 4;
+                boolean yellow = mad <= .035 && baselineDelta <= .08 && zoneValues.length >= 4;
+                int color = green ? Color.rgb(20, 170, 65)
+                        : (yellow ? Color.rgb(235, 180, 0) : Color.rgb(220, 45, 45));
+                suitabilityPaint.setColor(Color.argb(95, Color.red(color), Color.green(color), Color.blue(color)));
+                float left = (zone % 2) * outW / 2f;
+                float top = (zone / 2) * outH / 2f;
+                float right = left + outW / 2f, bottom = top + outH / 2f;
+                suitabilityCanvas.drawRect(left, top, right, bottom, suitabilityPaint);
+                String label = zoneNames[zone] + (green ? " • مناسب" : (yellow ? " • با احتیاط" : " • نامناسب"));
+                suitabilityCanvas.drawText(label, left + 10, top + Math.max(25f, outW / 28f), zoneLabelPaint);
+                if (zoneReport.length() > 0) zoneReport.append("\\n");
+                zoneReport.append(zoneNames[zone]).append(": ")
+                        .append(green ? "سبز/مناسب" : (yellow ? "زرد/احتیاط" : "قرمز/نامناسب"))
+                        .append(" (پراکندگی ").append(String.format(java.util.Locale.US, "%.3f", mad)).append(")");
+            }
             double average = sum / (double) pixels.length;
             ImageView image = new ImageView(this);
             image.setImageBitmap(map);
@@ -1180,6 +1223,14 @@ public final class OmrScanActivity extends ComponentActivity {
         } catch (RuntimeException ignored) {
             updateStatus("نمایش نقشهٔ نور انجام نشد؛ کالیبراسیون عددی همچنان بررسی شد.");
         }
+    }
+
+    private double calibrationMedian(double[] values) {
+        if (values == null || values.length == 0) return 0;
+        double[] sorted = values.clone();
+        java.util.Arrays.sort(sorted);
+        int middle = sorted.length / 2;
+        return sorted.length % 2 == 0 ? (sorted[middle - 1] + sorted[middle]) / 2.0 : sorted[middle];
     }
 
     /** Formats question numbers held in the review queue JSON array. */
