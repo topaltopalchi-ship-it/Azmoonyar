@@ -736,6 +736,10 @@ public final class OmrScanActivity extends ComponentActivity {
      * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
+    private static final int BURST_FRAME_COUNT = 5;
+    private static final long BURST_INTERVAL_MS = 110L;
+
+    /** Capture five independently registered JPEG frames; never score preview pixels. */
     private void captureRealPhotoAndCorrect() {
         if (imageCapture == null || finished) {
             updateSheetResultStatus("دوربین برای ثبت عکس آماده نیست؛ دوباره تلاش کنید.");
@@ -748,28 +752,174 @@ public final class OmrScanActivity extends ComponentActivity {
             sheetConsumed = false;
             return;
         }
-        java.io.File photoFile = new java.io.File(photoDir,
-                "answer_sheet_" + System.currentTimeMillis() + ".jpg");
+        updateStatus("در حال ثبت چند فریم در حدود نیم‌ثانیه؛ برگه را ثابت نگه دارید…");
+        java.util.List<java.io.File> photos = new java.util.ArrayList<>();
+        captureNextBurstFrame(photoDir, photos, 0);
+    }
+
+    private void captureNextBurstFrame(java.io.File photoDir,
+            java.util.List<java.io.File> photos, int index) {
+        if (finished || isFinishing()) { cleanupPhotos(photos); return; }
+        if (index >= BURST_FRAME_COUNT) {
+            processBurstPhotos(photos);
+            return;
+        }
+        java.io.File photo = new java.io.File(photoDir,
+                "answer_sheet_burst_" + System.currentTimeMillis() + "_" + index + ".jpg");
         ImageCapture.OutputFileOptions options =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
-        updateStatus("فرمان دریافت شد؛ عکس با وضوح کامل گرفته می‌شود…");
+                new ImageCapture.OutputFileOptions.Builder(photo).build();
         imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
-                        if (finished) return;
-                        try {
-                            processSavedPhotoFile(photoFile);
-                        } catch (Exception error) {
-                            updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
-                            sheetConsumed = false;
-                        }
+                        photos.add(photo);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                                () -> captureNextBurstFrame(photoDir, photos, index + 1),
+                                BURST_INTERVAL_MS);
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
-                        if (photoFile.exists()) photoFile.delete();
-                        updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دکمهٔ عکس‌گرفتن را دوباره لمس کنید.");
-                        sheetConsumed = false;
+                        if (photo.exists()) photo.delete();
+                        // Continue: a burst can still be useful if at least three frames survive.
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                                () -> captureNextBurstFrame(photoDir, photos, index + 1),
+                                BURST_INTERVAL_MS);
                     }
                 });
+    }
+
+    private void processBurstPhotos(java.util.List<java.io.File> photos) {
+        cameraExecutor.execute(() -> {
+            try {
+                int total = Math.max(1, Math.min(100, getSharedPreferences(
+                        "azmoonyar_local", MODE_PRIVATE).getInt("question_count", 20)));
+                java.util.List<java.util.List<OMRSheetReader.QuestionResult>> validFrames =
+                        new java.util.ArrayList<>();
+                byte[] representativeLuma = null;
+                int representativeWidth = 0, representativeHeight = 0;
+                SheetPerspectiveTransform representativeTransform = null;
+                for (java.io.File photo : photos) {
+                    try {
+                        PhotoFrame frame = readQuestionResultsFromPhoto(photo, total);
+                        if (frame != null) {
+                            validFrames.add(frame.questions);
+                            if (representativeLuma == null) {
+                                representativeLuma = frame.luma;
+                                representativeWidth = frame.width;
+                                representativeHeight = frame.height;
+                                representativeTransform = frame.transform;
+                            }
+                        }
+                    } catch (Exception invalidFrame) {
+                        android.util.Log.w("AzmoonyarOMR", "Skipping invalid burst frame", invalidFrame);
+                    }
+                }
+                if (validFrames.size() < 3) {
+                    runOnUiThread(() -> {
+                        updateSheetResultStatus("کمتر از سه فریم معتبر ثبت شد؛ برگه را صاف و ثابت نگه دارید و دوباره عکس بگیرید.");
+                        sheetConsumed = false;
+                    });
+                    return;
+                }
+                final java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated =
+                        OMRFrameScoreAggregator.aggregate(validFrames, new OMRAnswerClassifier());
+                java.util.List<OMRSheetReader.QuestionResult> combined = new java.util.ArrayList<>();
+                for (OMRFrameScoreAggregator.AggregatedQuestion q : aggregated) {
+                    // QuestionResult construction is intentionally private; keep the
+                    // aggregated scores in the same pipeline via a dedicated overload.
+                    combined.add(null);
+                }
+                final byte[] luma = representativeLuma;
+                final int width = representativeWidth, height = representativeHeight;
+                final SheetPerspectiveTransform transform = representativeTransform;
+                runOnUiThread(() -> processRecognizedSheetAggregated(
+                        luma, width, height, transform, aggregated, validFrames.size()));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    updateSheetResultStatus("ترکیب فریم‌ها ناموفق بود؛ دوباره با نور یکنواخت عکس بگیرید.");
+                    sheetConsumed = false;
+                });
+            } finally {
+                cleanupPhotos(photos);
+            }
+        });
+    }
+
+    private static final class PhotoFrame {
+        final byte[] luma;
+        final int width, height;
+        final SheetPerspectiveTransform transform;
+        final java.util.List<OMRSheetReader.QuestionResult> questions;
+        PhotoFrame(byte[] luma, int width, int height, SheetPerspectiveTransform transform,
+                java.util.List<OMRSheetReader.QuestionResult> questions) {
+            this.luma = luma; this.width = width; this.height = height;
+            this.transform = transform; this.questions = questions;
+        }
+    }
+
+    private PhotoFrame readQuestionResultsFromPhoto(java.io.File photoFile, int total) throws Exception {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(photoFile.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+        int sample = 1;
+        while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 2400) sample *= 2;
+        android.graphics.BitmapFactory.Options decode = new android.graphics.BitmapFactory.Options();
+        decode.inSampleSize = sample;
+        decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap bitmap = BitmapFactory.decodeFile(photoFile.getAbsolutePath(), decode);
+        if (bitmap == null) return null;
+        try {
+            android.media.ExifInterface exif = new android.media.ExifInterface(photoFile.getAbsolutePath());
+            int orientation = exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL);
+            int degrees = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            if (degrees != 0) {
+                android.graphics.Matrix matrix = new android.graphics.Matrix();
+                matrix.postRotate(degrees);
+                Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(),
+                        bitmap.getHeight(), matrix, true);
+                if (rotated != bitmap) { bitmap.recycle(); bitmap = rotated; }
+            }
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            byte[] luma = new byte[pixels.length];
+            long sum = 0, sumSquares = 0;
+            for (int i = 0; i < pixels.length; i++) {
+                int c = pixels[i];
+                int gray = (Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114) / 1000;
+                luma[i] = (byte) gray;
+                sum += gray; sumSquares += (long) gray * gray;
+            }
+            // Reject very low-contrast/blurred frames before marker geometry and OMR scoring.
+            double mean = sum / (double) pixels.length;
+            double variance = sumSquares / (double) pixels.length - mean * mean;
+            if (variance < 180.0) return null;
+            MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
+            if (detection.count != 4) return null;
+            double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
+            double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
+            double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
+            SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromControlPoints(
+                    new SheetPerspectiveTransform.Point[]{
+                            new SheetPerspectiveTransform.Point(inset, inset),
+                            new SheetPerspectiveTransform.Point(right, inset),
+                            new SheetPerspectiveTransform.Point(right, bottom),
+                            new SheetPerspectiveTransform.Point(inset, bottom)
+                    }, detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
+                    OmrTemplateLayout.PAGE_HEIGHT_MM);
+            java.util.List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().read(luma, width, height, transform,
+                            OmrTemplateLayout.bubbleCentersForPage(total, 0), 1.45);
+            return new PhotoFrame(luma, width, height, transform, questions);
+        } finally {
+            if (!bitmap.isRecycled()) bitmap.recycle();
+        }
+    }
+
+    private void cleanupPhotos(java.util.List<java.io.File> photos) {
+        for (java.io.File photo : photos) if (photo != null && photo.exists()) photo.delete();
     }
 
     private void processSavedPhotoFile(java.io.File photoFile) throws Exception {
@@ -839,6 +989,18 @@ public final class OmrScanActivity extends ComponentActivity {
 
     private void processRecognizedSheet(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform) {
+        processRecognizedSheetInternal(luma, width, height, transform, null, 1);
+    }
+
+    private void processRecognizedSheetAggregated(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform,
+            java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
+        processRecognizedSheetInternal(luma, width, height, transform, aggregated, frameCount);
+    }
+
+    private void processRecognizedSheetInternal(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform,
+            java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
@@ -866,7 +1028,14 @@ public final class OmrScanActivity extends ComponentActivity {
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
-            for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
+            if (aggregated != null) {
+                if (aggregated.size() != total) throw new IllegalStateException("Frame question count mismatch");
+                for (OMRFrameScoreAggregator.AggregatedQuestion q : aggregated) {
+                    answers.add(q.classification);
+                }
+            } else {
+                for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
+            }
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
 
