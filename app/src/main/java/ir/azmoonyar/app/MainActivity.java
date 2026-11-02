@@ -2358,8 +2358,13 @@ public class MainActivity extends Activity {
                 .append("\nشماره سؤال‌های غلط و گزینه انتخابی: ")
                 .append(formatQuestionOptionDetails(result.optJSONArray("wrongDetails")))
                 .append("\nشماره سؤال‌های سفید: ")
-                .append(formatQuestionNumbers(result.optJSONArray("blankQuestions")))
-                .append("\n\n--------------------\n\n");
+                .append(formatQuestionNumbers(result.optJSONArray("blankQuestions")));
+            if (result.optBoolean("pendingReview", false)) {
+                message.append("\nنیازمند بازبینی: ")
+                    .append(formatQuestionNumbers(result.optJSONArray("reviewQuestions")))
+                    .append("\nنمرهٔ نمایش‌داده‌شده موقت است و پس از بازبینی قطعی می‌شود.");
+            }
+            message.append("\n\n--------------------\n\n");
         }
         ScrollView scroll = new ScrollView(this);
         TextView text = new TextView(this);
