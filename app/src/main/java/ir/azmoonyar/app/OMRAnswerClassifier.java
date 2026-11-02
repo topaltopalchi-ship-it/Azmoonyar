@@ -33,10 +33,9 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Treat scores above 0.12 as visible marks. A response is accepted only
-        // when the darkest option exceeds the next-darkest option by MORE than 0.14.
-        // Scores at or below 0.12 are blank; only scores above 0.12 count as visible marks.
-        this(0.12, 0.12, 0.14);
+        // Sensitivity mode: every score strictly above zero is a detected mark.
+        // A single marked option is accepted; multiple marked options go to review.
+        this(0.0, 0.0, 0.0);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -60,45 +59,29 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        int strongestIndex = 0;
-        double strongest = scores[0];
-        double second = -1;
-        boolean tiedForStrongest = false;
-        for (int i = 1; i < scores.length; i++) {
-            if (scores[i] > strongest) {
-                second = strongest;
-                strongest = scores[i];
-                strongestIndex = i;
-                tiedForStrongest = false;
-            } else if (scores[i] == strongest) {
-                second = strongest;
-                tiedForStrongest = true;
-            } else if (scores[i] > second) {
-                second = scores[i];
+        int strongestIndex = -1;
+        int markedOptions = 0;
+        double strongest = 0.0;
+        double second = 0.0;
+        for (int i = 0; i < scores.length; i++) {
+            if (scores[i] > 0.0) {
+                markedOptions++;
+                if (scores[i] > strongest) {
+                    second = strongest;
+                    strongest = scores[i];
+                    strongestIndex = i;
+                } else if (scores[i] > second) {
+                    second = scores[i];
+                }
             }
         }
 
-        // Respect the calibrated blank and faint-mark bands before comparing options.
-        if (strongest <= blankThreshold) {
-            return new Result(Status.BLANK, -1, 0, strongest);
+        if (markedOptions == 0) {
+            return new Result(Status.BLANK, -1, 0.0, 0.0);
         }
-        if (strongest < markThreshold) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
+        if (markedOptions >= 2) {
+            return new Result(Status.REVIEW, -1, strongest - second, strongest);
         }
-        double runnerUp = Math.max(0, second);
-        double margin = strongest - runnerUp;
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
-        }
-
-        // A single option is accepted only when it exceeds EACH of the other
-        // three options by strictly more than 14 percentage points. Since second
-        // is the highest of the remaining three, this is strongest - second > 0.14.
-        // Every smaller/equal gap goes to the human review queue (never auto-graded).
-        if (margin <= minimumMargin) {
-            return new Result(Status.REVIEW, -1, margin, strongest);
-        }
-
-        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
+        return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
     }
 }
