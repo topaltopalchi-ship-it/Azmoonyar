@@ -70,7 +70,23 @@ public final class OMRFrameScoreAggregator {
                     samples[f] = frames.get(f).get(q).darkness[option];
                 scores[option] = median(samples);
             }
-            output.add(new AggregatedQuestion(q, scores, classifier.classify(scores)));
+            OMRAnswerClassifier.Result combined = classifier.classify(scores);
+            int agreedOption = -2;
+            boolean disagreement = false;
+            for (List<OMRSheetReader.QuestionResult> frame : frames) {
+                OMRAnswerClassifier.Result frameResult = frame.get(q).classification;
+                if (frameResult.status == OMRAnswerClassifier.Status.ANSWERED) {
+                    if (agreedOption == -2) agreedOption = frameResult.optionIndex;
+                    else if (agreedOption != frameResult.optionIndex) disagreement = true;
+                }
+            }
+            // Conflicting clear answers across frames are not silently resolved by the median.
+            if (disagreement && combined.status != OMRAnswerClassifier.Status.BLANK) {
+                combined = new OMRAnswerClassifier.Result(
+                        OMRAnswerClassifier.Status.REVIEW, -1,
+                        combined.margin, combined.strongestScore);
+            }
+            output.add(new AggregatedQuestion(q, scores, combined));
         }
         return Collections.unmodifiableList(output);
     }
