@@ -141,6 +141,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        cleanupStaleBurstFiles();
         getWindow().setStatusBarColor(Color.rgb(7, 27, 114));
         getWindow().setNavigationBarColor(Color.rgb(7, 27, 114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -1478,14 +1479,21 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
-    private void cleanupPendingBurstFiles() {
+    /**
+     * Remove only abandoned burst photos from earlier sessions. Never delete
+     * recent files here: CameraX or the burst worker may still be writing/reading
+     * them while the Activity is being destroyed.
+     */
+    private void cleanupStaleBurstFiles() {
         java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
-        java.io.File[] pending = photoDir.listFiles((dir, name) ->
+        java.io.File[] stale = photoDir.listFiles((dir, name) ->
                 name != null && name.startsWith("answer_sheet_burst_"));
-        if (pending == null) return;
-        for (java.io.File photo : pending) {
-            if (photo != null && photo.exists() && !photo.delete()) {
-                android.util.Log.w("AzmoonyarOMR", "Could not delete temporary burst photo: "
+        if (stale == null) return;
+        long staleBefore = System.currentTimeMillis() - 24L * 60L * 60L * 1000L;
+        for (java.io.File photo : stale) {
+            if (photo != null && photo.exists() && photo.lastModified() < staleBefore
+                    && !photo.delete()) {
+                android.util.Log.w("AzmoonyarOMR", "Could not delete stale burst photo: "
                         + photo.getName());
             }
         }
@@ -1493,7 +1501,6 @@ public final class OmrScanActivity extends ComponentActivity {
 
     @Override protected void onDestroy() {
         finished = true;
-        cleanupPendingBurstFiles();
         if (voiceRecognizer != null) {
             voiceRecognizer.stop();
             voiceRecognizer = null;
