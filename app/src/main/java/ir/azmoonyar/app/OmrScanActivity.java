@@ -10,6 +10,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import android.graphics.Color;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Bundle;
@@ -141,6 +142,7 @@ public final class OmrScanActivity extends ComponentActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        cleanupStaleBurstFiles();
         getWindow().setStatusBarColor(Color.rgb(7, 27, 114));
         getWindow().setNavigationBarColor(Color.rgb(7, 27, 114));
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -270,6 +272,13 @@ public final class OmrScanActivity extends ComponentActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
+            if (participantName.trim().isEmpty()) {
+                waitingForNextName = true;
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED) showVoiceNameDialog(false);
+                else ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+            } else ensureVoicePermissionAndStart();
         } else {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
@@ -736,6 +745,10 @@ public final class OmrScanActivity extends ComponentActivity {
      * Capture a full-quality JPEG with CameraX after the user presses the manual capture button.
      * OMR processing then reopens this exact saved file; preview pixels are never scored.
      */
+    private static final int BURST_FRAME_COUNT = 5;
+    private static final long BURST_INTERVAL_MS = 110L;
+
+    /** Capture five independently registered JPEG frames; never score preview pixels. */
     private void captureRealPhotoAndCorrect() {
         if (imageCapture == null || finished) {
             updateSheetResultStatus("دوربین برای ثبت عکس آماده نیست؛ دوباره تلاش کنید.");
@@ -748,28 +761,185 @@ public final class OmrScanActivity extends ComponentActivity {
             sheetConsumed = false;
             return;
         }
-        java.io.File photoFile = new java.io.File(photoDir,
-                "answer_sheet_" + System.currentTimeMillis() + ".jpg");
+        updateStatus("در حال ثبت چند فریم در حدود نیم‌ثانیه؛ برگه را ثابت نگه دارید…");
+        java.util.List<java.io.File> photos = new java.util.ArrayList<>();
+        captureNextBurstFrame(photoDir, photos, 0);
+    }
+
+    private void captureNextBurstFrame(java.io.File photoDir,
+            java.util.List<java.io.File> photos, int index) {
+        if (finished || isFinishing()) { cleanupPhotos(photos); return; }
+        if (index >= BURST_FRAME_COUNT) {
+            processBurstPhotos(photos);
+            return;
+        }
+        java.io.File photo = new java.io.File(photoDir,
+                "answer_sheet_burst_" + System.currentTimeMillis() + "_" + index + ".jpg");
         ImageCapture.OutputFileOptions options =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
-        updateStatus("فرمان دریافت شد؛ عکس با وضوح کامل گرفته می‌شود…");
+                new ImageCapture.OutputFileOptions.Builder(photo).build();
         imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
-                        if (finished) return;
-                        try {
-                            processSavedPhotoFile(photoFile);
-                        } catch (Exception error) {
-                            updateSheetResultStatus("عکس ذخیره شد، اما خواندن آن ناموفق بود؛ نور و کادر را بررسی و دوباره عکس بگیرید.");
-                            sheetConsumed = false;
-                        }
+                        photos.add(photo);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                                () -> captureNextBurstFrame(photoDir, photos, index + 1),
+                                BURST_INTERVAL_MS);
                     }
                     @Override public void onError(@NonNull ImageCaptureException error) {
-                        if (photoFile.exists()) photoFile.delete();
-                        updateSheetResultStatus("ثبت عکس ناموفق بود؛ برگه را ثابت نگه دارید و دکمهٔ عکس‌گرفتن را دوباره لمس کنید.");
-                        sheetConsumed = false;
+                        if (photo.exists()) photo.delete();
+                        // Continue: a burst can still be useful if at least three frames survive.
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                                () -> captureNextBurstFrame(photoDir, photos, index + 1),
+                                BURST_INTERVAL_MS);
                     }
                 });
+    }
+
+    private void processBurstPhotos(java.util.List<java.io.File> photos) {
+        ExecutorService executor = cameraExecutor;
+        if (finished || isFinishing() || executor == null || executor.isShutdown()) {
+            cleanupPhotos(photos);
+            sheetConsumed = false;
+            return;
+        }
+        try {
+            executor.execute(() -> {
+            try {
+                int total = Math.max(1, Math.min(100, getSharedPreferences(
+                        "azmoonyar_local", MODE_PRIVATE).getInt("question_count", 20)));
+                java.util.List<java.util.List<OMRSheetReader.QuestionResult>> validFrames =
+                        new java.util.ArrayList<>();
+                byte[] representativeLuma = null;
+                int representativeWidth = 0, representativeHeight = 0;
+                SheetPerspectiveTransform representativeTransform = null;
+                for (java.io.File photo : photos) {
+                    try {
+                        PhotoFrame frame = readQuestionResultsFromPhoto(photo, total);
+                        if (frame != null) {
+                            validFrames.add(frame.questions);
+                            if (representativeLuma == null) {
+                                representativeLuma = frame.luma;
+                                representativeWidth = frame.width;
+                                representativeHeight = frame.height;
+                                representativeTransform = frame.transform;
+                            }
+                        }
+                    } catch (Exception invalidFrame) {
+                        android.util.Log.w("AzmoonyarOMR", "Skipping invalid burst frame", invalidFrame);
+                    }
+                }
+                if (validFrames.size() < 3) {
+                    runOnUiThread(() -> {
+                        updateSheetResultStatus("کمتر از سه فریم معتبر ثبت شد؛ برگه را صاف و ثابت نگه دارید و دوباره عکس بگیرید.");
+                        sheetConsumed = false;
+                    });
+                    return;
+                }
+                final java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated =
+                        OMRFrameScoreAggregator.aggregate(validFrames, new OMRAnswerClassifier());
+                final byte[] luma = representativeLuma;
+                final int width = representativeWidth, height = representativeHeight;
+                final SheetPerspectiveTransform transform = representativeTransform;
+                // Keep scoring, calibration JSON, and SharedPreferences writes off the
+                // main thread. UI status updates are marshalled by updateStatus().
+                processRecognizedSheetAggregated(
+                        luma, width, height, transform, aggregated, validFrames.size());
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    updateSheetResultStatus("ترکیب فریم‌ها ناموفق بود؛ دوباره با نور یکنواخت عکس بگیرید.");
+                    sheetConsumed = false;
+                });
+            } finally {
+                cleanupPhotos(photos);
+            }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            // Activity teardown can shut down the executor between the check
+            // above and execute(); in that race, release the captured files.
+            cleanupPhotos(photos);
+            sheetConsumed = false;
+            android.util.Log.i("AzmoonyarOMR", "Burst processing skipped during Activity teardown");
+        }
+    }
+
+    private static final class PhotoFrame {
+        final byte[] luma;
+        final int width, height;
+        final SheetPerspectiveTransform transform;
+        final java.util.List<OMRSheetReader.QuestionResult> questions;
+        PhotoFrame(byte[] luma, int width, int height, SheetPerspectiveTransform transform,
+                java.util.List<OMRSheetReader.QuestionResult> questions) {
+            this.luma = luma; this.width = width; this.height = height;
+            this.transform = transform; this.questions = questions;
+        }
+    }
+
+    private PhotoFrame readQuestionResultsFromPhoto(java.io.File photoFile, int total) throws Exception {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(photoFile.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+        int sample = 1;
+        while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 2400) sample *= 2;
+        android.graphics.BitmapFactory.Options decode = new android.graphics.BitmapFactory.Options();
+        decode.inSampleSize = sample;
+        decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap bitmap = BitmapFactory.decodeFile(photoFile.getAbsolutePath(), decode);
+        if (bitmap == null) return null;
+        try {
+            android.media.ExifInterface exif = new android.media.ExifInterface(photoFile.getAbsolutePath());
+            int orientation = exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL);
+            int degrees = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            if (degrees != 0) {
+                android.graphics.Matrix matrix = new android.graphics.Matrix();
+                matrix.postRotate(degrees);
+                Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(),
+                        bitmap.getHeight(), matrix, true);
+                if (rotated != bitmap) { bitmap.recycle(); bitmap = rotated; }
+            }
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            byte[] luma = new byte[pixels.length];
+            long sum = 0, sumSquares = 0;
+            for (int i = 0; i < pixels.length; i++) {
+                int c = pixels[i];
+                int gray = (Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114) / 1000;
+                luma[i] = (byte) gray;
+                sum += gray; sumSquares += (long) gray * gray;
+            }
+            // Reject low-contrast frames and genuinely soft frames before geometry/OMR.
+            double mean = sum / (double) pixels.length;
+            double variance = sumSquares / (double) pixels.length - mean * mean;
+            if (variance < 180.0) return null;
+            if (OMRFrameQuality.laplacianVariance(luma, width, height) < 24.0) return null;
+            MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
+            if (detection.count != 4) return null;
+            double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
+            double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
+            double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
+            SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromControlPoints(
+                    new SheetPerspectiveTransform.Point[]{
+                            new SheetPerspectiveTransform.Point(inset, inset),
+                            new SheetPerspectiveTransform.Point(right, inset),
+                            new SheetPerspectiveTransform.Point(right, bottom),
+                            new SheetPerspectiveTransform.Point(inset, bottom)
+                    }, detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
+                    OmrTemplateLayout.PAGE_HEIGHT_MM);
+            java.util.List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().read(luma, width, height, transform,
+                            OmrTemplateLayout.bubbleCentersForPage(total, 0), 1.45);
+            return new PhotoFrame(luma, width, height, transform, questions);
+        } finally {
+            if (!bitmap.isRecycled()) bitmap.recycle();
+        }
+    }
+
+    private void cleanupPhotos(java.util.List<java.io.File> photos) {
+        for (java.io.File photo : photos) if (photo != null && photo.exists()) photo.delete();
     }
 
     private void processSavedPhotoFile(java.io.File photoFile) throws Exception {
@@ -839,6 +1009,21 @@ public final class OmrScanActivity extends ComponentActivity {
 
     private void processRecognizedSheet(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform) {
+        processRecognizedSheetInternal(luma, width, height, transform, null, 1);
+    }
+
+    private void processRecognizedSheetAggregated(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform,
+            java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
+        processRecognizedSheetInternal(luma, width, height, transform, aggregated, frameCount);
+    }
+
+    private void processRecognizedSheetInternal(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform,
+            java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
+        // Activity may be destroyed while a burst is being decoded on the camera executor.
+        // Never persist grading results or calibration data after leaving this screen.
+        if (!isScanSessionActive()) return;
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
@@ -863,8 +1048,17 @@ public final class OmrScanActivity extends ComponentActivity {
                 return;
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
-            List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+            List<OMRSheetReader.QuestionResult> questions = new java.util.ArrayList<>();
+            if (aggregated != null) {
+                if (aggregated.size() != total) throw new IllegalStateException("Frame question count mismatch");
+                for (OMRFrameScoreAggregator.AggregatedQuestion q : aggregated) {
+                    questions.add(new OMRSheetReader.QuestionResult(
+                            q.questionIndex, q.darkness, q.classification));
+                }
+            } else {
+                questions.addAll(new OMRSheetReader().read(
+                        luma, width, height, transform, centers, 1.45));
+            }
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
@@ -901,6 +1095,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 samples.put(sample);
                 // Bound local storage; keep the 20 most recent calibration samples.
                 while (samples.length() > 20) samples.remove(0);
+                if (!isScanSessionActive()) return;
                 prefs.edit().putString("omr_calibration_samples", samples.toString()).apply();
             } catch (Exception calibrationError) {
                 android.util.Log.e("AzmoonyarOMR", "Could not save calibration sample", calibrationError);
@@ -939,6 +1134,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 pending.put("questions", questionStates);
                 queue.put(pending);
+                if (!isScanSessionActive()) return;
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
                 updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
@@ -980,6 +1176,7 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
+            if (!isScanSessionActive()) return;
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
@@ -1133,85 +1330,109 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     private void showNextParticipantDialog() {
+        waitingForNextName = true;
+        showVoiceNameDialog(true);
+    }
+
+    /** Collect participant names with offline Persian speech recognition; typing is not required. */
+    private void showVoiceNameDialog(boolean nextParticipant) {
         runOnUiThread(() -> {
             if (finished || isFinishing() || isDestroyed()) return;
-            EditText nameInput = new EditText(this);
-            nameInput.setSingleLine(true);
-            nameInput.setHint("نام شرکت‌کنندهٔ بعدی");
-            Button voiceButton = new Button(this);
-            voiceButton.setText("🎙 ثبت نام با صدا");
-            voiceButton.setAllCaps(false);
-            voiceButton.setTextColor(Color.WHITE);
-            voiceButton.setTextSize(18);
-            voiceButton.setTypeface(null, android.graphics.Typeface.BOLD);
-            voiceButton.setMinHeight(Math.round(58 * getResources().getDisplayMetrics().density));
-            voiceButton.setPadding(20, 12, 20, 12);
-            android.graphics.drawable.GradientDrawable voiceBackground =
-                    new android.graphics.drawable.GradientDrawable();
-            voiceBackground.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-            voiceBackground.setCornerRadius(1000f);
-            voiceBackground.setColor(Color.rgb(220, 38, 38));
-            voiceBackground.setStroke(Math.round(2 * getResources().getDisplayMetrics().density),
-                    Color.rgb(185, 28, 28));
-            voiceButton.setBackground(voiceBackground);
-            voiceButton.setElevation(Math.round(4 * getResources().getDisplayMetrics().density));
-            TextView voiceStatus = new TextView(this);
-            voiceStatus.setText("نام را تایپ کنید یا با صدا بگویید.");
+            waitingForNextName = true;
+            final String[] recognizedName = {""};
+            TextView nameStatus = new TextView(this);
+            nameStatus.setText("نام و نام خانوادگی را واضح و شمرده بگویید.");
+            nameStatus.setTextSize(18);
+            nameStatus.setGravity(Gravity.CENTER);
+            nameStatus.setPadding(12, 20, 12, 20);
+            Button listenButton = new Button(this);
+            listenButton.setText("🎙 گفتن نام شرکت‌کننده");
+            listenButton.setAllCaps(false);
+            Button retryButton = new Button(this);
+            retryButton.setText("تکرار دریافت نام");
+            retryButton.setAllCaps(false);
             LinearLayout content = new LinearLayout(this);
             content.setOrientation(LinearLayout.VERTICAL);
             content.setPadding(24, 8, 24, 4);
-            content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
-            content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
-            content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(nameStatus, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(listenButton, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(retryButton, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("آماده برای پاسخنامهٔ بعدی")
-                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setTitle(nextParticipant ? "ثبت شرکت‌کنندهٔ بعدی" : "ثبت نام شرکت‌کننده")
+                    .setMessage("نام را با صدای واضح بگویید؛ سپس نام تشخیص‌داده‌شده را تأیید کنید.")
                     .setView(content)
-                    .setPositiveButton("شروع اسکن بعدی", null)
+                    .setPositiveButton("تأیید نام و ادامه", null)
+                    .setNegativeButton("انصراف", (d, w) -> {
+                        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                        if (!nextParticipant) finish();
+                    })
                     .setCancelable(false)
                     .create();
-            voiceButton.setOnClickListener(v -> {
-                if (voiceRecognizer != null) voiceRecognizer.stop();
-                voiceRecognizer = new PersianVosk();
-                voiceButton.setEnabled(false);
-                voiceStatus.setText("گوش می‌دهم؛ نام را بگویید…");
-                voiceRecognizer.start(this, new PersianVosk.Callback() {
-                    @Override public void onText(String text) {
-                        runOnUiThread(() -> nameInput.setText(text));
-                        voiceButton.setEnabled(true);
-                        if (voiceRecognizer != null) voiceRecognizer.stop();
-                    }
-                    @Override public void onStatus(String status) {
-                        runOnUiThread(() -> {
-                            if (!isFinishing() && !isDestroyed()) voiceStatus.setText(status);
-                            if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
-                                    || status.startsWith("ضبط بدون دریافت گفتار")) voiceButton.setEnabled(true);
-                        });
-                    }
+
+            dialog.setOnShowListener(ignored -> {
+                Button confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                confirm.setEnabled(false);
+                Runnable listen = () -> {
+                    recognizedName[0] = "";
+                    confirm.setEnabled(false);
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    listenButton.setEnabled(false);
+                    nameStatus.setText("در حال آماده‌سازی تشخیص‌گر فارسی…");
+                    voiceRecognizer = new PersianVosk();
+                    voiceRecognizer.start(this, new PersianVosk.Callback() {
+                        @Override public void onText(String text) {
+                            runOnUiThread(() -> {
+                                String clean = text == null ? "" : text.trim()
+                                        .replace("‌", " ").replace('ي', 'ی').replace('ك', 'ک')
+                                        .replaceAll("[\\p{Punct}\\p{S}،؛؟!]", " ")
+                                        .replaceAll("\\s+", " ");
+                                if (!clean.isEmpty()) {
+                                    recognizedName[0] = clean;
+                                    nameStatus.setText("نام تشخیص‌داده‌شده:\n" + clean
+                                            + "\nاگر درست است «تأیید نام و ادامه» را بزنید؛ وگرنه دوباره تلاش کنید.");
+                                    confirm.setEnabled(true);
+                                } else {
+                                    nameStatus.setText("نام واضح تشخیص داده نشد؛ دوباره تلاش کنید.");
+                                }
+                                listenButton.setEnabled(true);
+                                if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                            });
+                        }
+                        @Override public void onStatus(String status) {
+                            runOnUiThread(() -> {
+                                if (dialog.isShowing() && !isFinishing() && !isDestroyed()) nameStatus.setText(status);
+                                if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                                        || status.startsWith("ضبط بدون دریافت گفتار")) listenButton.setEnabled(true);
+                            });
+                        }
+                    });
+                };
+                listenButton.setOnClickListener(v -> listen.run());
+                retryButton.setOnClickListener(v -> listen.run());
+                confirm.setOnClickListener(v -> {
+                    String name = recognizedName[0].trim();
+                    if (name.isEmpty()) return;
+                    participantName = name;
+                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                            .putString("pending_scan_participant", name).apply();
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    waitingForNextName = false;
+                    sheetConsumed = false;
+                    voiceCaptureRequested = false;
+                    stableMarkerFrames = 0;
+                    missingMarkerFrames = 0;
+                    dialog.dismiss();
+                    ensureVoicePermissionAndStart();
+                    updateStatus("نام «" + participantName + "» ثبت شد؛ پاسخنامه را داخل کادر قرار دهید.");
                 });
             });
-            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                    .setOnClickListener(v -> {
-                        String nextName = nameInput.getText().toString().trim();
-                        if (nextName.isEmpty()) {
-                            nameInput.setError("نام شرکت‌کننده را وارد کنید.");
-                            return;
-                        }
-                        participantName = nextName;
-                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                                .putString("pending_scan_participant", nextName).apply();
-                        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
-                        waitingForNextName = false;
-                        sheetConsumed = false;
-                        voiceCaptureRequested = false;
-                        ensureVoicePermissionAndStart();
-                        stableMarkerFrames = 0;
-                        missingMarkerFrames = 0;
-                        dialog.dismiss();
-                        updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
-                    }));
             dialog.show();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         });
+    }
+
+    private boolean isScanSessionActive() {
+        return !finished && !isFinishing() && !isDestroyed();
     }
 
     private void updateSheetResultStatus(String message) {
@@ -1231,12 +1452,20 @@ public final class OmrScanActivity extends ComponentActivity {
         if (requestCode == CAMERA_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
+                if (participantName.trim().isEmpty()) {
+                    waitingForNextName = true;
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) showVoiceNameDialog(false);
+                    else ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+                } else ensureVoicePermissionAndStart();
             } else {
                 updateStatus("برای اسکن پاسخنامه، اجازهٔ دسترسی به دوربین لازم است.");
             }
         } else if (requestCode == AUDIO_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startVoiceCaptureListener();
+                if (waitingForNextName) showVoiceNameDialog(!participantName.trim().isEmpty());
+                else startVoiceCaptureListener();
             } else {
                 updateStatus("برای گرفتن عکس با فرمان صوتی، اجازهٔ میکروفون لازم است.");
             }
@@ -1304,6 +1533,26 @@ public final class OmrScanActivity extends ComponentActivity {
         if (voiceRecognizer != null) {
             voiceRecognizer.stop();
             voiceRecognizer = null;
+        }
+    }
+
+    /**
+     * Remove only abandoned burst photos from earlier sessions. Never delete
+     * recent files here: CameraX or the burst worker may still be writing/reading
+     * them while the Activity is being destroyed.
+     */
+    private void cleanupStaleBurstFiles() {
+        java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+        java.io.File[] stale = photoDir.listFiles((dir, name) ->
+                name != null && name.startsWith("answer_sheet_burst_"));
+        if (stale == null) return;
+        long staleBefore = System.currentTimeMillis() - 24L * 60L * 60L * 1000L;
+        for (java.io.File photo : stale) {
+            if (photo != null && photo.exists() && photo.lastModified() < staleBefore
+                    && !photo.delete()) {
+                android.util.Log.w("AzmoonyarOMR", "Could not delete stale burst photo: "
+                        + photo.getName());
+            }
         }
     }
 

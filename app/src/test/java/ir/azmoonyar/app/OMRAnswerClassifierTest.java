@@ -140,4 +140,18 @@ public class OMRAnswerClassifierTest {
             // Expected.
         }
     }
+
+    @Test
+    public void exactMinimumDarknessThresholdRemainsBlank() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.12, 0.0, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void gapJustAboveFourteenPointsIsAccepted() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.301, 0.16, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
 }
