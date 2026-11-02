@@ -1025,17 +1025,19 @@ public final class OmrScanActivity extends ComponentActivity {
                 return;
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
-            List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
-            java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
+            List<OMRSheetReader.QuestionResult> questions = new java.util.ArrayList<>();
             if (aggregated != null) {
                 if (aggregated.size() != total) throw new IllegalStateException("Frame question count mismatch");
                 for (OMRFrameScoreAggregator.AggregatedQuestion q : aggregated) {
-                    answers.add(q.classification);
+                    questions.add(new OMRSheetReader.QuestionResult(
+                            q.questionIndex, q.darkness, q.classification));
                 }
             } else {
-                for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
+                questions.addAll(new OMRSheetReader().read(
+                        luma, width, height, transform, centers, 1.45));
             }
+            java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
+            for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
             // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
             String activeKey = answerKey.substring(0, total);
 
