@@ -39,3 +39,6 @@
 
 
 <!-- Fresh release build requested on 2026-10-28. -->
+
+
+Release build from the exact version-altay baseline requested for restoration.
