@@ -27,10 +27,6 @@ public final class OMRAnswerClassifier {
     private final double twoMarkGap;
 
     public OMRAnswerClassifier() {
-        // Empirically calibrated against the provided photographed answer sheet:
-        // filled bubbles scored >= 0.17; nearby blank bubbles scored <= 0.14.
-        // Use 0.15 to separate those observed distributions. Revalidate on other
-        // printers, lighting, pencil types, and sheets before general deployment.
         this(0.15, 0.20);
     }
 
@@ -60,11 +56,31 @@ public final class OMRAnswerClassifier {
         int strongestIndex = -1;
         double strongest = -1;
         double second = -1;
+        int isolatedSevenPercentIndex = -1;
+        int isolatedSevenPercentCount = 0;
+
         for (int i = 0; i < darkness.length; i++) {
             double score = darkness[i];
             if (!finite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
+
+            // Rule requested for Altay 4: a lone option above 7% with all
+            // other options exactly zero is accepted as the answer.
+            if (score > 0.07) {
+                boolean othersZero = true;
+                for (int j = 0; j < darkness.length; j++) {
+                    if (j != i && darkness[j] != 0.0) {
+                        othersZero = false;
+                        break;
+                    }
+                }
+                if (othersZero) {
+                    isolatedSevenPercentIndex = i;
+                    isolatedSevenPercentCount++;
+                }
+            }
+
             if (score > markThreshold) {
                 markedCount++;
                 if (score > strongest) {
@@ -77,11 +93,15 @@ public final class OMRAnswerClassifier {
             }
         }
 
+        if (isolatedSevenPercentCount == 1) {
+            double score = darkness[isolatedSevenPercentIndex];
+            return new Result(Status.ANSWERED, isolatedSevenPercentIndex, score, score);
+        }
+
         if (markedCount == 0) {
             return new Result(Status.BLANK, -1, 0, 0);
         }
         if (markedCount == 1) {
-            // A faint isolated mark is ambiguous, not a confident answer.
             if (strongest < 0.16) {
                 return new Result(Status.REVIEW, -1, strongest, strongest);
             }
