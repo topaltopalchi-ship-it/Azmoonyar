@@ -89,6 +89,43 @@ public final class BubbleDarknessAnalyzer {
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
     }
 
+    /**
+     * Measures absolute paper-surface darkness for blank-page calibration.
+     * Unlike score(), this does not compare an inner disk with a local ring:
+     * it measures mean luminance directly, so a uniformly white page produces
+     * a small non-zero baseline and shadows change the measured value.
+     */
+    public static double paperSurfaceDarkness(byte[] luminance, int width, int height,
+                                               double centerX, double centerY, double radius) {
+        if (luminance == null || width <= 0 || height <= 0
+                || (long) width * height > luminance.length
+                || !finite(radius) || !finite(centerX) || !finite(centerY)
+                || radius < 1 || centerX < 0 || centerY < 0
+                || centerX >= width || centerY >= height) {
+            throw new IllegalArgumentException("ناحیهٔ کاغذ برای سنجش معتبر نیست.");
+        }
+        int r = Math.max(1, (int) Math.floor(radius));
+        if (centerX - r < 0 || centerY - r < 0
+                || centerX + r >= width || centerY + r >= height) {
+            throw new IllegalArgumentException("نمونهٔ سطح کاغذ کامل داخل تصویر نیست.");
+        }
+        int cx = (int) Math.round(centerX), cy = (int) Math.round(centerY);
+        long sum = 0;
+        int count = 0;
+        int r2 = r * r;
+        for (int y = cy - r; y <= cy + r; y++) {
+            for (int x = cx - r; x <= cx + r; x++) {
+                int dx = x - cx, dy = y - cy;
+                if (dx * dx + dy * dy <= r2) {
+                    sum += luminance[y * width + x] & 0xff;
+                    count++;
+                }
+            }
+        }
+        if (count < 4) throw new IllegalArgumentException("نمونهٔ سطح کاغذ کافی نیست.");
+        return (255.0 - sum / (double) count) / 255.0;
+    }
+
     private static boolean finite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
     }
