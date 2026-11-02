@@ -821,12 +821,6 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 final java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated =
                         OMRFrameScoreAggregator.aggregate(validFrames, new OMRAnswerClassifier());
-                java.util.List<OMRSheetReader.QuestionResult> combined = new java.util.ArrayList<>();
-                for (OMRFrameScoreAggregator.AggregatedQuestion q : aggregated) {
-                    // QuestionResult construction is intentionally private; keep the
-                    // aggregated scores in the same pipeline via a dedicated overload.
-                    combined.add(null);
-                }
                 final byte[] luma = representativeLuma;
                 final int width = representativeWidth, height = representativeHeight;
                 final SheetPerspectiveTransform transform = representativeTransform;
