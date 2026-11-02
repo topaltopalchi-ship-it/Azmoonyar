@@ -55,8 +55,15 @@ public final class OMRFrameScoreAggregator {
             for (int q = 0; q < frame.size(); q++) {
                 OMRSheetReader.QuestionResult result = frame.get(q);
                 if (result == null || result.questionIndex != q || result.darkness == null
-                        || result.darkness.length != 4)
+                        || result.darkness.length != 4 || result.classification == null
+                        || result.classification.status == null)
                     throw new IllegalArgumentException("Frame question results are inconsistent.");
+                if (result.classification.status == OMRAnswerClassifier.Status.ANSWERED
+                        && (result.classification.optionIndex < 0 || result.classification.optionIndex >= 4))
+                    throw new IllegalArgumentException("Answered frame results must contain a valid option.");
+                if (result.classification.status != OMRAnswerClassifier.Status.ANSWERED
+                        && result.classification.optionIndex != -1)
+                    throw new IllegalArgumentException("Non-answered frame results must not contain an option.");
                 classifier.classify(result.darkness); // validates each input score
             }
         }
