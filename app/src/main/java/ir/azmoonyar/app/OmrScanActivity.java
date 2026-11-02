@@ -337,7 +337,7 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("omr_regional_offsets", offsets.toString())
                     .putFloat("omr_regional_quality", (float) result.quality)
                     .putLong("omr_regional_saved_at", System.currentTimeMillis()).apply();
-            showBlankSheetLightMap(luma, width, height);
+            showBlankSheetLightMap(luma, width, height, scores, xs, ys);
             new AlertDialog.Builder(this).setTitle("کالیبراسیون خودکار موفق")
                     .setMessage(String.format(java.util.Locale.US,
                             "کیفیت نور: %.0f از 100 — اصلاح موضعی چهار ناحیه ذخیره شد. علامت‌های مداد از معیار محلی جداگانه سنجیده می‌شوند.",
