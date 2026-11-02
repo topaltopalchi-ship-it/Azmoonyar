@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/enable-bubble-coordinate-overlay
+      - altay-4
 
 permissions:
   contents: read
