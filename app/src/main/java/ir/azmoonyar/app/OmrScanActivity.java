@@ -51,6 +51,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private PreviewView previewView;
     private ImageCapture imageCapture;
     private TextView statusView;
+    private SheetGuideOverlay sheetGuideOverlay;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
@@ -80,14 +81,22 @@ public final class OmrScanActivity extends ComponentActivity {
         SheetGuideOverlay(android.content.Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            framePaint.setColor(Color.rgb(70, 230, 150));
+            framePaint.setColor(Color.rgb(255, 170, 40));
             framePaint.setStyle(Paint.Style.STROKE);
             framePaint.setStrokeWidth(4f * getResources().getDisplayMetrics().density);
             framePaint.setStrokeCap(Paint.Cap.ROUND);
             framePaint.setStrokeJoin(Paint.Join.ROUND);
-            shadePaint.setColor(Color.argb(210, 70, 230, 150));
+            shadePaint.setColor(Color.argb(210, 255, 170, 40));
             shadePaint.setStyle(Paint.Style.STROKE);
             shadePaint.setStrokeWidth(2f * getResources().getDisplayMetrics().density);
+        }
+
+        void setReady(boolean ready) {
+            int color = ready ? Color.rgb(40, 220, 105) : Color.rgb(255, 170, 40);
+            framePaint.setColor(color);
+            shadePaint.setColor(Color.argb(210,
+                    Color.red(color), Color.green(color), Color.blue(color)));
+            postInvalidate();
         }
 
         @Override protected void onDraw(Canvas canvas) {
@@ -157,8 +166,8 @@ public final class OmrScanActivity extends ComponentActivity {
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FIT_CENTER);
         cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
-        SheetGuideOverlay sheetGuide = new SheetGuideOverlay(this);
-        cameraFrame.addView(sheetGuide, new FrameLayout.LayoutParams(-1, -1));
+        sheetGuideOverlay = new SheetGuideOverlay(this);
+        cameraFrame.addView(sheetGuideOverlay, new FrameLayout.LayoutParams(-1, -1));
         page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
@@ -391,14 +400,17 @@ public final class OmrScanActivity extends ComponentActivity {
                                 : lastSheetResultMessage);
                 } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
                     // Require a short run of consecutive valid frames before declaring readiness.
-                    message = "پاسخنامه پایدار و آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(true);
+                    message = "چهار مربع پیدا شدند؛ کادر سبز شد. همین حالا عکس بگیرید.";
                 } else if (transform != null) {
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "چهار مربع پیدا شدند؛ گوشی و برگه را ثابت نگه دارید…";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
                     message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر و با نور یکنواخت نگه دارید.";
                 } else {
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "در حال جست‌وجوی مربع‌های گوشه… چهار گوشهٔ برگه را داخل تصویر نگه دارید.";
                 }
                 updateStatus(message);
