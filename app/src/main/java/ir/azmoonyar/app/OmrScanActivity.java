@@ -824,8 +824,10 @@ public final class OmrScanActivity extends ComponentActivity {
                 final byte[] luma = representativeLuma;
                 final int width = representativeWidth, height = representativeHeight;
                 final SheetPerspectiveTransform transform = representativeTransform;
-                runOnUiThread(() -> processRecognizedSheetAggregated(
-                        luma, width, height, transform, aggregated, validFrames.size()));
+                // Keep scoring, calibration JSON, and SharedPreferences writes off the
+                // main thread. UI status updates are marshalled by updateStatus().
+                processRecognizedSheetAggregated(
+                        luma, width, height, transform, aggregated, validFrames.size());
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     updateSheetResultStatus("ترکیب فریم‌ها ناموفق بود؛ دوباره با نور یکنواخت عکس بگیرید.");
