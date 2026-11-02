@@ -638,9 +638,11 @@ public final class OmrScanActivity extends ComponentActivity {
             }
         }
         int mean = count == 0 ? 128 : (int) (sum / count);
-        // Keep the threshold permissive for shadows, but never so high that
-        // ordinary mid-gray paper texture becomes a black registration mark.
-        return Math.max(65, Math.min(145, mean - 35));
+        // In bright rooms the camera's auto-exposure raises the whole-frame
+        // mean. Capping the threshold lower prevents paper texture and shadows
+        // from joining the dark marker components into oversized regions.
+        // The lower bound still allows genuinely dark marks under dimmer light.
+        return Math.max(55, Math.min(125, mean - 45));
     }
 
     private int lumaAt(byte[] yPlane, int width, int height, int sampleX, int sampleY, int sample) {
