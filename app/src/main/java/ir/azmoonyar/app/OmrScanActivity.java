@@ -178,34 +178,44 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
-        Button lightingButton = new Button(this);
-        lightingButton.setTextSize(15);
-        lightingButton.setAllCaps(false);
-        updateLightingButtonLabel(lightingButton);
-        lightingButton.setOnClickListener(v -> {
-            final String[] modes = {"خودکار", "روز / نور زیاد", "شب / نور کم"};
-            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-            String current = prefs.getString("omr_lighting_mode", "auto");
-            int selected = "day".equals(current) ? 1 : ("night".equals(current) ? 2 : 0);
-            new AlertDialog.Builder(this)
-                    .setTitle("تنظیم نور برای تشخیص مربع‌ها")
-                    .setSingleChoiceItems(modes, selected, (dialog, which) -> {
-                        String mode = which == 1 ? "day" : (which == 2 ? "night" : "auto");
-                        prefs.edit().putString("omr_lighting_mode", mode).apply();
-                        updateLightingButtonLabel(lightingButton);
-                        stableMarkerFrames = 0;
-                        missingMarkerFrames = 0;
-                        updateStatus(which == 1
-                                ? "حالت روز فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند."
-                                : which == 2
-                                ? "حالت شب فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند."
-                                : "تنظیم نور خودکار فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند.");
-                        dialog.dismiss();
-                    })
-                    .setNegativeButton("بستن", null)
-                    .show();
-        });
-        page.addView(lightingButton, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout lightingControls = new LinearLayout(this);
+        lightingControls.setOrientation(LinearLayout.HORIZONTAL);
+        lightingControls.setGravity(Gravity.CENTER);
+        lightingControls.setPadding(4, 2, 4, 2);
+        Button autoLightingButton = new Button(this);
+        Button dayLightingButton = new Button(this);
+        Button nightLightingButton = new Button(this);
+        Button[] lightingButtons = {autoLightingButton, dayLightingButton, nightLightingButton};
+        String[] lightingLabels = {"نور خودکار", "نور روز", "نور شب"};
+        String[] lightingModes = {"auto", "day", "night"};
+        for (int i = 0; i < lightingButtons.length; i++) {
+            final String mode = lightingModes[i];
+            Button button = lightingButtons[i];
+            button.setTextSize(13);
+            button.setAllCaps(false);
+            button.setText(lightingLabels[i]);
+            LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(0, -2, 1f);
+            buttonParams.setMargins(2, 0, 2, 0);
+            lightingControls.addView(button, buttonParams);
+            button.setOnClickListener(v -> {
+                getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                        .edit().putString("omr_lighting_mode", mode).apply();
+                stableMarkerFrames = 0;
+                missingMarkerFrames = 0;
+                for (int j = 0; j < lightingButtons.length; j++) {
+                    lightingButtons[j].setText((lightingModes[j].equals(mode) ? "✓ " : "") + lightingLabels[j]);
+                }
+                sheetGuideOverlay.setReady(false);
+                updateStatus("حالت " + (mode.equals("auto") ? "نور خودکار" : mode.equals("day") ? "نور روز" : "نور شب")
+                        + " فعال شد؛ برگه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند.");
+            });
+        }
+        String activeLighting = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                .getString("omr_lighting_mode", "auto");
+        for (int j = 0; j < lightingButtons.length; j++) {
+            lightingButtons[j].setText((lightingModes[j].equals(activeLighting) ? "✓ " : "") + lightingLabels[j]);
+        }
+        page.addView(lightingControls, new LinearLayout.LayoutParams(-1, -2));
 
         Button captureButton = new Button(this);
         captureButton.setText("عکس بگیر و تصحیح کن");
