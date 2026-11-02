@@ -66,4 +66,21 @@ public class OMRAndScoringTest {
         assertEquals(1, result.needsReview);
         assertTrue(Double.isNaN(result.percentage()));
     }
+
+    @Test public void marginRuleRunsBeforeChoosingTheDarkestOption() {
+        // Both B and D are visibly marked. The darkest option wins only because
+        // its score exceeds the runner-up by strictly more than 0.14.
+        OMRAnswerClassifier.Result clearWinner =
+                classifier.classify(new double[]{0.05, 0.72, 0.08, 0.51});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, clearWinner.status);
+        assertEquals(1, clearWinner.optionIndex);
+        assertEquals(0.21, clearWinner.margin, 0.000001);
+
+        // At exactly 0.14, do not choose either option automatically.
+        OMRAnswerClassifier.Result boundary =
+                classifier.classify(new double[]{0.05, 0.30, 0.08, 0.16});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, boundary.status);
+        assertEquals(-1, boundary.optionIndex);
+        assertEquals(0.14, boundary.margin, 0.000001);
+    }
 }
