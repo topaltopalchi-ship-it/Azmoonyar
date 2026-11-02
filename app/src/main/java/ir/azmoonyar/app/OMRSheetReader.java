@@ -24,14 +24,18 @@ public final class OMRSheetReader {
     }
 
     private final OMRAnswerClassifier classifier;
+    private final double calibrationOffset;
 
-    public OMRSheetReader() {
-        this(new OMRAnswerClassifier());
-    }
+    public OMRSheetReader() { this(new OMRAnswerClassifier(), 0.0); }
+    public OMRSheetReader(double offset) { this(new OMRAnswerClassifier(), offset); }
+    public OMRSheetReader(OMRAnswerClassifier classifier) { this(classifier, 0.0); }
 
-    public OMRSheetReader(OMRAnswerClassifier classifier) {
+    public OMRSheetReader(OMRAnswerClassifier classifier, double offset) {
         if (classifier == null) throw new IllegalArgumentException("طبقه‌بند پاسخ لازم است.");
+        if (Double.isNaN(offset) || Double.isInfinite(offset) || offset < 0.0 || offset > 1.0)
+            throw new IllegalArgumentException("اصلاح کالیبراسیون معتبر نیست.");
         this.classifier = classifier;
+        this.calibrationOffset = offset;
     }
 
     /**
@@ -71,8 +75,9 @@ public final class OMRSheetReader {
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
                 double radiusPixels = (radiusX + radiusY) * 0.5;
-                scores[option] = BubbleDarknessAnalyzer.score(luminance,
+                double rawScore = BubbleDarknessAnalyzer.score(luminance,
                         imageWidth, imageHeight, center.x, center.y, radiusPixels);
+                scores[option] = Math.max(0.0, rawScore - calibrationOffset);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
