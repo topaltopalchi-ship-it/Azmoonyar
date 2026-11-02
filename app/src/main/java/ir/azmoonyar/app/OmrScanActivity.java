@@ -292,191 +292,60 @@ public final class OmrScanActivity extends ComponentActivity {
         int width = diagnosticWidth, height = diagnosticHeight;
         SheetPerspectiveTransform transform = diagnosticTransform;
         double[][][] centers = diagnosticCenters;
-        if (luma == null || width <= 0 || height <= 0
-                || (long) width * height > 12000000L) {
-            new AlertDialog.Builder(this).setTitle("کالیبراسیون")
-                    .setMessage("تصویر دوربین آماده نیست. برگهٔ A4 سفید را روی سطحی تیره بگذارید، صاف و کامل داخل کادر نگه دارید و دوباره تلاش کنید.")
+        if (luma == null || transform == null || centers == null || centers.length < 32
+                || stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+            new AlertDialog.Builder(this).setTitle("کالیبراسیون خودکار نور")
+                    .setMessage("پاسخنامهٔ قالب‌دار و خالی را کامل داخل کادر نگه دارید؛ چهار مربع گوشه باید پایدار شناسایی شوند.")
                     .setPositiveButton("متوجه شدم", null).show();
             return;
         }
-
-        int count;
-        double[] scores;
-        double[] xs;
-        double[] ys;
+        int count = 0;
+        for (double[][] question : centers) if (question != null && question.length == 4) count += 4;
+        double[] scores = new double[count], xs = new double[count], ys = new double[count];
         int index = 0;
-        if (transform == null || centers == null || centers.length == 0) {
-            // Unmarked A4: sample a grid over the central paper area.
-            final int columns = 8, rows = 8;
-            double radius = Math.max(3.0, Math.min(width / 100.0, height / 140.0));
-            count = columns * rows;
-            scores = new double[count];
-            xs = new double[count];
-            ys = new double[count];
-            try {
-                for (int row = 0; row < rows; row++) {
-                    for (int col = 0; col < columns; col++) {
-                        double nx = 0.20 + 0.60 * (col + 0.5) / columns;
-                        double ny = 0.16 + 0.68 * (row + 0.5) / rows;
-                        scores[index] = BubbleDarknessAnalyzer.paperSurfaceDarkness(luma, width, height,
-                                nx * width, ny * height, radius);
-                        xs[index] = nx;
-                        ys[index] = ny;
-                        index++;
-                    }
+        try {
+            for (double[][] question : centers) {
+                if (question == null || question.length != 4) continue;
+                for (double[] mm : question) {
+                    SheetPerspectiveTransform.Point p = transform.toImage(mm[0], mm[1]);
+                    SheetPerspectiveTransform.Point ex = transform.toImage(
+                            Math.min(transform.getPageWidth(), mm[0] + 1.45), mm[1]);
+                    SheetPerspectiveTransform.Point ey = transform.toImage(
+                            mm[0], Math.min(transform.getPageHeight(), mm[1] + 1.45));
+                    double radius = (Math.hypot(ex.x - p.x, ex.y - p.y)
+                            + Math.hypot(ey.x - p.x, ey.y - p.y)) * .5;
+                    scores[index] = BubbleDarknessAnalyzer.score(luma, width, height, p.x, p.y, radius);
+                    xs[index] = mm[0] / transform.getPageWidth();
+                    ys[index] = mm[1] / transform.getPageHeight();
+                    index++;
                 }
-            } catch (IllegalArgumentException badSample) {
-                new AlertDialog.Builder(this).setTitle("کالیبراسیون برگهٔ سفید")
-                        .setMessage("نمونه‌برداری از سطح کاغذ کامل نشد. برگه را صاف، بدون سایه و کاملاً داخل کادر A4 قرار دهید و پس‌زمینهٔ تیره انتخاب کنید.")
+            }
+            AutomaticRegionalCalibration.Result result =
+                    AutomaticRegionalCalibration.evaluate(scores, xs, ys);
+            if (!result.acceptable) {
+                new AlertDialog.Builder(this).setTitle("نور نامناسب")
+                        .setMessage(String.format(java.util.Locale.US,
+                                "یکنواختی نور کافی نیست (کیفیت %.0f از 100). برگه را به سطح روشن‌تر و بدون سایه منتقل کنید و دوباره کالیبره کنید.",
+                                result.quality))
                         .setPositiveButton("متوجه شدم", null).show();
                 return;
             }
-        } else {
-            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
-                updateStatus("برای کالیبراسیون پاسخنامهٔ قالب‌دار، برگه را ثابت نگه دارید.");
-                return;
-            }
-            count = 0;
-            for (double[][] question : centers) {
-                if (question == null || question.length != 4) continue;
-                count += 4;
-            }
-            if (count < 32) {
-                updateStatus("تعداد ناحیه‌های نمونه‌برداری برای کالیبراسیون کافی نیست.");
-                return;
-            }
-            scores = new double[count];
-            xs = new double[count];
-            ys = new double[count];
-            try {
-                for (double[][] question : centers) {
-                    if (question == null || question.length != 4) continue;
-                    for (double[] centerMm : question) {
-                        if (centerMm == null || centerMm.length != 2) continue;
-                        SheetPerspectiveTransform.Point center = transform.toImage(centerMm[0], centerMm[1]);
-                        SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                                Math.min(transform.getPageWidth(), centerMm[0] + 1.45), centerMm[1]);
-                        SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                                centerMm[0], Math.min(transform.getPageHeight(), centerMm[1] + 1.45));
-                        double radius = (Math.hypot(edgeX.x - center.x, edgeX.y - center.y)
-                                + Math.hypot(edgeY.x - center.x, edgeY.y - center.y)) * 0.5;
-                        scores[index] = BubbleDarknessAnalyzer.score(luma, width, height,
-                                center.x, center.y, radius);
-                        xs[index] = centerMm[0] / transform.getPageWidth();
-                        ys[index] = centerMm[1] / transform.getPageHeight();
-                        index++;
-                    }
-                }
-            } catch (IllegalArgumentException badSample) {
-                updateStatus("نمونه‌برداری کامل نشد؛ برگه را صاف‌تر و کامل داخل کادر قرار دهید.");
-                return;
-            }
+            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+            JSONArray offsets = new JSONArray();
+            for (double value : result.offsets) offsets.put(value);
+            prefs.edit().putString("omr_regional_offsets", offsets.toString())
+                    .putFloat("omr_regional_quality", (float) result.quality)
+                    .putLong("omr_regional_saved_at", System.currentTimeMillis()).apply();
+            new AlertDialog.Builder(this).setTitle("کالیبراسیون خودکار موفق")
+                    .setMessage(String.format(java.util.Locale.US,
+                            "کیفیت نور: %.0f از 100 — اصلاح موضعی چهار ناحیه ذخیره شد. علامت‌های مداد از معیار محلی جداگانه سنجیده می‌شوند.",
+                            result.quality))
+                    .setPositiveButton("بستن", null).show();
+        } catch (IllegalArgumentException badSample) {
+            new AlertDialog.Builder(this).setTitle("کالیبراسیون انجام نشد")
+                    .setMessage("نمونه‌برداری کامل نبود. پاسخنامه را صاف و بدون پوشش داخل کادر قرار دهید.")
+                    .setPositiveButton("متوجه شدم", null).show();
         }
-        if (index > 0 && index != count) {
-            scores = java.util.Arrays.copyOf(scores, index);
-            xs = java.util.Arrays.copyOf(xs, index);
-            ys = java.util.Arrays.copyOf(ys, index);
-        }
-        final double[] measured = scores;
-        final double[] pageX = xs;
-        final double[] pageY = ys;
-        final android.content.SharedPreferences prefs =
-                getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-        OMRCalibration.Result initial = OMRCalibration.evaluate(measured, 0.0, pageX, pageY);
-        if (initial.status == OMRCalibration.Status.INVALID) {
-            updateStatus("دادهٔ کالیبراسیون معتبر نیست؛ دوباره اسکن کنید.");
-            return;
-        }
-
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(24, 8, 24, 4);
-        TextView instructions = new TextView(this);
-        instructions.setText(measured.length == 64
-                ? "۶۴ نقطه از سطح مرکزی برگهٔ A4 سفید نمونه‌برداری شد. برگه باید صاف، داخل کادر و روی زمینهٔ تیره باشد؛ این بررسی یکنواختی نور و نویز زمینه است."
-                : "۴۰۰ محل حباب از پاسخنامهٔ خالی نمونه‌برداری شد. مقدار اصلاح را تغییر دهید تا میانه، پراکندگی و اختلاف ناحیه‌ای هم‌زمان در محدودهٔ سبز قرار گیرند.");
-        panel.addView(instructions);
-        TextView valueLabel = new TextView(this);
-        panel.addView(valueLabel);
-        android.widget.SeekBar offsetSlider = new android.widget.SeekBar(this);
-        offsetSlider.setMax(2500); // 0.0000 .. 0.2500, step 0.0001
-        panel.addView(offsetSlider);
-        TextView metrics = new TextView(this);
-        metrics.setPadding(0, 12, 0, 8);
-        panel.addView(metrics);
-        TextView indicator = new TextView(this);
-        indicator.setTextSize(19);
-        indicator.setTypeface(null, android.graphics.Typeface.BOLD);
-        indicator.setGravity(Gravity.CENTER);
-        indicator.setPadding(12, 16, 12, 16);
-        panel.addView(indicator);
-
-        double savedOffset = prefs.getFloat("omr_calibration_offset", 0f);
-        double startOffset = savedOffset > 0 ? savedOffset : initial.recommendedOffset;
-        offsetSlider.setProgress((int) Math.round(Math.max(0, Math.min(0.25, startOffset)) * 10000));
-
-        final OMRCalibration.Result[] latest = new OMRCalibration.Result[1];
-        final AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("کالیبراسیون تیرگی")
-                .setView(panel)
-                .setPositiveButton("ذخیره", null)
-                .setNegativeButton("بستن", null)
-                .create();
-
-        Runnable refresh = () -> {
-            double offset = offsetSlider.getProgress() / 10000.0;
-            OMRCalibration.Result result = OMRCalibration.evaluate(measured, offset, pageX, pageY);
-            latest[0] = result;
-            valueLabel.setText(String.format(java.util.Locale.US,
-                    "اصلاح انتخاب‌شده: %.4f    پیشنهاد خودکار: %.4f",
-                    offset, result.recommendedOffset));
-            metrics.setText(String.format(java.util.Locale.US,
-                    "تعداد نمونه: %d\nمیانهٔ خام: %.4f\nمیانهٔ قدرمطلق انحراف: %.4f\nاختلاف ناحیه‌ای: %.4f\nCQI: %.1f از 100",
-                    result.sampleCount, result.medianDarkness,
-                    result.medianAbsoluteDeviation, result.regionalMedianRange,
-                    result.qualityIndex));
-            if (result.status == OMRCalibration.Status.CALIBRATED) {
-                indicator.setText("🟢 کالیبراسیون مناسب — آمادهٔ ذخیره");
-                indicator.setTextColor(Color.rgb(21, 128, 61));
-                indicator.setBackgroundColor(Color.rgb(220, 252, 231));
-            } else if (result.status == OMRCalibration.Status.ADJUST) {
-                indicator.setText("🟡 نیاز به تنظیم بیشتر");
-                indicator.setTextColor(Color.rgb(161, 98, 7));
-                indicator.setBackgroundColor(Color.rgb(254, 243, 199));
-            } else {
-                indicator.setText("🔴 کیفیت نور یا یکنواختی نامناسب");
-                indicator.setTextColor(Color.rgb(185, 28, 28));
-                indicator.setBackgroundColor(Color.rgb(254, 226, 226));
-            }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(
-                    result.status == OMRCalibration.Status.CALIBRATED);
-        };
-        offsetSlider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
-                if (dialog.isShowing()) refresh.run();
-            }
-            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
-        });
-        dialog.setOnShowListener(ignored -> {
-            refresh.run();
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                OMRCalibration.Result result = latest[0];
-                if (result == null || result.status != OMRCalibration.Status.CALIBRATED) return;
-                float offset = (float) (offsetSlider.getProgress() / 10000.0);
-                prefs.edit()
-                        .putFloat("omr_calibration_offset", offset)
-                        .putFloat("omr_calibration_cqi", (float) result.qualityIndex)
-                        .putFloat("omr_calibration_median", (float) result.medianDarkness)
-                        .putFloat("omr_calibration_mad", (float) result.medianAbsoluteDeviation)
-                        .putLong("omr_calibration_saved_at", System.currentTimeMillis())
-                        .apply();
-                dialog.dismiss();
-                updateStatus("کالیبراسیون ذخیره شد؛ اصلاح تیرگی از اسکن بعدی اعمال می‌شود.");
-            });
-        });
-        dialog.show();
-        refresh.run();
     }
 
     private void startCamera() {
@@ -1078,9 +947,17 @@ public final class OmrScanActivity extends ComponentActivity {
                 return;
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
+            SharedPreferences scanPrefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+            double[] regionalOffsets = null;
+            try {
+                JSONArray savedRegional = new JSONArray(scanPrefs.getString("omr_regional_offsets", "[]"));
+                if (savedRegional.length() == 4) {
+                    regionalOffsets = new double[4];
+                    for (int r = 0; r < 4; r++) regionalOffsets[r] = savedRegional.getDouble(r);
+                }
+            } catch (Exception ignored) { regionalOffsets = null; }
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader(getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                            .getFloat("omr_calibration_offset", 0f))
+                    new OMRSheetReader(scanPrefs.getFloat("omr_calibration_offset", 0f), regionalOffsets)
                     .read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
