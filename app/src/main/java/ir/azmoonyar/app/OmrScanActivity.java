@@ -886,10 +886,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 luma[i] = (byte) gray;
                 sum += gray; sumSquares += (long) gray * gray;
             }
-            // Reject very low-contrast/blurred frames before marker geometry and OMR scoring.
+            // Reject low-contrast frames and genuinely soft frames before geometry/OMR.
             double mean = sum / (double) pixels.length;
             double variance = sumSquares / (double) pixels.length - mean * mean;
             if (variance < 180.0) return null;
+            if (OMRFrameQuality.laplacianVariance(luma, width, height) < 24.0) return null;
             MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
             if (detection.count != 4) return null;
             double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
