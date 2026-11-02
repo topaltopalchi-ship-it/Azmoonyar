@@ -468,9 +468,9 @@ public final class OmrScanActivity extends ComponentActivity {
      * and bubble sampling are validated against printed sheets.
      */
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
-        // Work on a half-resolution luma image. Accept both the legacy 3 mm
-        // outlined marks and new 16 mm solid vector marks.
-        final int sample = 2;
+        // Use full-resolution luma for small and thin corner marks. Sampling at
+        // half resolution was dropping edge pixels and breaking outlined squares.
+        final int sample = 1;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
@@ -543,9 +543,9 @@ public final class OmrScanActivity extends ComponentActivity {
                     // Marker geometry is scale tolerant: tiny outlined legacy marks
                     // and larger filled marks both pass, while thin text strokes do not.
                     boolean compactSquare = !tooLarge && pixels >= 8
-                            && boxW >= 4 && boxH >= 4 && size <= Math.min(90, Math.max(20, gw / 5))
-                            && aspect >= 0.68 && aspect <= 1.47
-                            && fill >= 0.12;
+                            && boxW >= 3 && boxH >= 3 && size <= Math.min(110, Math.max(24, gw / 4))
+                            && aspect >= 0.60 && aspect <= 1.65
+                            && fill >= 0.08;
                     if (!compactSquare) continue;
 
                     double estimatedMm = size * 210.0 / Math.max(1.0, gw);
@@ -620,8 +620,8 @@ public final class OmrScanActivity extends ComponentActivity {
             double meanVertical = (left + right) * 0.5;
             double expectedMarkerPixels = markerSizeMm * gw / 210.0;
             double spacingInMarkerWidths = meanHorizontal / Math.max(1.0, expectedMarkerPixels);
-            boolean sidesConsistent = ratio(top, bottom) < 2.2
-                    && ratio(left, right) < 2.2;
+            boolean sidesConsistent = ratio(top, bottom) < 2.8
+                    && ratio(left, right) < 2.8;
 
             // THIRD CRITERION: validate both diagonals as a second independent
             // geometry check. For the primary marks, the canonical center-to-center
@@ -634,19 +634,19 @@ public final class OmrScanActivity extends ComponentActivity {
             double diagonal23 = distance(points[1], points[3]);
             double meanDiagonal = (diagonal14 + diagonal23) * 0.5;
             double expectedDiagonal = Math.hypot(meanHorizontal, meanVertical);
-            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.45;
+            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.70;
             boolean diagonalsMatchSideScale = expectedDiagonal > 0
-                    && meanDiagonal / expectedDiagonal >= 0.70
-                    && meanDiagonal / expectedDiagonal <= 1.35;
+                    && meanDiagonal / expectedDiagonal >= 0.60
+                    && meanDiagonal / expectedDiagonal <= 1.50;
 
             // Large corner marks yield about 11.5 marker-widths between centers.
             // The auxiliary squares yield over 50, so they fail this second test.
-            boolean spacingMatchesPrimaryMarks = spacingInMarkerWidths >= 7.0
-                    && spacingInMarkerWidths <= 22.0;
+            boolean spacingMatchesPrimaryMarks = spacingInMarkerWidths >= 6.0
+                    && spacingInMarkerWidths <= 25.0;
             // A page is portrait; allow substantial perspective skew, but reject
             // implausible point sets before computing bubble coordinates.
             double pageShape = meanHorizontal / Math.max(1.0, meanVertical);
-            boolean portraitShape = pageShape >= 0.30 && pageShape <= 1.25;
+            boolean portraitShape = pageShape >= 0.25 && pageShape <= 1.40;
             if (!sidesConsistent || !spacingMatchesPrimaryMarks || !portraitShape
                     || !diagonalsMatchEachOther || !diagonalsMatchSideScale) {
                 return new MarkerDetection(0, new SheetPerspectiveTransform.Point[4], markerSizeMm);
