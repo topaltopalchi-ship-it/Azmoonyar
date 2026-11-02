@@ -56,8 +56,8 @@ public final class OMRAnswerClassifier {
         int strongestIndex = -1;
         double strongest = -1;
         double second = -1;
-        int isolatedSevenPercentIndex = -1;
-        int isolatedSevenPercentCount = 0;
+        int isolatedFivePercentIndex = -1;
+        int isolatedFivePercentCount = 0;
 
         for (int i = 0; i < darkness.length; i++) {
             double score = darkness[i];
@@ -65,9 +65,9 @@ public final class OMRAnswerClassifier {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
 
-            // Rule requested for Altay 4: a lone option above 7% with all
+            // Rule requested for Altay 4: a lone option above 5% with all
             // other options exactly zero is accepted as the answer.
-            if (score > 0.07) {
+            if (score >= 0.05) {
                 boolean othersZero = true;
                 for (int j = 0; j < darkness.length; j++) {
                     if (j != i && darkness[j] != 0.0) {
@@ -76,8 +76,8 @@ public final class OMRAnswerClassifier {
                     }
                 }
                 if (othersZero) {
-                    isolatedSevenPercentIndex = i;
-                    isolatedSevenPercentCount++;
+                    isolatedFivePercentIndex = i;
+                    isolatedFivePercentCount++;
                 }
             }
 
@@ -93,9 +93,9 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        if (isolatedSevenPercentCount == 1) {
-            double score = darkness[isolatedSevenPercentIndex];
-            return new Result(Status.ANSWERED, isolatedSevenPercentIndex, score, score);
+        if (isolatedFivePercentCount == 1) {
+            double score = darkness[isolatedFivePercentIndex];
+            return new Result(Status.ANSWERED, isolatedFivePercentIndex, score, score);
         }
 
         if (markedCount == 0) {
