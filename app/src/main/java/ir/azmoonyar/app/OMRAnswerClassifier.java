@@ -1,7 +1,7 @@
 package ir.azmoonyar.app;
 
 /**
- * Altay 3 decision rules for four locally normalized bubble-darkness scores.
+ * Altay 4 decision rules for four locally normalized bubble-darkness scores.
  * Scores are in [0,1], where 0 is paper-white and larger values mean darker marks.
  */
 public final class OMRAnswerClassifier {
