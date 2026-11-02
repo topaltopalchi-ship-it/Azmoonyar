@@ -65,7 +65,8 @@ public final class OmrTemplateLayout {
             int row = question % QUESTIONS_PER_COLUMN;
             int questionNumber = pageIndex * QUESTIONS_PER_PAGE + question + 1;
             double yShift = verticalShiftForQuestion(questionNumber);
-            double xShift = horizontalShiftForQuestion(questionNumber);
+            double xShift = horizontalShiftForQuestion(questionNumber)
+                    + horizontalShiftForQuestionOption(questionNumber, option);
             double columnLeft = PAGE_SIDE_PADDING_MM + column * (columnWidth + COLUMN_GAP_MM);
             double tableLeft = columnLeft + COLUMN_BORDER_MM + COLUMN_PADDING_MM;
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
@@ -102,5 +103,12 @@ public final class OmrTemplateLayout {
 
     private static double horizontalShiftForQuestion(int questionNumber) {
         return (questionNumber >= 1 && questionNumber <= 12) ? SHIFT_RIGHT_MM : 0.0;
+    }
+
+    // Red A bubbles in the first column (questions 12–20) need a further
+    // 1.5 mm rightward calibration based on the supplied scan.
+    private static double horizontalShiftForQuestionOption(int questionNumber, int option) {
+        return (option == 0 && questionNumber >= 12 && questionNumber <= 20)
+                ? SHIFT_RIGHT_MM : 0.0;
     }
 }
