@@ -63,7 +63,6 @@ public final class OmrTemplateLayout {
         for (int question = 0; question < questionsOnPage; question++) {
             int column = question / QUESTIONS_PER_COLUMN;
             int row = question % QUESTIONS_PER_COLUMN;
-            int questionNumber = pageIndex * QUESTIONS_PER_PAGE + question + 1;
             double yShift = verticalShiftForQuestion(questionNumber);
             double columnLeft = PAGE_SIDE_PADDING_MM + column * (columnWidth + COLUMN_GAP_MM);
             double tableLeft = columnLeft + COLUMN_BORDER_MM + COLUMN_PADDING_MM;
@@ -72,7 +71,7 @@ public final class OmrTemplateLayout {
                         + horizontalShiftForQuestionOption(questionNumber, option);
                 // Printed table is LTR: question number, then A, B, C, D.
                 centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
-                        + (option + 0.5) * printedOptionCellWidth + xShift;
+                        + (option + 0.5) * printedOptionCellWidth;
                 centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM + yShift;
             }
         }
