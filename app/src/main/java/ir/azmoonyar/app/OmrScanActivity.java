@@ -998,6 +998,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private void processRecognizedSheetInternal(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform,
             java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
+        // Activity may be destroyed while a burst is being decoded on the camera executor.
+        // Never persist grading results or calibration data after leaving this screen.
+        if (finished || isFinishing()) return;
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
@@ -1475,8 +1478,22 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
+    private void cleanupPendingBurstFiles() {
+        java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+        java.io.File[] pending = photoDir.listFiles((dir, name) ->
+                name != null && name.startsWith("answer_sheet_burst_"));
+        if (pending == null) return;
+        for (java.io.File photo : pending) {
+            if (photo != null && photo.exists() && !photo.delete()) {
+                android.util.Log.w("AzmoonyarOMR", "Could not delete temporary burst photo: "
+                        + photo.getName());
+            }
+        }
+    }
+
     @Override protected void onDestroy() {
         finished = true;
+        cleanupPendingBurstFiles();
         if (voiceRecognizer != null) {
             voiceRecognizer.stop();
             voiceRecognizer = null;
