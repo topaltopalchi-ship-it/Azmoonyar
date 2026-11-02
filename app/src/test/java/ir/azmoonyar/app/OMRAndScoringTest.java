@@ -19,9 +19,9 @@ public class OMRAndScoringTest {
         assertEquals(-1, result.optionIndex);
     }
 
-    @Test public void refusesMultipleDarkMarks() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.61, 0.08, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+    @Test public void closeDarkMarksAreSentToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.70, 0.08, 0.10});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
@@ -40,20 +40,20 @@ public class OMRAndScoringTest {
         }
     }
 
-    @Test public void scorerCountsCorrectWrongBlankAndMultipleMarks() {
+    @Test public void scorerCountsCorrectWrongAndBlankWhenAllAnswersAreDeterminate() {
         OMRAnswerClassifier.Result a = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result wrongA = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.14, 0.05});
-        OMRAnswerClassifier.Result multiple = classifier.classify(new double[]{0.76, 0.61, 0.08, 0.10});
+        OMRAnswerClassifier.Result wrongD = classifier.classify(new double[]{0.08, 0.10, 0.76, 0.10});
 
         ExamScorer.Result result = ExamScorer.score("ABCD",
-                Arrays.asList(a, wrongA, blank, multiple), 1.0, -0.25, 0.0);
+                Arrays.asList(a, wrongA, blank, wrongD), 1.0, -0.25, 0.0);
 
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
         assertEquals(2, result.wrong);
         assertEquals(1, result.blank);
-        assertEquals(1, result.multipleMarks);
+        assertEquals(0, result.multipleMarks);
         assertEquals(0, result.needsReview);
         assertEquals(0.5, result.earnedPoints, 0.0001);
         assertEquals(4.0, result.maximumPoints, 0.0001);
