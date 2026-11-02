@@ -73,6 +73,13 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void acceptsClearlyDominantMarkAtTwentyFourPercent() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.24, 0.00, 0.00, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
     public void nearPaperWhiteScoresRemainBlank() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
