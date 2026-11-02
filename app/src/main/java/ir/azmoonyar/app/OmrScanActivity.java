@@ -788,7 +788,14 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     private void processBurstPhotos(java.util.List<java.io.File> photos) {
-        cameraExecutor.execute(() -> {
+        ExecutorService executor = cameraExecutor;
+        if (finished || isFinishing() || executor == null || executor.isShutdown()) {
+            cleanupPhotos(photos);
+            sheetConsumed = false;
+            return;
+        }
+        try {
+            executor.execute(() -> {
             try {
                 int total = Math.max(1, Math.min(100, getSharedPreferences(
                         "azmoonyar_local", MODE_PRIVATE).getInt("question_count", 20)));
@@ -837,7 +844,14 @@ public final class OmrScanActivity extends ComponentActivity {
             } finally {
                 cleanupPhotos(photos);
             }
-        });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            // Activity teardown can shut down the executor between the check
+            // above and execute(); in that race, release the captured files.
+            cleanupPhotos(photos);
+            sheetConsumed = false;
+            android.util.Log.i("AzmoonyarOMR", "Burst processing skipped during Activity teardown");
+        }
     }
 
     private static final class PhotoFrame {
