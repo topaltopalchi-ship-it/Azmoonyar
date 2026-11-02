@@ -1008,7 +1008,8 @@ public final class OmrScanActivity extends ComponentActivity {
             ExamScorer.Result score = ExamScorer.score(
                     activeKey, answers, 1.0, 0.0, 0.0);
             if (!score.isComplete()) {
-                // Preserve the uncertain sheet for later human review, but never store a final score.
+                // Preserve all per-question readings in the review queue while still
+                // reporting the determinate correct/wrong/blank answers below.
                 JSONArray queue;
                 try { queue = new JSONArray(prefs.getString("grading_review_queue", "[]")); }
                 catch (Exception ignored) { queue = new JSONArray(); }
@@ -1029,18 +1030,13 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("margin", answer.margin);
                     item.put("strongestScore", answer.strongestScore);
                     JSONArray optionScores = new JSONArray();
-                    for (double darkness : questions.get(i).darkness) {
-                        optionScores.put(darkness);
-                    }
+                    for (double darkness : questions.get(i).darkness) optionScores.put(darkness);
                     item.put("optionScores", optionScores);
                     questionStates.put(item);
                 }
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
-                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
-                return;
             }
             JSONArray saved;
             try { saved = new JSONArray(prefs.getString("grading_results", "[]")); }
@@ -1052,6 +1048,7 @@ public final class OmrScanActivity extends ComponentActivity {
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
             JSONArray blankQuestions = new JSONArray();
+            JSONArray reviewQuestions = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
                 OMRAnswerClassifier.Result answer = questions.get(i).classification;
                 int questionNumber = i + 1;
@@ -1077,10 +1074,17 @@ public final class OmrScanActivity extends ComponentActivity {
                     detail.put("correctOption", String.valueOf(activeKey.charAt(i)));
                     detail.put("selectedOption", "چند گزینه");
                     wrongDetails.put(detail);
+                } else if (answer.status == OMRAnswerClassifier.Status.REVIEW) {
+                    reviewQuestions.put(questionNumber);
                 }
             }
-            record.put("score", score.percentage());
+            // Provisional percentage is informational only when any question is under review.
+            record.put("score", score.isComplete() ? score.percentage()
+                    : (score.correct * 100.0 / Math.max(1, score.totalQuestions)));
             record.put("earnedPoints", score.earnedPoints);
+            record.put("pendingReview", !score.isComplete());
+            record.put("reviewQuestions", reviewQuestions);
+            record.put("needsReview", score.needsReview);
             record.put("correct", score.correct);
             record.put("wrong", score.wrong);
             record.put("correctDetails", correctDetails);
@@ -1101,8 +1105,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     + " • صحیح: " + score.correct + " (" + correctList + ")"
                     + " • غلط: " + score.wrong + " (" + wrongList + ")"
                     + " • سفید: " + score.blank + " (سؤال‌های " + blankList + ")"
-                    + " • نمره: " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
-                    + " از " + total + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+                    + (score.isComplete()
+                        ? " • نمره: " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
+                            + " از " + total
+                        : " • بازبینی: سؤال‌های " + formatQuestionNumbers(reviewQuestions)
+                            + " (نمره موقت؛ پس از بازبینی قطعی می‌شود)")
+                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
