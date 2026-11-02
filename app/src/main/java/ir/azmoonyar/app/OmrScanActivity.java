@@ -178,35 +178,6 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
-        Button lightingButton = new Button(this);
-        lightingButton.setTextSize(15);
-        lightingButton.setAllCaps(false);
-        updateLightingButtonLabel(lightingButton);
-        lightingButton.setOnClickListener(v -> {
-            final String[] modes = {"خودکار", "روز / نور زیاد", "شب / نور کم"};
-            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
-            String current = prefs.getString("omr_lighting_mode", "auto");
-            int selected = "day".equals(current) ? 1 : ("night".equals(current) ? 2 : 0);
-            new AlertDialog.Builder(this)
-                    .setTitle("تنظیم نور برای تشخیص مربع‌ها")
-                    .setSingleChoiceItems(modes, selected, (dialog, which) -> {
-                        String mode = which == 1 ? "day" : (which == 2 ? "night" : "auto");
-                        prefs.edit().putString("omr_lighting_mode", mode).apply();
-                        updateLightingButtonLabel(lightingButton);
-                        stableMarkerFrames = 0;
-                        missingMarkerFrames = 0;
-                        updateStatus(which == 1
-                                ? "حالت روز فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند."
-                                : which == 2
-                                ? "حالت شب فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند."
-                                : "تنظیم نور خودکار فعال شد؛ پاسخنامه را ثابت نگه دارید تا مربع‌ها دوباره شناسایی شوند.");
-                        dialog.dismiss();
-                    })
-                    .setNegativeButton("بستن", null)
-                    .show();
-        });
-        page.addView(lightingButton, new LinearLayout.LayoutParams(-1, -2));
-
         Button captureButton = new Button(this);
         captureButton.setText("عکس بگیر و تصحیح کن");
         captureButton.setTextSize(18);
@@ -666,13 +637,6 @@ public final class OmrScanActivity extends ComponentActivity {
         return smaller <= 0 ? Double.POSITIVE_INFINITY : larger / smaller;
     }
 
-    private void updateLightingButtonLabel(Button button) {
-        String mode = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                .getString("omr_lighting_mode", "auto");
-        button.setText("آلتای نور: " + ("day".equals(mode)
-                ? "روز / نور زیاد" : ("night".equals(mode) ? "شب / نور کم" : "خودکار")));
-    }
-
     /** Estimate a local black/white split from sparse luma samples. */
     private int adaptiveDarkThreshold(byte[] yPlane, int width, int height) {
         long sum = 0;
@@ -686,17 +650,7 @@ public final class OmrScanActivity extends ComponentActivity {
             }
         }
         int mean = count == 0 ? 128 : (int) (sum / count);
-        // User-selectable lighting calibration: bright/day mode uses a lower
-        // split to avoid paper texture being treated as a dark marker; dim/night
-        // mode uses a higher split so genuinely dark printed marks remain visible.
-        String lightingMode = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
-                .getString("omr_lighting_mode", "auto");
-        if ("day".equals(lightingMode)) {
-            return Math.max(45, Math.min(115, mean - 50));
-        }
-        if ("night".equals(lightingMode)) {
-            return Math.max(70, Math.min(145, mean - 30));
-        }
+        // Use automatic adaptive thresholding only; no manual day/night modes.
         return Math.max(55, Math.min(125, mean - 45));
     }
 
