@@ -669,7 +669,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private void updateLightingButtonLabel(Button button) {
         String mode = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
                 .getString("omr_lighting_mode", "auto");
-        button.setText("تنظیم نور تشخیص: " + ("day".equals(mode)
+        button.setText("آلتای نور: " + ("day".equals(mode)
                 ? "روز / نور زیاد" : ("night".equals(mode) ? "شب / نور کم" : "خودکار")));
     }
 
