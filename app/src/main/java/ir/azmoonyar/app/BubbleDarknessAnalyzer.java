@@ -14,6 +14,16 @@ package ir.azmoonyar.app;
 public final class BubbleDarknessAnalyzer {
     private BubbleDarknessAnalyzer() {}
 
+    /** Darkness plus the fraction of the bubble interior containing ink-like pixels. */
+    public static final class Measurement {
+        public final double darkness;
+        public final double inkCoverage;
+        private Measurement(double darkness, double inkCoverage) {
+            this.darkness = darkness;
+            this.inkCoverage = inkCoverage;
+        }
+    }
+
     /**
      * @param luminance grayscale/luma bytes, one byte per pixel
      * @param width image width
@@ -24,6 +34,11 @@ public final class BubbleDarknessAnalyzer {
      * @return normalized relative darkness in [0,1]; larger means more filled
      */
     public static double score(byte[] luminance, int width, int height,
+                               double centerX, double centerY, double radius) {
+        return measure(luminance, width, height, centerX, centerY, radius).darkness;
+    }
+
+    public static Measurement measure(byte[] luminance, int width, int height,
                                double centerX, double centerY, double radius) {
         if (luminance == null || width <= 0 || height <= 0
                 || (long) width * height > luminance.length
@@ -50,6 +65,7 @@ public final class BubbleDarknessAnalyzer {
 
         long innerSum = 0;
         int innerCount = 0;
+        int[] innerHistogram = new int[256];
         long paperSum = 0;
         int paperCount = 0;
         double innerR2 = (double) innerRadius * innerRadius;
@@ -65,6 +81,7 @@ public final class BubbleDarknessAnalyzer {
                 if (d2 <= innerR2) {
                     innerSum += value;
                     innerCount++;
+                    innerHistogram[value]++;
                 } else if (d2 >= ringIn2 && d2 <= ringOut2) {
                     paperSum += value;
                     paperCount++;
@@ -86,7 +103,16 @@ public final class BubbleDarknessAnalyzer {
         if (relativeDarkness > 0.08) {
             relativeDarkness *= 1.15;
         }
-        return Math.max(0.0, Math.min(1.0, relativeDarkness));
+        double darkness = Math.max(0.0, Math.min(1.0, relativeDarkness));
+        // Ink is locally darker than the surrounding paper by a meaningful
+        // absolute/relative amount. Smooth illumination shifts shared by the
+        // bubble and its reference ring therefore do not count as pencil coverage.
+        double inkCutoff = paperMean - Math.max(16.0, paperMean * 0.10);
+        int inkPixels = 0;
+        for (int value = 0; value < 256 && value < inkCutoff; value++) {
+            inkPixels += innerHistogram[value];
+        }
+        return new Measurement(darkness, inkPixels / (double) innerCount);
     }
 
     private static boolean finite(double value) {
