@@ -1116,6 +1116,25 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
+    /** Formats question numbers held in the review queue JSON array. */
+    private String formatQuestionNumbers(JSONArray questions) {
+        if (questions == null || questions.length() == 0) return "ندارد";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < questions.length(); i++) {
+            Object value = questions.opt(i);
+            int number;
+            if (value instanceof JSONObject) {
+                JSONObject item = (JSONObject) value;
+                number = item.optInt("question", item.optInt("questionNumber", i + 1));
+            } else {
+                number = questions.optInt(i, i + 1);
+            }
+            if (out.length() > 0) out.append("، ");
+            out.append(number);
+        }
+        return out.length() == 0 ? "ندارد" : out.toString();
+    }
+
     private void showBubbleCoordinateOverlay(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform, double[][][] centers,
             SheetPerspectiveTransform.Point[] markerPoints, double markerSizeMm) {
