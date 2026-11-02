@@ -59,10 +59,10 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void gapGreaterThanTwelvePointsAcceptsDarkerOption() {
+    public void gapOfThirteenPointsStillGoesToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.521, 0.400, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
     }
 
     @Test
@@ -77,6 +77,19 @@ public class OMRAnswerClassifierTest {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.24, 0.00, 0.00, 0.00});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void scoreAboveTwelvePercentWinsWhenGapExceedsFourteenPoints() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.23, 0.00, 0.00, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void exactFourteenPointGapGoesToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.30, 0.16, 0.00, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
