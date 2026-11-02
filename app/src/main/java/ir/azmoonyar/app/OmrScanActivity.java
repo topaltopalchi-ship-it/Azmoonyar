@@ -1051,8 +1051,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     // 0.82 made the diagnostic rings visibly too small; keep only a
                     // slight inset so the center alignment can be judged against the
                     // actual printed border.
-                    rx = Math.max(2.0f, rx * 0.98f);
-                    ry = Math.max(2.0f, ry * 0.98f);
+                    rx = Math.max(2.0f, rx * 0.92f);
+                    ry = Math.max(2.0f, ry * 0.92f);
                     paint.setColor(bubbleOverlayColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
