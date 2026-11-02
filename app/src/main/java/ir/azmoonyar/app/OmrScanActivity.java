@@ -271,6 +271,8 @@ public final class OmrScanActivity extends ComponentActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
+            if (participantName.trim().isEmpty()) showVoiceNameDialog(false);
+            else ensureVoicePermissionAndStart();
         } else {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
@@ -1322,84 +1324,104 @@ public final class OmrScanActivity extends ComponentActivity {
     }
 
     private void showNextParticipantDialog() {
+        waitingForNextName = true;
+        showVoiceNameDialog(true);
+    }
+
+    /** Collect participant names with offline Persian speech recognition; typing is not required. */
+    private void showVoiceNameDialog(boolean nextParticipant) {
         runOnUiThread(() -> {
             if (finished || isFinishing() || isDestroyed()) return;
-            EditText nameInput = new EditText(this);
-            nameInput.setSingleLine(true);
-            nameInput.setHint("نام شرکت‌کنندهٔ بعدی");
-            Button voiceButton = new Button(this);
-            voiceButton.setText("🎙 ثبت نام با صدا");
-            voiceButton.setAllCaps(false);
-            voiceButton.setTextColor(Color.WHITE);
-            voiceButton.setTextSize(18);
-            voiceButton.setTypeface(null, android.graphics.Typeface.BOLD);
-            voiceButton.setMinHeight(Math.round(58 * getResources().getDisplayMetrics().density));
-            voiceButton.setPadding(20, 12, 20, 12);
-            android.graphics.drawable.GradientDrawable voiceBackground =
-                    new android.graphics.drawable.GradientDrawable();
-            voiceBackground.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-            voiceBackground.setCornerRadius(1000f);
-            voiceBackground.setColor(Color.rgb(220, 38, 38));
-            voiceBackground.setStroke(Math.round(2 * getResources().getDisplayMetrics().density),
-                    Color.rgb(185, 28, 28));
-            voiceButton.setBackground(voiceBackground);
-            voiceButton.setElevation(Math.round(4 * getResources().getDisplayMetrics().density));
-            TextView voiceStatus = new TextView(this);
-            voiceStatus.setText("نام را تایپ کنید یا با صدا بگویید.");
+            waitingForNextName = true;
+            final String[] recognizedName = {""};
+            TextView nameStatus = new TextView(this);
+            nameStatus.setText("نام و نام خانوادگی را واضح و شمرده بگویید.");
+            nameStatus.setTextSize(18);
+            nameStatus.setGravity(Gravity.CENTER);
+            nameStatus.setPadding(12, 20, 12, 20);
+            Button listenButton = new Button(this);
+            listenButton.setText("🎙 گفتن نام شرکت‌کننده");
+            listenButton.setAllCaps(false);
+            Button retryButton = new Button(this);
+            retryButton.setText("تکرار دریافت نام");
+            retryButton.setAllCaps(false);
             LinearLayout content = new LinearLayout(this);
             content.setOrientation(LinearLayout.VERTICAL);
             content.setPadding(24, 8, 24, 4);
-            content.addView(nameInput, new LinearLayout.LayoutParams(-1, -2));
-            content.addView(voiceButton, new LinearLayout.LayoutParams(-1, -2));
-            content.addView(voiceStatus, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(nameStatus, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(listenButton, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(retryButton, new LinearLayout.LayoutParams(-1, -2));
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("آماده برای پاسخنامهٔ بعدی")
-                    .setMessage("برگهٔ قبلی کنار رفته است. نام نفر بعدی را ثبت کنید.")
+                    .setTitle(nextParticipant ? "ثبت شرکت‌کنندهٔ بعدی" : "ثبت نام شرکت‌کننده")
+                    .setMessage("نام را با صدای واضح بگویید؛ سپس نام تشخیص‌داده‌شده را تأیید کنید.")
                     .setView(content)
-                    .setPositiveButton("شروع اسکن بعدی", null)
+                    .setPositiveButton("تأیید نام و ادامه", null)
+                    .setNegativeButton("انصراف", (d, w) -> {
+                        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                        if (!nextParticipant) finish();
+                    })
                     .setCancelable(false)
                     .create();
-            voiceButton.setOnClickListener(v -> {
-                if (voiceRecognizer != null) voiceRecognizer.stop();
-                voiceRecognizer = new PersianVosk();
-                voiceButton.setEnabled(false);
-                voiceStatus.setText("گوش می‌دهم؛ نام را بگویید…");
-                voiceRecognizer.start(this, new PersianVosk.Callback() {
-                    @Override public void onText(String text) {
-                        runOnUiThread(() -> nameInput.setText(text));
-                        voiceButton.setEnabled(true);
-                        if (voiceRecognizer != null) voiceRecognizer.stop();
-                    }
-                    @Override public void onStatus(String status) {
-                        runOnUiThread(() -> {
-                            if (!isFinishing() && !isDestroyed()) voiceStatus.setText(status);
-                            if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
-                                    || status.startsWith("ضبط بدون دریافت گفتار")) voiceButton.setEnabled(true);
-                        });
-                    }
+
+            dialog.setOnShowListener(ignored -> {
+                Button confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                confirm.setEnabled(false);
+                Runnable listen = () -> {
+                    recognizedName[0] = "";
+                    confirm.setEnabled(false);
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    listenButton.setEnabled(false);
+                    nameStatus.setText("در حال آماده‌سازی تشخیص‌گر فارسی…");
+                    voiceRecognizer = new PersianVosk();
+                    voiceRecognizer.start(this, new PersianVosk.Callback() {
+                        @Override public void onText(String text) {
+                            runOnUiThread(() -> {
+                                String clean = text == null ? "" : text.trim()
+                                        .replace("‌", " ").replace('ي', 'ی').replace('ك', 'ک')
+                                        .replaceAll("[\\p{Punct}\\p{S}،؛؟!]", " ")
+                                        .replaceAll("\\s+", " ");
+                                if (!clean.isEmpty()) {
+                                    recognizedName[0] = clean;
+                                    nameStatus.setText("نام تشخیص‌داده‌شده:\n" + clean
+                                            + "\nاگر درست است «تأیید نام و ادامه» را بزنید؛ وگرنه دوباره تلاش کنید.");
+                                    confirm.setEnabled(true);
+                                } else {
+                                    nameStatus.setText("نام واضح تشخیص داده نشد؛ دوباره تلاش کنید.");
+                                }
+                                listenButton.setEnabled(true);
+                                if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                            });
+                        }
+                        @Override public void onStatus(String status) {
+                            runOnUiThread(() -> {
+                                if (dialog.isShowing() && !isFinishing() && !isDestroyed()) nameStatus.setText(status);
+                                if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
+                                        || status.startsWith("ضبط بدون دریافت گفتار")) listenButton.setEnabled(true);
+                            });
+                        }
+                    });
+                };
+                listenButton.setOnClickListener(v -> listen.run());
+                retryButton.setOnClickListener(v -> listen.run());
+                confirm.setOnClickListener(v -> {
+                    String name = recognizedName[0].trim();
+                    if (name.isEmpty()) return;
+                    participantName = name;
+                    getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                            .putString("pending_scan_participant", name).apply();
+                    if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
+                    waitingForNextName = false;
+                    sheetConsumed = false;
+                    voiceCaptureRequested = false;
+                    stableMarkerFrames = 0;
+                    missingMarkerFrames = 0;
+                    dialog.dismiss();
+                    ensureVoicePermissionAndStart();
+                    updateStatus("نام «" + participantName + "» ثبت شد؛ پاسخنامه را داخل کادر قرار دهید.");
                 });
             });
-            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                    .setOnClickListener(v -> {
-                        String nextName = nameInput.getText().toString().trim();
-                        if (nextName.isEmpty()) {
-                            nameInput.setError("نام شرکت‌کننده را وارد کنید.");
-                            return;
-                        }
-                        participantName = nextName;
-                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                                .putString("pending_scan_participant", nextName).apply();
-                        if (voiceRecognizer != null) { voiceRecognizer.stop(); voiceRecognizer = null; }
-                        waitingForNextName = false;
-                        sheetConsumed = false;
-                        voiceCaptureRequested = false;
-                        ensureVoicePermissionAndStart();
-                        stableMarkerFrames = 0;
-                        missingMarkerFrames = 0;
-                        dialog.dismiss();
-                        updateStatus("آمادهٔ اسکن پاسخنامهٔ " + participantName + ".");
-                    }));
             dialog.show();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         });
     }
 
@@ -1424,12 +1446,15 @@ public final class OmrScanActivity extends ComponentActivity {
         if (requestCode == CAMERA_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
+                if (participantName.trim().isEmpty()) showVoiceNameDialog(false);
+                else ensureVoicePermissionAndStart();
             } else {
                 updateStatus("برای اسکن پاسخنامه، اجازهٔ دسترسی به دوربین لازم است.");
             }
         } else if (requestCode == AUDIO_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startVoiceCaptureListener();
+                if (waitingForNextName) showVoiceNameDialog(!participantName.trim().isEmpty());
+                else startVoiceCaptureListener();
             } else {
                 updateStatus("برای گرفتن عکس با فرمان صوتی، اجازهٔ میکروفون لازم است.");
             }
