@@ -140,4 +140,23 @@ public class OMRAnswerClassifierTest {
             // Expected.
         }
     }
+
+
+    @Test
+    public void calibratedThresholdResolvesProvidedQuestionsOneThroughSix() {
+        double[][] samples = {
+                {0.40, 0.12, 0.12, 0.09}, // Q1 A
+                {0.25, 0.12, 0.14, 0.14}, // Q2 A
+                {0.13, 0.12, 0.19, 0.13}, // Q3 C
+                {0.12, 0.11, 0.17, 0.14}, // Q4 C
+                {0.13, 0.13, 0.14, 0.17}, // Q5 D
+                {0.11, 0.07, 0.27, 0.14}  // Q6 C
+        };
+        int[] expected = {0, 0, 2, 2, 3, 2};
+        for (int i = 0; i < samples.length; i++) {
+            OMRAnswerClassifier.Result result = classifier.classify(samples[i]);
+            assertEquals("Question " + (i + 1), OMRAnswerClassifier.Status.ANSWERED, result.status);
+            assertEquals("Question " + (i + 1), expected[i], result.optionIndex);
+        }
+    }
 }
