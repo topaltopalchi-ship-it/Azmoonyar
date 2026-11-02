@@ -9,7 +9,7 @@ public class ExamScorerTest {
         return new OMRAnswerClassifier().classify(scores);
     }
 
-    @Test public void scoresCorrectWrongBlankAndMultipleMarks() {
+    @Test public void closeDoubleMarksRemainUnscoredUntilReview() {
         ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(
                 classify(0.8, 0.1, 0.1, 0.1),
                 classify(0.1, 0.1, 0.8, 0.1),
@@ -17,16 +17,17 @@ public class ExamScorerTest {
                 classify(0.7, 0.1, 0.68, 0.1)), 1.0, 0.0, 0.0);
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
-        assertEquals(2, result.wrong);
+        assertEquals(1, result.wrong);
         assertEquals(1, result.blank);
-        assertEquals(1, result.multipleMarks);
-        assertTrue(result.isComplete());
-        assertEquals(25.0, result.percentage(), 0.001);
+        assertEquals(0, result.multipleMarks);
+        assertEquals(1, result.needsReview);
+        assertFalse(result.isComplete());
+        assertTrue(Double.isNaN(result.percentage()));
     }
 
     @Test public void reviewLeavesResultIncompleteAndPercentageUnavailable() {
         ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(
-                classify(0.40, 0.18, 0.12, 0.10)), 1.0, 0.0, 0.0);
+                classify(0.40, 0.30, 0.12, 0.10)), 1.0, 0.0, 0.0);
         assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
