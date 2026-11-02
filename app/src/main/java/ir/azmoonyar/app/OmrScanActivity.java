@@ -59,9 +59,6 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile boolean finished;
     private String participantName = "";
     private volatile int stableMarkerFrames;
-    private volatile int stableLightFrames;
-    private volatile double currentLightSpread = Double.POSITIVE_INFINITY;
-    private static final double READY_LIGHT_SPREAD = 14.0;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
     private volatile boolean sheetConsumed, waitingForNextName;
@@ -233,7 +230,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
                 return;
             }
-            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES || stableLightFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
                 updateStatus("چهار مربع گوشه هنوز پایدار نیستند؛ گوشی و برگه را ثابت نگه دارید تا پیام آمادگی ظاهر شود.");
                 return;
             }
@@ -477,15 +474,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     lastDiagnosticFrameSaved = diagnosticNow;
                 }
                 stableMarkerFrames++;
-                currentLightSpread = measureLightSpread(upright.pixels, upright.width, upright.height, transform);
-                if (currentLightSpread <= READY_LIGHT_SPREAD) stableLightFrames++; else stableLightFrames = 0;
                 missingMarkerFrames = 0;
                 // Capture is initiated only by the explicit on-screen button.
                 // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
-                stableLightFrames = 0;
-                currentLightSpread = Double.POSITIVE_INFINITY;
                 // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
                 // flow when the previous sheet leaves the camera. Keep the preview available
                 // so the operator can capture diagnostic screenshots without a dialog blocking it.
@@ -505,17 +498,17 @@ public final class OmrScanActivity extends ComponentActivity {
                             : (lastSheetResultMessage.isEmpty()
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
-                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES && stableLightFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
+                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
                     // Require a short run of consecutive valid frames before declaring readiness.
                     if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(true);
-                    message = "چهار مربع شناسایی شدند و نور مناسب است؛ کادر سبز شد. عکس بگیرید.";
+                    message = "چهار مربع گوشه پایدار شناسایی شدند؛ کادر سبز شد. عکس بگیرید.";
                 } else if (transform != null) {
                     if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "چهار مربع پیدا شدند؛ گوشی و برگه را ثابت نگه دارید…";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
-                    message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر و با نور یکنواخت نگه دارید.";
+                    message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر نگه دارید.";
                 } else {
                     if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "در حال جست‌وجوی مربع‌های گوشه… چهار گوشهٔ برگه را داخل تصویر نگه دارید.";
@@ -596,43 +589,6 @@ public final class OmrScanActivity extends ComponentActivity {
             lightGuideView.setTextColor(Color.rgb(71, 85, 105));
             lightGuideView.setBackgroundColor(Color.rgb(226, 232, 240));
         }
-    }
-
-    private double measureLightSpread(byte[] luma, int width, int height, SheetPerspectiveTransform transform) {
-        double pageW = transform.getPageWidth();
-        double pageH = transform.getPageHeight();
-        double[] brightness = new double[4];
-
-        for (int q = 0; q < 4; q++) {
-            int col = q % 2;
-            int row = q / 2;
-            double sum = 0;
-            int count = 0;
-
-            for (int gy = 0; gy < 5; gy++) {
-                for (int gx = 0; gx < 5; gx++) {
-                    double px = pageW * (col * 0.5 + 0.12 + gx * 0.07);
-                    double py = pageH * (row * 0.5 + 0.12 + gy * 0.07);
-                    SheetPerspectiveTransform.Point point = transform.toImage(px, py);
-                    int ix = (int) Math.round(point.x);
-                    int iy = (int) Math.round(point.y);
-
-                    if (ix >= 0 && iy >= 0 && ix < width && iy < height) {
-                        sum += luma[iy * width + ix] & 0xff;
-                        count++;
-                    }
-                }
-            }
-            brightness[q] = count > 0 ? sum / count : 0;
-        }
-
-        double min = brightness[0];
-        double max = brightness[0];
-        for (int i = 1; i < 4; i++) {
-            min = Math.min(min, brightness[i]);
-            max = Math.max(max, brightness[i]);
-        }
-        return max - min;
     }
 
     private static final class UprightLuma {
