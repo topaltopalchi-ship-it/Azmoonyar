@@ -23,20 +23,20 @@ public class OMRAnswerClassifierSensitivityTest {
     public void twoDarkOptionsAreNotGuessed() {
         OMRAnswerClassifier.Result result =
                 new OMRAnswerClassifier().classify(new double[]{0.62, 0.55, 0.03, 0.02});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
-    public void tenPercentagePointGapNeedsReview() {
+    public void twelvePercentagePointGapNeedsReview() {
         OMRAnswerClassifier.Result result =
                 new OMRAnswerClassifier().classify(new double[]{0.34, 0.24, 0.02, 0.01});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
-    public void gapGreaterThanTenPercentagePointsSelectsDarkestOption() {
+    public void gapGreaterThanTwelvePercentagePointsSelectsDarkestOption() {
         OMRAnswerClassifier.Result result =
-                new OMRAnswerClassifier().classify(new double[]{0.35, 0.24, 0.02, 0.01});
+                new OMRAnswerClassifier().classify(new double[]{0.37, 0.24, 0.02, 0.01});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
     }
