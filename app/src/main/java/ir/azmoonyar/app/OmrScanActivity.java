@@ -470,7 +470,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
         // Work on a half-resolution luma image. Accept both the legacy 3 mm
         // outlined marks and new 16 mm solid vector marks.
-        final int sample = 2;
+        // Coarser luma grid reduces connected-component work per camera frame;
+        // 16 mm registration marks remain large enough to localize accurately.
+        final int sample = 3;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
