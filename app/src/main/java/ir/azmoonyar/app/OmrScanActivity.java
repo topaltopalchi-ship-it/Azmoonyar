@@ -51,6 +51,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private PreviewView previewView;
     private ImageCapture imageCapture;
     private TextView statusView;
+    private TextView lightGuideView;
     private SheetGuideOverlay sheetGuideOverlay;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
@@ -177,6 +178,15 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setGravity(Gravity.CENTER);
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
+
+        lightGuideView = new TextView(this);
+        lightGuideView.setText("راهنمای یکنواختی نور: ابتدا برگه را کامل داخل کادر قرار دهید.");
+        lightGuideView.setTextColor(Color.rgb(71, 85, 105));
+        lightGuideView.setTextSize(14);
+        lightGuideView.setGravity(Gravity.CENTER);
+        lightGuideView.setPadding(14, 10, 14, 10);
+        lightGuideView.setBackgroundColor(Color.rgb(226, 232, 240));
+        page.addView(lightGuideView, new LinearLayout.LayoutParams(-1, -2));
 
         Button lightingButton = new Button(this);
         lightingButton.setTextSize(15);
@@ -504,11 +514,80 @@ public final class OmrScanActivity extends ComponentActivity {
                     message = "در حال جست‌وجوی مربع‌های گوشه… چهار گوشهٔ برگه را داخل تصویر نگه دارید.";
                 }
                 updateStatus(message);
+                if (transform != null && markerCount == 4 && lightGuideView != null) {
+                    updateLiveLightGuide(upright.pixels, upright.width, upright.height, transform);
+                } else if (lightGuideView != null) {
+                    lightGuideView.setText("راهنمای نور: چهار مربع گوشه باید شناسایی شوند.");
+                    lightGuideView.setTextColor(Color.rgb(71, 85, 105));
+                    lightGuideView.setBackgroundColor(Color.rgb(226, 232, 240));
+                }
             }
         } catch (RuntimeException ignored) {
             updateStatus("کیفیت تصویر کافی نیست؛ فاصله و نور را تنظیم کنید.");
         } finally {
             image.close();
+        }
+    }
+
+    /**
+     * Live heuristic lighting assessment. Samples multiple paper locations in
+     * each quadrant and recommends a small trial movement toward the brighter
+     * side; the user should verify that the measured spread decreases.
+     */
+    private void updateLiveLightGuide(byte[] luma, int width, int height,
+                                      SheetPerspectiveTransform transform) {
+        try {
+            double pageW = transform.getPageWidth(), pageH = transform.getPageHeight();
+            double[] brightness = new double[4];
+            // Four quarter-page areas; use a small grid and average luma.
+            for (int q = 0; q < 4; q++) {
+                int col = q % 2, row = q / 2;
+                double sum = 0; int n = 0;
+                for (int gy = 0; gy < 5; gy++) {
+                    for (int gx = 0; gx < 5; gx++) {
+                        double px = pageW * (col * 0.5 + 0.12 + gx * 0.07);
+                        double py = pageH * (row * 0.5 + 0.12 + gy * 0.07);
+                        SheetPerspectiveTransform.Point p = transform.toImage(px, py);
+                        int ix = (int) Math.round(p.x), iy = (int) Math.round(p.y);
+                        if (ix >= 0 && iy >= 0 && ix < width && iy < height) {
+                            sum += (luma[iy * width + ix] & 0xff); n++;
+                        }
+                    }
+                }
+                brightness[q] = n > 0 ? sum / n : 0;
+            }
+            double min = brightness[0], max = brightness[0], mean = 0;
+            int darkest = 0;
+            for (int i = 0; i < 4; i++) {
+                mean += brightness[i];
+                if (brightness[i] < min) { min = brightness[i]; darkest = i; }
+                if (brightness[i] > max) max = brightness[i];
+            }
+            mean /= 4.0;
+            double spread = max - min;
+            String text;
+            int color, bg;
+            if (spread <= 14.0) {
+                text = "نور یکنواخت است (" + Math.round(spread) + " واحد اختلاف). برگه را ثابت نگه دارید؛ آمادهٔ کالیبراسیون.";
+                color = Color.rgb(22, 101, 52); bg = Color.rgb(220, 252, 231);
+            } else if (spread <= 29.0) {
+                text = "اختلاف نور متوسط (" + Math.round(spread) + "). یک جابه‌جایی کوچک آزمایشی به سمت ";
+                color = Color.rgb(146, 64, 14); bg = Color.rgb(254, 243, 199);
+                text += (darkest == 0 ? "بالا-راست" : darkest == 1 ? "بالا-چپ" : darkest == 2 ? "پایین-چپ" : "پایین-راست")
+                        + " انجام دهید؛ سپس اختلاف را دوباره بسنجید.";
+            } else {
+                text = "سایه/اختلاف نور زیاد است (" + Math.round(spread) + "). برگه را کمی به سمت ";
+                color = Color.rgb(153, 27, 27); bg = Color.rgb(254, 226, 226);
+                text += (darkest == 0 ? "بالا-راست" : darkest == 1 ? "بالا-چپ" : darkest == 2 ? "پایین-چپ" : "پایین-راست")
+                        + " حرکت دهید یا منبع نور را تغییر دهید؛ دوباره اندازه‌گیری کنید.";
+            }
+            lightGuideView.setText(text);
+            lightGuideView.setTextColor(color);
+            lightGuideView.setBackgroundColor(bg);
+        } catch (RuntimeException ignored) {
+            lightGuideView.setText("راهنمای نور در این فریم قابل محاسبه نیست؛ برگه را صاف نگه دارید.");
+            lightGuideView.setTextColor(Color.rgb(71, 85, 105));
+            lightGuideView.setBackgroundColor(Color.rgb(226, 232, 240));
         }
     }
 
