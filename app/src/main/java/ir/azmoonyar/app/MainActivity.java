@@ -2342,6 +2342,14 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private String persianOcrStatus(String status) {
+        if ("ANSWERED".equals(status)) return "پاسخ ثبت‌شده";
+        if ("BLANK".equals(status)) return "سفید";
+        if ("MULTIPLE_MARKS".equals(status)) return "چند علامت";
+        if ("REVIEW".equals(status)) return "نیازمند بازبینی";
+        return status.isEmpty() ? "نامشخص" : status;
+    }
+
     private void showResultList(String title, JSONArray results, int first, int last) {
         StringBuilder message = new StringBuilder();
         for (int i = last; i >= first; i--) {
@@ -2353,7 +2361,29 @@ public class MainActivity extends Activity {
                 .append("\nدرست: ").append(result.optInt("correct", 0))
                 .append(" | غلط: ").append(result.optInt("wrong", 0))
                 .append(" | سفید: ").append(result.optInt("blank", 0))
-                .append("\n\n--------------------\n\n");
+                .append(" | نیازمند بازبینی: ").append(result.optInt("needsReview", 0))
+                .append("\nجزئیات تیرگی گزینه‌ها (A، B، C، D):");
+            JSONArray questionDetails = result.optJSONArray("questionDetails");
+            if (questionDetails == null || questionDetails.length() == 0) {
+                message.append("\nجزئیات عددی برای این نتیجهٔ قدیمی ذخیره نشده است.");
+            } else {
+                for (int q = 0; q < questionDetails.length(); q++) {
+                    JSONObject detail = questionDetails.optJSONObject(q);
+                    if (detail == null) continue;
+                    JSONArray scores = detail.optJSONArray("optionScores");
+                    message.append("\nسؤال ").append(detail.optInt("question", q + 1))
+                        .append(" — ").append(persianOcrStatus(detail.optString("status", "")))
+                        .append(" | کلید: ").append(detail.optString("correctOption", "—"))
+                        .append(" | انتخاب: ").append(detail.optString("selectedOption", "—"));
+                    if (scores != null && scores.length() == 4) {
+                        message.append("\n  A: ").append(String.format(Locale.US, "%.3f", scores.optDouble(0)))
+                            .append("  B: ").append(String.format(Locale.US, "%.3f", scores.optDouble(1)))
+                            .append("  C: ").append(String.format(Locale.US, "%.3f", scores.optDouble(2)))
+                            .append("  D: ").append(String.format(Locale.US, "%.3f", scores.optDouble(3)));
+                    }
+                }
+            }
+            message.append("\n\n--------------------\n\n");
         }
         ScrollView scroll = new ScrollView(this);
         TextView text = new TextView(this);
