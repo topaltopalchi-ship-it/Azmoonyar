@@ -10,6 +10,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import android.graphics.Color;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Bundle;
