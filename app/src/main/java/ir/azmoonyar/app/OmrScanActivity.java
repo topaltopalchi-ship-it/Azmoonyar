@@ -1207,8 +1207,9 @@ public final class OmrScanActivity extends ComponentActivity {
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
             TextView stats = new TextView(this);
             stats.setText(String.format(java.util.Locale.US,
-                    "نقشهٔ روشنایی برگهٔ خالی A4\\nمیانگین نور: %.0f/255\\nکمترین مقدار (سایه): %d\\nبیشترین مقدار (روشنایی): %d\\nآبی = تاریک/سایه  •  سبز و زرد = متوسط  •  قرمز = روشن",
-                    average, min, max));
+                    "نقشهٔ سایه/روشنایی و قابلیت کالیبراسیون A4\\nمیانگین نور: %.0f/255\\nکمترین نور (سایه): %d\\nبیشترین نور: %d",
+                    average, min, max) + "\\n" + zoneReport.toString()
+                    + "\\nسبز = مناسب • زرد = با احتیاط • قرمز = نامناسب");
             stats.setTextSize(14);
             stats.setPadding(16, 12, 16, 12);
             ScrollView scroll = new ScrollView(this);
