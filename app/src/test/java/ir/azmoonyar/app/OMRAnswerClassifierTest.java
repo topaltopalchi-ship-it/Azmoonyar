@@ -13,6 +13,7 @@ public class OMRAnswerClassifierTest {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.12, 0.81, 0.18, 0.10});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(1, result.optionIndex);
+        assertEquals(0.81, result.strongestScore, 0.000001);
     }
 
     @Test
