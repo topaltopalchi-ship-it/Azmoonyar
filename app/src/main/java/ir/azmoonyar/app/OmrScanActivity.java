@@ -172,12 +172,10 @@ public final class OmrScanActivity extends ComponentActivity {
         page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
-        statusView.setText("دوربین برای یافتن چهار مربع گوشه آماده می‌شود…");
-        statusView.setTextColor(Color.rgb(30, 41, 59));
-        statusView.setTextSize(16);
-        statusView.setGravity(Gravity.CENTER);
-        statusView.setPadding(16, 12, 16, 12);
-        page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
+        // Keep status updates internally for processing, but do not show the
+        // text status panel beneath the camera preview. Readiness is indicated
+        // solely by the A4 guide rectangle changing to green.
+        statusView = new TextView(this);
 
         lightGuideView = new TextView(this);
         lightGuideView.setText("راهنمای یکنواختی نور: ابتدا برگه را کامل داخل کادر قرار دهید.");
