@@ -584,19 +584,21 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int rotation = image.getImageInfo().getRotationDegrees();
             UprightLuma upright = rotateToUpright(luma, width, height, rotation);
-            long plainCalibrationNow = android.os.SystemClock.elapsedRealtime();
-            if (plainCalibrationNow - lastDiagnosticFrameSaved > 300) {
-                diagnosticLuma = upright.pixels.clone();
-                diagnosticWidth = upright.width;
-                diagnosticHeight = upright.height;
-                diagnosticTransform = null;
-                diagnosticMarkerPoints = null;
-                diagnosticCenters = null;
-                lastDiagnosticFrameSaved = plainCalibrationNow;
-            }
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
+            if (markerCount < 4) {
+                long plainCalibrationNow = android.os.SystemClock.elapsedRealtime();
+                if (plainCalibrationNow - lastDiagnosticFrameSaved > 300) {
+                    diagnosticLuma = upright.pixels.clone();
+                    diagnosticWidth = upright.width;
+                    diagnosticHeight = upright.height;
+                    diagnosticTransform = null;
+                    diagnosticMarkerPoints = null;
+                    diagnosticCenters = null;
+                    lastDiagnosticFrameSaved = plainCalibrationNow;
+                }
+            }
             SheetPerspectiveTransform transform = null;
             if (markerCount == 4) {
                 try {
