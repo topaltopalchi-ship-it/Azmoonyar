@@ -318,7 +318,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     for (int col = 0; col < columns; col++) {
                         double nx = 0.20 + 0.60 * (col + 0.5) / columns;
                         double ny = 0.16 + 0.68 * (row + 0.5) / rows;
-                        scores[index] = BubbleDarknessAnalyzer.score(luma, width, height,
+                        scores[index] = BubbleDarknessAnalyzer.paperSurfaceDarkness(luma, width, height,
                                 nx * width, ny * height, radius);
                         xs[index] = nx;
                         ys[index] = ny;
