@@ -41,11 +41,18 @@ public class OMRAnswerClassifierSensitivityTest {
     }
 
     @Test
-    public void gapGreaterThanFourteenPercentagePointsSelectsDarkestOption() {
+    public void gapOfTwentyOnePercentagePointsSelectsDarkestOption() {
         OMRAnswerClassifier.Result result =
-                new OMRAnswerClassifier().classify(new double[]{0.39, 0.24, 0.02, 0.01});
+                new OMRAnswerClassifier().classify(new double[]{0.46, 0.24, 0.02, 0.01});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void gapBelowTwentyPercentagePointsNeedsReview() {
+        OMRAnswerClassifier.Result result =
+                new OMRAnswerClassifier().classify(new double[]{0.43, 0.24, 0.02, 0.01});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
