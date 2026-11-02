@@ -2353,6 +2353,12 @@ public class MainActivity extends Activity {
                 .append("\nدرست: ").append(result.optInt("correct", 0))
                 .append(" | غلط: ").append(result.optInt("wrong", 0))
                 .append(" | سفید: ").append(result.optInt("blank", 0))
+                .append("\nشماره سؤال‌های صحیح و گزینه انتخابی: ")
+                .append(formatQuestionOptionDetails(result.optJSONArray("correctDetails")))
+                .append("\nشماره سؤال‌های غلط و گزینه انتخابی: ")
+                .append(formatQuestionOptionDetails(result.optJSONArray("wrongDetails")))
+                .append("\nشماره سؤال‌های سفید: ")
+                .append(formatQuestionNumbers(result.optJSONArray("blankQuestions")))
                 .append("\n\n--------------------\n\n");
         }
         ScrollView scroll = new ScrollView(this);
@@ -2366,6 +2372,29 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle(title).setView(scroll)
             .setPositiveButton("بستن", null)
             .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private String formatQuestionOptionDetails(JSONArray details) {
+        if (details == null || details.length() == 0) return "ندارد";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < details.length(); i++) {
+            JSONObject item = details.optJSONObject(i);
+            if (item == null) continue;
+            if (out.length() > 0) out.append("، ");
+            out.append("سؤال ").append(item.optInt("question", i + 1))
+                    .append(" → گزینه ").append(item.optString("selectedOption", "—"));
+        }
+        return out.length() == 0 ? "ندارد" : out.toString();
+    }
+
+    private String formatQuestionNumbers(JSONArray numbers) {
+        if (numbers == null || numbers.length() == 0) return "ندارد";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < numbers.length(); i++) {
+            if (out.length() > 0) out.append("، ");
+            out.append(numbers.optInt(i, i + 1));
+        }
+        return out.toString();
     }
 
     private void showParticipantAnalysis() {
