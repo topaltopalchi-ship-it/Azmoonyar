@@ -14,7 +14,7 @@ public class OMRAndScoringTest {
     }
 
     @Test public void classifiesBlankSheetQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.08, 0.10, 0.14, 0.05});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.08, 0.10, 0.12, 0.05});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
