@@ -271,8 +271,13 @@ public final class OmrScanActivity extends ComponentActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
-            if (participantName.trim().isEmpty()) showVoiceNameDialog(false);
-            else ensureVoicePermissionAndStart();
+            if (participantName.trim().isEmpty()) {
+                waitingForNextName = true;
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED) showVoiceNameDialog(false);
+                else ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+            } else ensureVoicePermissionAndStart();
         } else {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
@@ -1446,8 +1451,13 @@ public final class OmrScanActivity extends ComponentActivity {
         if (requestCode == CAMERA_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
-                if (participantName.trim().isEmpty()) showVoiceNameDialog(false);
-                else ensureVoicePermissionAndStart();
+                if (participantName.trim().isEmpty()) {
+                    waitingForNextName = true;
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) showVoiceNameDialog(false);
+                    else ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+                } else ensureVoicePermissionAndStart();
             } else {
                 updateStatus("برای اسکن پاسخنامه، اجازهٔ دسترسی به دوربین لازم است.");
             }
