@@ -1,7 +1,7 @@
 package ir.azmoonyar.app;
 
 /**
- * Altay 1 decision rules for four locally normalized bubble-darkness scores.
+ * Altay 3 decision rules for four locally normalized bubble-darkness scores.
  * Scores are in [0,1], where 0 is paper-white and larger values mean darker marks.
  */
 public final class OMRAnswerClassifier {
@@ -79,6 +79,10 @@ public final class OMRAnswerClassifier {
             return new Result(Status.BLANK, -1, 0, 0);
         }
         if (markedCount == 1) {
+            // A faint isolated mark is ambiguous, not a confident answer.
+            if (strongest < 0.20) {
+                return new Result(Status.REVIEW, -1, strongest, strongest);
+            }
             return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
         }
         if (markedCount >= 3) {
