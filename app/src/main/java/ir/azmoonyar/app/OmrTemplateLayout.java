@@ -25,9 +25,12 @@ public final class OmrTemplateLayout {
     private static final double COLUMNS_TOP_MM = 44.0;
     private static final double TABLE_HEADER_MM = 7.0;
     private static final double TABLE_ROW_MM = 8.3;
-    // Geometry below must exactly mirror printStandardAnswerSheets():
-    // .col has a 0.25 mm border and 1 mm padding; the table header is 7 mm
-    // and each answer row is 8.3 mm. These values mirror the print CSS exactly.
+
+    // Per-question vertical alignment adjustments (millimeters).
+    // Positive values move detection centers down; negative values move them up.
+    private static final double SHIFT_DOWN_MM = 1.5;
+    private static final double SHIFT_SLIGHTLY_UP_MM = -0.8;
+    private static final double SHIFT_UP_MM = -1.5;
 
     private OmrTemplateLayout() {}
 
@@ -52,9 +55,6 @@ public final class OmrTemplateLayout {
         double columnWidth = (PAGE_WIDTH_MM - 2 * PAGE_SIDE_PADDING_MM
                 - 3 * COLUMN_GAP_MM) / 4.0;
         double tableWidth = columnWidth - 2 * COLUMN_BORDER_MM - 2 * COLUMN_PADDING_MM;
-        // The printed HTML explicitly reserves 7 mm for the question number.
-        // The four answer cells share the remaining table width equally.
-        // Keep this formula in sync with the colgroup in MainActivity's print HTML.
         double printedOptionCellWidth = (tableWidth - NUMBER_COLUMN_MM) / OPTIONS_PER_QUESTION;
         double firstBubbleCenterY = COLUMNS_TOP_MM + COLUMN_BORDER_MM + COLUMN_VERTICAL_PADDING_MM
                 + TABLE_HEADER_MM + TABLE_ROW_MM / 2.0;
@@ -62,15 +62,36 @@ public final class OmrTemplateLayout {
         for (int question = 0; question < questionsOnPage; question++) {
             int column = question / QUESTIONS_PER_COLUMN;
             int row = question % QUESTIONS_PER_COLUMN;
+            int questionNumber = pageIndex * QUESTIONS_PER_PAGE + question + 1;
+            double yShift = verticalShiftForQuestion(questionNumber);
             double columnLeft = PAGE_SIDE_PADDING_MM + column * (columnWidth + COLUMN_GAP_MM);
             double tableLeft = columnLeft + COLUMN_BORDER_MM + COLUMN_PADDING_MM;
             for (int option = 0; option < OPTIONS_PER_QUESTION; option++) {
                 // Printed table is LTR: question number, then A, B, C, D.
                 centers[question][option][0] = tableLeft + NUMBER_COLUMN_MM
                         + (option + 0.5) * printedOptionCellWidth;
-                centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM;
+                centers[question][option][1] = firstBubbleCenterY + row * TABLE_ROW_MM + yShift;
             }
         }
         return centers;
+    }
+
+    private static double verticalShiftForQuestion(int questionNumber) {
+        if (questionNumber >= 26 && questionNumber <= 36) {
+            return SHIFT_DOWN_MM;
+        }
+        if (questionNumber >= 44 && questionNumber <= 50) {
+            return SHIFT_SLIGHTLY_UP_MM;
+        }
+        if (questionNumber >= 51 && questionNumber <= 59) {
+            return SHIFT_DOWN_MM;
+        }
+        if (questionNumber >= 68 && questionNumber <= 75) {
+            return SHIFT_UP_MM;
+        }
+        if (questionNumber >= 87 && questionNumber <= 100) {
+            return SHIFT_UP_MM;
+        }
+        return 0.0;
     }
 }
