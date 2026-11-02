@@ -34,4 +34,14 @@ public class OMRFrameScoreAggregatorTest {
         assertEquals(-1, result.get(0).classification.optionIndex);
     }
 
+    @Test public void laplacianSharpnessRejectsUniformSoftFrame() {
+        byte[] soft = new byte[64 * 64];
+        java.util.Arrays.fill(soft, (byte) 128);
+        byte[] sharp = new byte[64 * 64];
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
+            sharp[y * 64 + x] = (byte) (((x + y) & 1) == 0 ? 0 : 255);
+        assertEquals(0.0, OMRFrameQuality.laplacianVariance(soft, 64, 64), 0.0001);
+        assertTrue(OMRFrameQuality.laplacianVariance(sharp, 64, 64) > 24.0);
+    }
+
 }
