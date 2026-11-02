@@ -377,53 +377,6 @@ public final class OmrScanActivity extends ComponentActivity {
             xs = java.util.Arrays.copyOf(xs, index);
             ys = java.util.Arrays.copyOf(ys, index);
         }
-        for (double[][] question : centers) {
-            if (question == null || question.length != 4) continue;
-            count += 4;
-        }
-        if (count < 32) {
-            updateStatus("تعداد ناحیه‌های نمونه‌برداری برای کالیبراسیون کافی نیست.");
-            return;
-        }
-
-        double[] scores = new double[count];
-        double[] xs = new double[count];
-        double[] ys = new double[count];
-        int index = 0;
-        try {
-            for (double[][] question : centers) {
-                if (question == null || question.length != 4) continue;
-                for (double[] centerMm : question) {
-                    if (centerMm == null || centerMm.length != 2) continue;
-                    SheetPerspectiveTransform.Point center =
-                            transform.toImage(centerMm[0], centerMm[1]);
-                    SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                            Math.min(transform.getPageWidth(), centerMm[0] + 1.45), centerMm[1]);
-                    SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                            centerMm[0], Math.min(transform.getPageHeight(), centerMm[1] + 1.45));
-                    double radius = (Math.hypot(edgeX.x - center.x, edgeX.y - center.y)
-                            + Math.hypot(edgeY.x - center.x, edgeY.y - center.y)) * 0.5;
-                    scores[index] = BubbleDarknessAnalyzer.score(luma, width, height,
-                            center.x, center.y, radius);
-                    xs[index] = centerMm[0] / transform.getPageWidth();
-                    ys[index] = centerMm[1] / transform.getPageHeight();
-                    index++;
-                }
-            }
-        } catch (IllegalArgumentException badSample) {
-            updateStatus("نمونه‌برداری کامل نشد؛ برگه را صاف‌تر و کامل داخل کادر قرار دهید.");
-            return;
-        }
-        if (index < 32) {
-            updateStatus("نمونه‌های معتبر برای کالیبراسیون کافی نیستند.");
-            return;
-        }
-        if (index != count) {
-            scores = java.util.Arrays.copyOf(scores, index);
-            xs = java.util.Arrays.copyOf(xs, index);
-            ys = java.util.Arrays.copyOf(ys, index);
-        }
-
         final double[] measured = scores;
         final double[] pageX = xs;
         final double[] pageY = ys;
