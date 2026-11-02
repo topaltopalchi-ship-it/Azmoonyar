@@ -520,9 +520,13 @@ public final class OmrScanActivity extends ComponentActivity {
                     // encountered first; without this preference the transform can
                     // map a small mark as if it were the page corner, compressing all
                     // bubble coordinates and causing filled answers to read BLANK.
+                    // Strongly prefer the large primary registration marks (about 16 mm)
+                    // over the tiny auxiliary squares printed beside them (about 3 mm).
+                    // The auxiliary marks can be sharper at low resolution, so a small
+                    // shape/fill advantage must never outweigh a genuine primary marker.
                     double score = 2.0 - Math.abs(1.0 - aspect) * 1.4
                             + Math.min(1.0, fill) * 0.5
-                            + (newSize ? 0.9 : 0.0) - sizePenalty * 0.25;
+                            + (newSize ? 2.0 : 0.0) - sizePenalty * 0.25;
                     if (score > bestScore) {
                         bestScore = score;
                         bestSize = estimatedMm;
