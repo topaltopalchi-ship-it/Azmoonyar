@@ -29,9 +29,9 @@ public final class OMRAnswerClassifier {
     public OMRAnswerClassifier() {
         // Empirically calibrated against the provided photographed answer sheet:
         // filled bubbles scored >= 0.17; nearby blank bubbles scored <= 0.14.
-        // Use 0.16 to separate those observed distributions. Revalidate on other
+        // Use 0.15 to separate those observed distributions. Revalidate on other
         // printers, lighting, pencil types, and sheets before general deployment.
-        this(0.16, 0.20);
+        this(0.15, 0.20);
     }
 
     /** Compatibility constructor for callers that still supply the former blank threshold. */
