@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - version-altay
+      - altay-1
 
 permissions:
   contents: read
