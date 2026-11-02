@@ -25,17 +25,30 @@ public final class OMRSheetReader {
 
     private final OMRAnswerClassifier classifier;
     private final double calibrationOffset;
+    private final double[] regionalOffsets;
 
-    public OMRSheetReader() { this(new OMRAnswerClassifier(), 0.0); }
-    public OMRSheetReader(double offset) { this(new OMRAnswerClassifier(), offset); }
-    public OMRSheetReader(OMRAnswerClassifier classifier) { this(classifier, 0.0); }
+    public OMRSheetReader() { this(new OMRAnswerClassifier(), 0.0, null); }
+    public OMRSheetReader(double offset) { this(new OMRAnswerClassifier(), offset, null); }
+    public OMRSheetReader(double offset, double[] regionalOffsets) { this(new OMRAnswerClassifier(), offset, regionalOffsets); }
+    public OMRSheetReader(OMRAnswerClassifier classifier) { this(classifier, 0.0, null); }
 
-    public OMRSheetReader(OMRAnswerClassifier classifier, double offset) {
+    public OMRSheetReader(OMRAnswerClassifier classifier, double offset) { this(classifier, offset, null); }
+
+    public OMRSheetReader(OMRAnswerClassifier classifier, double offset, double[] regionalOffsets) {
         if (classifier == null) throw new IllegalArgumentException("طبقه‌بند پاسخ لازم است.");
         if (Double.isNaN(offset) || Double.isInfinite(offset) || offset < 0.0 || offset > 1.0)
             throw new IllegalArgumentException("اصلاح کالیبراسیون معتبر نیست.");
+        if (regionalOffsets != null && regionalOffsets.length != 4)
+            throw new IllegalArgumentException("چهار مقدار اصلاح منطقه‌ای لازم است.");
+        if (regionalOffsets != null) {
+            for (double value : regionalOffsets) {
+                if (Double.isNaN(value) || Double.isInfinite(value) || value < 0 || value > 0.12)
+                    throw new IllegalArgumentException("اصلاح منطقه‌ای معتبر نیست.");
+            }
+        }
         this.classifier = classifier;
         this.calibrationOffset = offset;
+        this.regionalOffsets = regionalOffsets == null ? null : regionalOffsets.clone();
     }
 
     /**
@@ -77,7 +90,10 @@ public final class OMRSheetReader {
                 double radiusPixels = (radiusX + radiusY) * 0.5;
                 double rawScore = BubbleDarknessAnalyzer.score(luminance,
                         imageWidth, imageHeight, center.x, center.y, radiusPixels);
-                scores[option] = Math.max(0.0, rawScore - calibrationOffset);
+                int region = (y / transform.getPageHeight() >= 0.5 ? 2 : 0)
+                        + (x / transform.getPageWidth() >= 0.5 ? 1 : 0);
+                double regionalOffset = regionalOffsets == null ? 0.0 : regionalOffsets[region];
+                scores[option] = Math.max(0.0, rawScore - calibrationOffset - regionalOffset);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
