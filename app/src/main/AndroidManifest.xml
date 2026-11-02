@@ -6,7 +6,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="Altay 1"
+        android:label="Altay 3"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
