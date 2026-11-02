@@ -967,6 +967,9 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("reviewQuestions", reviewQuestions);
             record.put("questionDetails", questionDetails);
             record.put("multipleMarks", score.multipleMarks);
+            record.put("needsReview", score.needsReview);
+            record.put("markThreshold", 0.12);
+            record.put("twoMarkGapThreshold", 0.20);
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
