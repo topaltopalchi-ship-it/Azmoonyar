@@ -1047,12 +1047,9 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Match the printed 5.2 x 4.1 mm bubble border-box closely.
-                    // 0.82 made the diagnostic rings visibly too small; keep only a
-                    // slight inset so the center alignment can be judged against the
-                    // actual printed border.
-                    rx = Math.max(2.0f, rx * 0.92f);
-                    ry = Math.max(2.0f, ry * 0.92f);
+                    // Use the measured 4.2 x 3.2 mm printed border-box directly.
+                    // The homography already accounts for scale and perspective;
+                    // applying another shrink factor would misrepresent alignment.
                     paint.setColor(bubbleOverlayColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
