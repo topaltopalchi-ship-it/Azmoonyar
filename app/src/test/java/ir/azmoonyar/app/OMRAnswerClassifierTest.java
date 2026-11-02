@@ -159,4 +159,15 @@ public class OMRAnswerClassifierTest {
             assertEquals("Question " + (i + 1), expected[i], result.optionIndex);
         }
     }
+
+
+    @Test
+    public void calibratedFloorBoundaryKeepsScoresAtOrBelowNoiseThresholdBlank() {
+        OMRAnswerClassifier.Result atNoiseFloor = classifier.classify(new double[]{0.15, 0.14, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, atNoiseFloor.status);
+
+        OMRAnswerClassifier.Result justAboveFloor = classifier.classify(new double[]{0.16, 0.14, 0.10, 0.08});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, justAboveFloor.status);
+        assertEquals(0, justAboveFloor.optionIndex);
+    }
 }
