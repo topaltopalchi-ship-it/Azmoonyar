@@ -32,6 +32,14 @@ public final class OMRAnswerClassifier {
         this(0.12, 0.20);
     }
 
+    /** Compatibility constructor for callers that still supply the former blank threshold. */
+    public OMRAnswerClassifier(double markThreshold, double blankThreshold, double twoMarkGap) {
+        this(markThreshold, twoMarkGap);
+        if (!finite(blankThreshold) || blankThreshold < 0 || blankThreshold > markThreshold) {
+            throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
+        }
+    }
+
     public OMRAnswerClassifier(double markThreshold, double twoMarkGap) {
         if (!finite(markThreshold) || markThreshold < 0 || markThreshold > 1
                 || !finite(twoMarkGap) || twoMarkGap < 0 || twoMarkGap > 1) {
