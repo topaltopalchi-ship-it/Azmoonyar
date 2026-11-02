@@ -923,6 +923,38 @@ public final class OmrScanActivity extends ComponentActivity {
                     wrongDetails.put(detail);
                 }
             }
+            JSONArray questionDetails = new JSONArray();
+            JSONArray correctQuestions = new JSONArray();
+            JSONArray blankQuestions = new JSONArray();
+            JSONArray reviewQuestions = new JSONArray();
+            for (int i = 0; i < questions.size(); i++) {
+                OMRSheetReader.QuestionResult question = questions.get(i);
+                OMRAnswerClassifier.Result answer = question.classification;
+                char expected = activeKey.charAt(i);
+                JSONObject detail = new JSONObject();
+                detail.put("question", i + 1);
+                detail.put("correctOption", String.valueOf(expected));
+                detail.put("status", answer.status.name());
+                detail.put("selectedOption", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        ? String.valueOf((char) ('A' + answer.optionIndex)) : "");
+                detail.put("isCorrect", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        && answer.optionIndex == expected - 'A');
+                detail.put("strongestScore", answer.strongestScore);
+                detail.put("margin", answer.margin);
+                JSONArray optionScores = new JSONArray();
+                for (double darkness : question.darkness) optionScores.put(darkness);
+                detail.put("optionScores", optionScores);
+                questionDetails.put(detail);
+
+                if (answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        && answer.optionIndex == expected - 'A') {
+                    correctQuestions.put(i + 1);
+                } else if (answer.status == OMRAnswerClassifier.Status.BLANK) {
+                    blankQuestions.put(i + 1);
+                } else if (answer.status == OMRAnswerClassifier.Status.REVIEW) {
+                    reviewQuestions.put(i + 1);
+                }
+            }
             record.put("score", score.percentage());
             record.put("earnedPoints", score.earnedPoints);
             record.put("correct", score.correct);
@@ -930,6 +962,10 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("wrongQuestions", wrongQuestions);
             record.put("wrongDetails", wrongDetails);
             record.put("blank", score.blank);
+            record.put("blankQuestions", blankQuestions);
+            record.put("correctQuestions", correctQuestions);
+            record.put("reviewQuestions", reviewQuestions);
+            record.put("questionDetails", questionDetails);
             record.put("multipleMarks", score.multipleMarks);
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
