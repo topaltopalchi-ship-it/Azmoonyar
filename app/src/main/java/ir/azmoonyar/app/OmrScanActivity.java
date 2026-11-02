@@ -323,6 +323,7 @@ public final class OmrScanActivity extends ComponentActivity {
             AutomaticRegionalCalibration.Result result =
                     AutomaticRegionalCalibration.evaluate(scores, xs, ys);
             if (!result.acceptable) {
+                showBlankSheetLightMap(luma, width, height);
                 new AlertDialog.Builder(this).setTitle("نور نامناسب")
                         .setMessage(String.format(java.util.Locale.US,
                                 "یکنواختی نور کافی نیست (کیفیت %.0f از 100). برگه را به سطح روشن‌تر و بدون سایه منتقل کنید و دوباره کالیبره کنید.",
@@ -336,6 +337,7 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("omr_regional_offsets", offsets.toString())
                     .putFloat("omr_regional_quality", (float) result.quality)
                     .putLong("omr_regional_saved_at", System.currentTimeMillis()).apply();
+            showBlankSheetLightMap(luma, width, height);
             new AlertDialog.Builder(this).setTitle("کالیبراسیون خودکار موفق")
                     .setMessage(String.format(java.util.Locale.US,
                             "کیفیت نور: %.0f از 100 — اصلاح موضعی چهار ناحیه ذخیره شد. علامت‌های مداد از معیار محلی جداگانه سنجیده می‌شوند.",
@@ -1113,6 +1115,70 @@ public final class OmrScanActivity extends ComponentActivity {
                     + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
+        }
+    }
+
+    /** Displays the captured blank A4 luminance as a false-color light/shadow map. */
+    private void showBlankSheetLightMap(byte[] luma, int width, int height) {
+        if (luma == null || width <= 0 || height <= 0
+                || (long) width * height > 12000000L) return;
+        try {
+            int maxSide = 900;
+            float scale = Math.min(1f, maxSide / (float) Math.max(width, height));
+            int outW = Math.max(1, Math.round(width * scale));
+            int outH = Math.max(1, Math.round(height * scale));
+            Bitmap map = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
+            int[] pixels = new int[outW * outH];
+            long sum = 0;
+            int min = 255, max = 0;
+            for (int y = 0; y < outH; y++) {
+                int sourceY = Math.min(height - 1, (int) (y / scale));
+                for (int x = 0; x < outW; x++) {
+                    int sourceX = Math.min(width - 1, (int) (x / scale));
+                    int gray = luma[sourceY * width + sourceX] & 0xff;
+                    sum += gray;
+                    min = Math.min(min, gray);
+                    max = Math.max(max, gray);
+                    // False-color luminance: dark/shadow=blue, mid=green/yellow, bright=red.
+                    int red, green, blue;
+                    if (gray < 128) {
+                        float t = gray / 128f;
+                        red = 0;
+                        green = Math.round(180 * t);
+                        blue = Math.round(255 * (1 - t) + 55);
+                    } else {
+                        float t = (gray - 128) / 127f;
+                        red = Math.round(255 * t + 40);
+                        green = Math.round(220 * (1 - t) + 35);
+                        blue = 0;
+                    }
+                    pixels[y * outW + x] = Color.rgb(Math.min(255, red),
+                            Math.min(255, green), Math.min(255, blue));
+                }
+            }
+            map.setPixels(pixels, 0, outW, 0, 0, outW, outH);
+            double average = sum / (double) pixels.length;
+            ImageView image = new ImageView(this);
+            image.setImageBitmap(map);
+            image.setAdjustViewBounds(true);
+            image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            TextView stats = new TextView(this);
+            stats.setText(String.format(java.util.Locale.US,
+                    "نقشهٔ روشنایی برگهٔ خالی A4\\nمیانگین نور: %.0f/255\\nکمترین مقدار (سایه): %d\\nبیشترین مقدار (روشنایی): %d\\nآبی = تاریک/سایه  •  سبز و زرد = متوسط  •  قرمز = روشن",
+                    average, min, max));
+            stats.setTextSize(14);
+            stats.setPadding(16, 12, 16, 12);
+            ScrollView scroll = new ScrollView(this);
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.addView(stats, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(image, new LinearLayout.LayoutParams(-1, -2));
+            scroll.addView(content);
+            new AlertDialog.Builder(this).setTitle("نمایش سایه و روشنی پاسخنامه")
+                    .setView(scroll).setPositiveButton("بستن", (dialog, which) -> image.setImageDrawable(null))
+                    .setOnCancelListener(dialog -> image.setImageDrawable(null)).show();
+        } catch (RuntimeException ignored) {
+            updateStatus("نمایش نقشهٔ نور انجام نشد؛ کالیبراسیون عددی همچنان بررسی شد.");
         }
     }
 
