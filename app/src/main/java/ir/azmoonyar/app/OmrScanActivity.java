@@ -1024,12 +1024,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The printed bubbles are ellipses (4.3 x 3.4 mm), not circles.
+            // The printed bubble border-box is an ellipse (5.2 x 4.1 mm), not a circle.
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.15;
-            final double halfBubbleHeightMm = 1.70;
+            final double halfBubbleWidthMm = 2.60;
+            final double halfBubbleHeightMm = 2.05;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -1047,7 +1047,7 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Match the printed 4.3 x 3.4 mm ellipse closely.
+                    // Match the printed 5.2 x 4.1 mm bubble border-box closely.
                     // 0.82 made the diagnostic rings visibly too small; keep only a
                     // slight inset so the center alignment can be judged against the
                     // actual printed border.
