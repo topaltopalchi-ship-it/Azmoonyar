@@ -50,6 +50,28 @@ public final class OMRAnswerClassifier {
     }
 
     public Result classify(double[] darkness) {
+        return classifyInternal(darkness, null);
+    }
+
+    /**
+     * Classifies using both local darkness and spatial ink coverage. A second
+     * dark score without ink-like interior coverage is treated as a shadow
+     * candidate; two independently ink-covered bubbles are never auto-selected.
+     */
+    public Result classify(double[] darkness, double[] inkCoverage) {
+        if (inkCoverage == null || inkCoverage.length != 4) {
+            throw new IllegalArgumentException("برای هر سؤال باید چهار نسبت پوشش جوهر ارائه شود.");
+        }
+        for (double coverage : inkCoverage) {
+            if (Double.isNaN(coverage) || Double.isInfinite(coverage)
+                    || coverage < 0 || coverage > 1) {
+                throw new IllegalArgumentException("نسبت پوشش جوهر باید بین صفر و یک باشد.");
+            }
+        }
+        return classifyInternal(darkness, inkCoverage);
+    }
+
+    private Result classifyInternal(double[] darkness, double[] inkCoverage) {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
         }
@@ -85,7 +107,31 @@ public final class OMRAnswerClassifier {
         if (strongest < markThreshold) {
             return new Result(Status.REVIEW, -1, 0, strongest);
         }
+        // A darkness peak without a spatially coherent ink footprint is not
+        // enough evidence for a pencil mark (common with cast shadows).
+        final double minimumInkCoverage = 0.025;
+        if (inkCoverage != null && inkCoverage[strongestIndex] < minimumInkCoverage) {
+            return new Result(Status.REVIEW, -1, 0, strongest);
+        }
         double runnerUp = Math.max(0, second);
+        int runnerIndex = -1;
+        for (int i = 0; i < scores.length; i++) {
+            if (i != strongestIndex && scores[i] == second) {
+                runnerIndex = i;
+                break;
+            }
+        }
+        if (inkCoverage != null && runnerIndex >= 0
+                && scores[runnerIndex] > markThreshold
+                && inkCoverage[runnerIndex] >= minimumInkCoverage) {
+            return new Result(Status.MULTIPLE_MARKS, -1, strongest - runnerUp, strongest);
+        }
+        if (inkCoverage != null && runnerIndex >= 0
+                && inkCoverage[runnerIndex] < minimumInkCoverage) {
+            // Discount the runner-up only when its spatial evidence looks like
+            // illumination, not a second filled bubble.
+            runnerUp = 0;
+        }
         double margin = strongest - runnerUp;
         if (tiedForStrongest) {
             return new Result(Status.REVIEW, -1, 0, strongest);
