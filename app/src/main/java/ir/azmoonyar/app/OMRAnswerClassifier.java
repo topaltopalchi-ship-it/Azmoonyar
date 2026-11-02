@@ -20,7 +20,7 @@ public final class OMRAnswerClassifier {
         /** Strongest normalized darkness score, unchanged from the input scale [0, 1]. */
         public final double strongestScore;
 
-        private Result(Status status, int optionIndex, double margin, double strongestScore) {
+        Result(Status status, int optionIndex, double margin, double strongestScore) {
             this.status = status;
             this.optionIndex = optionIndex;
             this.margin = margin;
