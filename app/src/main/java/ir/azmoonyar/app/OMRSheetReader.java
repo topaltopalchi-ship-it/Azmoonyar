@@ -15,7 +15,7 @@ public final class OMRSheetReader {
         public final double[] darkness;
         public final OMRAnswerClassifier.Result classification;
 
-        private QuestionResult(int questionIndex, double[] darkness,
+        public QuestionResult(int questionIndex, double[] darkness,
                                OMRAnswerClassifier.Result classification) {
             this.questionIndex = questionIndex;
             this.darkness = darkness.clone();
