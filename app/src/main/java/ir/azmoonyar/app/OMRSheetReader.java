@@ -58,6 +58,7 @@ public final class OMRSheetReader {
                 throw new IllegalArgumentException("هر سؤال باید چهار مختصات حباب داشته باشد.");
             }
             double[] scores = new double[4];
+            double[] inkCoverage = new double[4];
             for (int option = 0; option < 4; option++) {
                 if (centers[option] == null || centers[option].length != 2) {
                     throw new IllegalArgumentException("مختصات حباب باید شامل x و y باشد.");
@@ -71,10 +72,12 @@ public final class OMRSheetReader {
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
                 double radiusPixels = (radiusX + radiusY) * 0.5;
-                scores[option] = BubbleDarknessAnalyzer.score(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusPixels);
+                BubbleDarknessAnalyzer.Measurement measurement = BubbleDarknessAnalyzer.measure(
+                        luminance, imageWidth, imageHeight, center.x, center.y, radiusPixels);
+                scores[option] = measurement.darkness;
+                inkCoverage[option] = measurement.inkCoverage;
             }
-            results.add(new QuestionResult(q, scores, classifier.classify(scores)));
+            results.add(new QuestionResult(q, scores, classifier.classify(scores, inkCoverage)));
         }
         return Collections.unmodifiableList(results);
     }
