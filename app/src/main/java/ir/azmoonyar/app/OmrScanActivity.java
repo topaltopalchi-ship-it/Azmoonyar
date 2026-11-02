@@ -59,6 +59,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile boolean finished;
     private String participantName = "";
     private volatile int stableMarkerFrames;
+    private volatile int stableLightFrames;
+    private volatile double currentLightSpread = Double.POSITIVE_INFINITY;
+    private static final double READY_LIGHT_SPREAD = 14.0;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
     private volatile boolean sheetConsumed, waitingForNextName;
@@ -230,7 +233,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
                 return;
             }
-            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES || stableLightFrames < REQUIRED_STABLE_MARKER_FRAMES) {
                 updateStatus("چهار مربع گوشه هنوز پایدار نیستند؛ گوشی و برگه را ثابت نگه دارید تا پیام آمادگی ظاهر شود.");
                 return;
             }
@@ -474,11 +477,15 @@ public final class OmrScanActivity extends ComponentActivity {
                     lastDiagnosticFrameSaved = diagnosticNow;
                 }
                 stableMarkerFrames++;
+                currentLightSpread = measureLightSpread(upright.pixels, upright.width, upright.height, transform);
+                if (currentLightSpread <= READY_LIGHT_SPREAD) stableLightFrames++; else stableLightFrames = 0;
                 missingMarkerFrames = 0;
                 // Capture is initiated only by the explicit on-screen button.
                 // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
+                stableLightFrames = 0;
+                currentLightSpread = Double.POSITIVE_INFINITY;
                 // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
                 // flow when the previous sheet leaves the camera. Keep the preview available
                 // so the operator can capture diagnostic screenshots without a dialog blocking it.
@@ -498,10 +505,10 @@ public final class OmrScanActivity extends ComponentActivity {
                             : (lastSheetResultMessage.isEmpty()
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
-                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
+                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES && stableLightFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
                     // Require a short run of consecutive valid frames before declaring readiness.
                     if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(true);
-                    message = "چهار مربع پیدا شدند؛ کادر سبز شد. همین حالا عکس بگیرید.";
+                    message = "چهار مربع شناسایی شدند و نور مناسب است؛ کادر سبز شد. عکس بگیرید.";
                 } else if (transform != null) {
                     if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "چهار مربع پیدا شدند؛ گوشی و برگه را ثابت نگه دارید…";
@@ -591,7 +598,7 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
-    private static final class UprightLuma {
+    private double measureLightSpread(byte[] luma, int width, int height, SheetPerspectiveTransform transform) {\n        double pageW=transform.getPageWidth(), pageH=transform.getPageHeight(); double[] b=new double[4];\n        for(int q=0;q<4;q++){ int col=q%2,row=q/2; double sum=0; int n=0;\n          for(int gy=0;gy<5;gy++) for(int gx=0;gx<5;gx++){ double px=pageW*(col*0.5+0.12+gx*0.07), py=pageH*(row*0.5+0.12+gy*0.07);\n            SheetPerspectiveTransform.Point p=transform.toImage(px,py); int ix=(int)Math.round(p.x),iy=(int)Math.round(p.y);\n            if(ix>=0&&iy>=0&&ix<width&&iy<height){sum+=luma[iy*width+ix]&0xff;n++;}} b[q]=n>0?sum/n:0;}\n        double min=b[0],max=b[0]; for(int i=1;i<4;i++){min=Math.min(min,b[i]);max=Math.max(max,b[i]);} return max-min;\n    }\n\n    private static final class UprightLuma {
         final byte[] pixels; final int width; final int height;
         UprightLuma(byte[] pixels, int width, int height) {
             this.pixels = pixels; this.width = width; this.height = height;
