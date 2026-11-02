@@ -1015,7 +1015,7 @@ public final class OmrScanActivity extends ComponentActivity {
             java.util.List<OMRFrameScoreAggregator.AggregatedQuestion> aggregated, int frameCount) {
         // Activity may be destroyed while a burst is being decoded on the camera executor.
         // Never persist grading results or calibration data after leaving this screen.
-        if (finished || isFinishing()) return;
+        if (!isScanSessionActive()) return;
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
@@ -1087,6 +1087,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 samples.put(sample);
                 // Bound local storage; keep the 20 most recent calibration samples.
                 while (samples.length() > 20) samples.remove(0);
+                if (!isScanSessionActive()) return;
                 prefs.edit().putString("omr_calibration_samples", samples.toString()).apply();
             } catch (Exception calibrationError) {
                 android.util.Log.e("AzmoonyarOMR", "Could not save calibration sample", calibrationError);
@@ -1125,6 +1126,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
                 pending.put("questions", questionStates);
                 queue.put(pending);
+                if (!isScanSessionActive()) return;
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
                 updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
                         + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
@@ -1166,6 +1168,7 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
+            if (!isScanSessionActive()) return;
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
@@ -1398,6 +1401,10 @@ public final class OmrScanActivity extends ComponentActivity {
                     }));
             dialog.show();
         });
+    }
+
+    private boolean isScanSessionActive() {
+        return !finished && !isFinishing() && !isDestroyed();
     }
 
     private void updateSheetResultStatus(String message) {
