@@ -341,6 +341,10 @@ public final class OmrScanActivity extends ComponentActivity {
                             "کیفیت نور: %.0f از 100 — اصلاح موضعی چهار ناحیه ذخیره شد. علامت‌های مداد از معیار محلی جداگانه سنجیده می‌شوند.",
                             result.quality))
                     .setPositiveButton("بستن", null).show();
+        } catch (org.json.JSONException jsonError) {
+            new AlertDialog.Builder(this).setTitle("ذخیرهٔ کالیبراسیون ناموفق")
+                    .setMessage("ذخیرهٔ تنظیمات اصلاح نور انجام نشد؛ دوباره تلاش کنید.")
+                    .setPositiveButton("متوجه شدم", null).show();
         } catch (IllegalArgumentException badSample) {
             new AlertDialog.Builder(this).setTitle("کالیبراسیون انجام نشد")
                     .setMessage("نمونه‌برداری کامل نبود. پاسخنامه را صاف و بدون پوشش داخل کادر قرار دهید.")
