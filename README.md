@@ -42,3 +42,6 @@
 
 
 Release build from the exact version-altay baseline requested for restoration.
+
+
+Build Altay faster corner scanning with coarse luma sampling.
