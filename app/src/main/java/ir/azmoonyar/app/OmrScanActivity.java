@@ -1329,6 +1329,19 @@ public final class OmrScanActivity extends ComponentActivity {
         });
     }
 
+    private String formatQuestionOptions(JSONArray details) {
+        if (details == null || details.length() == 0) return "ندارد";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < details.length(); i++) {
+            JSONObject item = details.optJSONObject(i);
+            if (item == null) continue;
+            if (out.length() > 0) out.append("، ");
+            out.append("سؤال ").append(item.optInt("question", i + 1))
+                    .append(" گزینه ").append(item.optString("selectedOption", "—"));
+        }
+        return out.length() == 0 ? "ندارد" : out.toString();
+    }
+
     private void updateSheetResultStatus(String message) {
         lastSheetResultMessage = message;
         updateStatus(message);
