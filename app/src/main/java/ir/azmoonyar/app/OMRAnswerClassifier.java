@@ -17,7 +17,7 @@ public final class OMRAnswerClassifier {
         public final int optionIndex;
         /** Difference between strongest and second-strongest bubble scores. */
         public final double margin;
-        /** Strongest normalized darkness score. */
+        /** Strongest normalized darkness score, unchanged from the input scale [0, 1]. */
         public final double strongestScore;
 
         private Result(Status status, int optionIndex, double margin, double strongestScore) {
@@ -89,7 +89,7 @@ public final class OMRAnswerClassifier {
         double runnerUp = Math.max(0, second);
         double margin = strongest - runnerUp;
         if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+            return new Result(Status.REVIEW, -1, 0, strongest);
         }
 
         // A single option is accepted only when it exceeds EACH of the other
@@ -97,11 +97,9 @@ public final class OMRAnswerClassifier {
         // is the highest of the remaining three, this is strongest - second > 0.12.
         // Every smaller/equal gap goes to the human review queue (never auto-graded).
         if (margin <= minimumMargin) {
-            return new Result(Status.REVIEW, -1, margin,
-                    Math.min(1.0, strongest * 2.0));
+            return new Result(Status.REVIEW, -1, margin, strongest);
         }
 
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
     }
 }
