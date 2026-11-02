@@ -479,8 +479,11 @@ public final class OmrScanActivity extends ComponentActivity {
         // Search a wider outer corner window so perspective/margins do not put
         // the printed registration squares outside the detector's search area.
         // Opposite windows remain separated, avoiding duplicate corner matches.
-        final int cornerW = Math.max(12, (int) Math.round(gw * 0.40));
-        final int cornerH = Math.max(12, (int) Math.round(gh * 0.40));
+        // Wider corner search zones tolerate a sheet/camera held at a modest
+        // diagonal angle. Keep opposite zones separated so a single marker is
+        // not considered for two corners.
+        final int cornerW = Math.max(12, (int) Math.round(gw * 0.48));
+        final int cornerH = Math.max(12, (int) Math.round(gh * 0.48));
         final int rightStart = gw - cornerW;
         final int bottomStart = gh - cornerH;
         final int[][] regions = {
