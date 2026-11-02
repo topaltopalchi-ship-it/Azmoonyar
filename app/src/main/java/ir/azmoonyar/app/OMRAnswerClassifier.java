@@ -1,12 +1,8 @@
 package ir.azmoonyar.app;
 
 /**
- * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
- *
- * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
- * and 1 is fully dark. Geometry detection, perspective correction, local background
- * normalization and image-quality checks must happen before calling this class.
- * Weak or ambiguous evidence is sent for review instead of guessed.
+ * Altay 1 decision rules for four locally normalized bubble-darkness scores.
+ * Scores are in [0,1], where 0 is paper-white and larger values mean darker marks.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
@@ -15,9 +11,8 @@ public final class OMRAnswerClassifier {
         public final Status status;
         /** Zero-based option index for ANSWERED, otherwise -1. */
         public final int optionIndex;
-        /** Difference between strongest and second-strongest bubble scores. */
+        /** Difference between the strongest and second strongest marked options. */
         public final double margin;
-        /** Strongest normalized darkness score, unchanged from the input scale [0, 1]. */
         public final double strongestScore;
 
         private Result(Status status, int optionIndex, double margin, double strongestScore) {
@@ -29,76 +24,67 @@ public final class OMRAnswerClassifier {
     }
 
     private final double markThreshold;
-    private final double blankThreshold;
-    private final double minimumMargin;
+    private final double twoMarkGap;
 
     public OMRAnswerClassifier() {
-        // Treat scores above 0.12 as visible marks. A response is accepted only
-        // when the darkest option exceeds the next-darkest option by MORE than 0.14.
-        // Scores at or below 0.12 are blank; only scores above 0.12 count as visible marks.
-        this(0.12, 0.12, 0.14);
+        // A mark is non-zero measurable darkness above the calibrated noise floor.
+        // 0.20 represents the requested 20-point gap on the normalized [0,1] scale.
+        this(0.12, 0.20);
     }
 
-    public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
-        if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1) {
+    public OMRAnswerClassifier(double markThreshold, double twoMarkGap) {
+        if (!finite(markThreshold) || markThreshold < 0 || markThreshold > 1
+                || !finite(twoMarkGap) || twoMarkGap < 0 || twoMarkGap > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
-        this.blankThreshold = blankThreshold;
-        this.minimumMargin = minimumMargin;
+        this.twoMarkGap = twoMarkGap;
     }
 
     public Result classify(double[] darkness) {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
         }
-        double[] scores = darkness.clone();
-        for (double score : scores) {
-            if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
+
+        int markedCount = 0;
+        int strongestIndex = -1;
+        double strongest = -1;
+        double second = -1;
+        for (int i = 0; i < darkness.length; i++) {
+            double score = darkness[i];
+            if (!finite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
-        }
-
-        int strongestIndex = 0;
-        double strongest = scores[0];
-        double second = -1;
-        boolean tiedForStrongest = false;
-        for (int i = 1; i < scores.length; i++) {
-            if (scores[i] > strongest) {
-                second = strongest;
-                strongest = scores[i];
-                strongestIndex = i;
-                tiedForStrongest = false;
-            } else if (scores[i] == strongest) {
-                second = strongest;
-                tiedForStrongest = true;
-            } else if (scores[i] > second) {
-                second = scores[i];
+            if (score > markThreshold) {
+                markedCount++;
+                if (score > strongest) {
+                    second = strongest;
+                    strongest = score;
+                    strongestIndex = i;
+                } else if (score > second) {
+                    second = score;
+                }
             }
         }
 
-        // Respect the calibrated blank and faint-mark bands before comparing options.
-        if (strongest <= blankThreshold) {
-            return new Result(Status.BLANK, -1, 0, strongest);
+        if (markedCount == 0) {
+            return new Result(Status.BLANK, -1, 0, 0);
         }
-        if (strongest < markThreshold) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
+        if (markedCount == 1) {
+            return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
         }
-        double runnerUp = Math.max(0, second);
-        double margin = strongest - runnerUp;
-        if (tiedForStrongest) {
+        if (markedCount >= 3) {
             return new Result(Status.REVIEW, -1, 0, strongest);
         }
 
-        // A single option is accepted only when it exceeds EACH of the other
-        // three options by strictly more than 14 percentage points. Since second
-        // is the highest of the remaining three, this is strongest - second > 0.14.
-        // Every smaller/equal gap goes to the human review queue (never auto-graded).
-        if (margin <= minimumMargin) {
-            return new Result(Status.REVIEW, -1, margin, strongest);
+        double gap = strongest - second;
+        if (gap >= twoMarkGap) {
+            return new Result(Status.ANSWERED, strongestIndex, gap, strongest);
         }
+        return new Result(Status.REVIEW, -1, gap, strongest);
+    }
 
-        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
+    private static boolean finite(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value);
     }
 }
