@@ -34,6 +34,17 @@ public class OMRFrameScoreAggregatorTest {
         assertEquals(-1, result.get(0).classification.optionIndex);
     }
 
+    @Test public void rejectsMissingFrameClassification() {
+        java.util.List<OMRSheetReader.QuestionResult> frame = java.util.Arrays.asList(
+                new OMRSheetReader.QuestionResult(0, new double[]{0.8, 0.1, 0.1, 0.1}, null));
+        try {
+            OMRFrameScoreAggregator.aggregate(java.util.Arrays.asList(frame), new OMRAnswerClassifier());
+            fail("Expected inconsistent frame result to be rejected");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("inconsistent"));
+        }
+    }
+
     @Test public void laplacianSharpnessRejectsUniformSoftFrame() {
         byte[] soft = new byte[64 * 64];
         java.util.Arrays.fill(soft, (byte) 128);
