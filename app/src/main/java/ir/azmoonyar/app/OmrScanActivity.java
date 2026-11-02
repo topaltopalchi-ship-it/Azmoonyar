@@ -591,8 +591,12 @@ public final class OmrScanActivity extends ComponentActivity {
             double meanVertical = (left + right) * 0.5;
             double expectedMarkerPixels = markerSizeMm * gw / 210.0;
             double spacingInMarkerWidths = meanHorizontal / Math.max(1.0, expectedMarkerPixels);
-            boolean sidesConsistent = ratio(top, bottom) < 2.2
-                    && ratio(left, right) < 2.2;
+            // The two photos supplied for calibration showed that a very loose
+            // 2.2 side-ratio gate can accept a wrong corner candidate. Require
+            // opposing edges to agree within 10%; otherwise keep the guide amber
+            // and refuse scoring rather than place every bubble at a biased point.
+            boolean sidesConsistent = ratio(top, bottom) <= 1.10
+                    && ratio(left, right) <= 1.10;
 
             // THIRD CRITERION: validate both diagonals as a second independent
             // geometry check. For the primary marks, the canonical center-to-center
@@ -605,7 +609,7 @@ public final class OmrScanActivity extends ComponentActivity {
             double diagonal23 = distance(points[1], points[3]);
             double meanDiagonal = (diagonal14 + diagonal23) * 0.5;
             double expectedDiagonal = Math.hypot(meanHorizontal, meanVertical);
-            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.45;
+            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.20;
             boolean diagonalsMatchSideScale = expectedDiagonal > 0
                     && meanDiagonal / expectedDiagonal >= 0.70
                     && meanDiagonal / expectedDiagonal <= 1.35;
