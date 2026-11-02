@@ -598,7 +598,44 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
-    private double measureLightSpread(byte[] luma, int width, int height, SheetPerspectiveTransform transform) {\n        double pageW=transform.getPageWidth(), pageH=transform.getPageHeight(); double[] b=new double[4];\n        for(int q=0;q<4;q++){ int col=q%2,row=q/2; double sum=0; int n=0;\n          for(int gy=0;gy<5;gy++) for(int gx=0;gx<5;gx++){ double px=pageW*(col*0.5+0.12+gx*0.07), py=pageH*(row*0.5+0.12+gy*0.07);\n            SheetPerspectiveTransform.Point p=transform.toImage(px,py); int ix=(int)Math.round(p.x),iy=(int)Math.round(p.y);\n            if(ix>=0&&iy>=0&&ix<width&&iy<height){sum+=luma[iy*width+ix]&0xff;n++;}} b[q]=n>0?sum/n:0;}\n        double min=b[0],max=b[0]; for(int i=1;i<4;i++){min=Math.min(min,b[i]);max=Math.max(max,b[i]);} return max-min;\n    }\n\n    private static final class UprightLuma {
+    private double measureLightSpread(byte[] luma, int width, int height, SheetPerspectiveTransform transform) {
+        double pageW = transform.getPageWidth();
+        double pageH = transform.getPageHeight();
+        double[] brightness = new double[4];
+
+        for (int q = 0; q < 4; q++) {
+            int col = q % 2;
+            int row = q / 2;
+            double sum = 0;
+            int count = 0;
+
+            for (int gy = 0; gy < 5; gy++) {
+                for (int gx = 0; gx < 5; gx++) {
+                    double px = pageW * (col * 0.5 + 0.12 + gx * 0.07);
+                    double py = pageH * (row * 0.5 + 0.12 + gy * 0.07);
+                    SheetPerspectiveTransform.Point point = transform.toImage(px, py);
+                    int ix = (int) Math.round(point.x);
+                    int iy = (int) Math.round(point.y);
+
+                    if (ix >= 0 && iy >= 0 && ix < width && iy < height) {
+                        sum += luma[iy * width + ix] & 0xff;
+                        count++;
+                    }
+                }
+            }
+            brightness[q] = count > 0 ? sum / count : 0;
+        }
+
+        double min = brightness[0];
+        double max = brightness[0];
+        for (int i = 1; i < 4; i++) {
+            min = Math.min(min, brightness[i]);
+            max = Math.max(max, brightness[i]);
+        }
+        return max - min;
+    }
+
+    private static final class UprightLuma {
         final byte[] pixels; final int width; final int height;
         UprightLuma(byte[] pixels, int width, int height) {
             this.pixels = pixels; this.width = width; this.height = height;
