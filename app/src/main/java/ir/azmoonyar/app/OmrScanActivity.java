@@ -1024,12 +1024,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The printed bubble border-box is an ellipse (5.2 x 4.1 mm), not a circle.
+            // The printed bubble border-box is an ellipse (4.2 x 3.2 mm), not a circle.
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.60;
-            final double halfBubbleHeightMm = 2.05;
+            final double halfBubbleWidthMm = 2.10;
+            final double halfBubbleHeightMm = 1.60;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
