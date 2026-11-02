@@ -35,13 +35,13 @@ public final class OMRAnswerClassifier {
     public OMRAnswerClassifier() {
         // Treat scores above 0.12 as visible marks. A response is accepted only
         // when the darkest option exceeds the next-darkest option by MORE than 0.14.
-        // Scores at or below 0.10 are blank; weak or close marks go to review.
-        this(0.12, 0.10, 0.14);
+        // Scores at or below 0.12 are blank; only scores above 0.12 count as visible marks.
+        this(0.12, 0.12, 0.14);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
+                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
