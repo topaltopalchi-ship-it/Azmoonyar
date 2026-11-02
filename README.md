@@ -39,3 +39,6 @@
 
 
 <!-- Fresh release build requested on 2026-10-28. -->
+
+
+Altay Noor scanner lighting controls update.
