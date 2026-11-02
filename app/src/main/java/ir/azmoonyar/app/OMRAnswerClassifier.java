@@ -27,9 +27,11 @@ public final class OMRAnswerClassifier {
     private final double twoMarkGap;
 
     public OMRAnswerClassifier() {
-        // A mark is non-zero measurable darkness above the calibrated noise floor.
-        // 0.20 represents the requested 20-point gap on the normalized [0,1] scale.
-        this(0.12, 0.20);
+        // Empirically calibrated against the provided photographed answer sheet:
+        // filled bubbles scored >= 0.17; nearby blank bubbles scored <= 0.14.
+        // Use 0.16 to separate those observed distributions. Revalidate on other
+        // printers, lighting, pencil types, and sheets before general deployment.
+        this(0.16, 0.20);
     }
 
     /** Compatibility constructor for callers that still supply the former blank threshold. */
@@ -80,7 +82,7 @@ public final class OMRAnswerClassifier {
         }
         if (markedCount == 1) {
             // A faint isolated mark is ambiguous, not a confident answer.
-            if (strongest < 0.20) {
+            if (strongest < 0.16) {
                 return new Result(Status.REVIEW, -1, strongest, strongest);
             }
             return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
