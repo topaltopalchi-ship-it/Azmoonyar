@@ -657,6 +657,28 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-1, -2);
         countParams.topMargin = dp(6); content.addView(count, countParams);
 
+        TextView identityLabel = new TextView(this);
+        identityLabel.setText("روش شناسایی در پاسخنامه");
+        identityLabel.setTextSize(16);
+        identityLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        identityLabel.setTextColor(Color.rgb(7, 40, 130));
+        LinearLayout.LayoutParams identityLabelParams = new LinearLayout.LayoutParams(-1, -2);
+        identityLabelParams.topMargin = dp(10);
+        content.addView(identityLabel, identityLabelParams);
+        RadioGroup identityMode = new RadioGroup(this);
+        identityMode.setOrientation(RadioGroup.VERTICAL);
+        RadioButton qrMode = new RadioButton(this);
+        qrMode.setText("با QR اختصاصی شرکت‌کننده");
+        qrMode.setTag("qr");
+        RadioButton manualMode = new RadioButton(this);
+        manualMode.setText("بدون بارکد — ورود دستی نام");
+        manualMode.setTag("manual");
+        identityMode.addView(qrMode);
+        identityMode.addView(manualMode);
+        String savedIdentityMode = prefs.getString("exam_identity_mode", "manual");
+        (savedIdentityMode.equals("qr") ? qrMode : manualMode).setChecked(true);
+        content.addView(identityMode);
+
         Button save = new Button(this); save.setText("ذخیره"); stylePinkOvalButton(save);
         Button students = new Button(this); students.setText("ثبت‌نام شرکت‌کنندگان"); stylePinkOvalButton(students);
         Button cancel = new Button(this); cancel.setText("انصراف"); stylePinkOvalButton(cancel);
@@ -676,7 +698,12 @@ public class MainActivity extends Activity {
             }
             String old = key(); StringBuilder nk = new StringBuilder();
             for (int i = 0; i < c; i++) nk.append(i < old.length() ? old.charAt(i) : '-');
+            int checkedIdentity = identityMode.getCheckedRadioButtonId();
+            if (checkedIdentity == -1) { info("روش شناسایی شرکت‌کننده را انتخاب کن."); return; }
+            RadioButton identitySelected = identityMode.findViewById(checkedIdentity);
+            String identityModeValue = String.valueOf(identitySelected.getTag());
             prefs.edit().putString("exam_name", n).putInt("question_count", c)
+                    .putString("exam_identity_mode", identityModeValue)
                     .putString("answer_key", nk.toString()).apply();
             refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
         });
