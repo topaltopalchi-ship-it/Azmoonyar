@@ -1138,6 +1138,7 @@ public class MainActivity extends Activity {
                         html.append("</tbody></table></div>");
                     }
                     html.append("</div></section>");
+                    }
                 }
                 // Save an immutable grading snapshot for this exact printed batch and model.
                 // Save the exact answer key and question order for this printed batch/model.
