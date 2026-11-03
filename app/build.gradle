@@ -50,8 +50,6 @@ dependencies {
     implementation 'androidx.camera:camera-view:1.4.1'
 
     // Offline Persian speech recognition with Vosk; model files are downloaded once to app storage.
-    // Tesseract Persian OCR for participant names written on the answer sheet.
-    implementation 'com.rmtheis:tess-two:9.1.0'
     implementation 'com.alphacephei:vosk-android:0.3.75@aar'
     implementation 'net.java.dev.jna:jna:5.18.1@aar'
 
