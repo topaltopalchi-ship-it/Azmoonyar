@@ -2255,9 +2255,9 @@ public class MainActivity extends Activity {
         group.setOrientation(RadioGroup.VERTICAL);        group.setPadding(dp(8), dp(8), dp(8), dp(8));
         // Match the dashboard's glossy blue/green button palette.
         int[][] optionColors = {
-            {219, 234, 254, 29, 78, 216},
-            {220, 252, 231, 22, 101, 52},
-            {219, 234, 254, 29, 78, 216}
+            {0, 174, 255, 0, 210, 255},
+            {0, 238, 78, 0, 255, 115},
+            {0, 174, 255, 0, 210, 255}
         };
         for (int i = 0; i < labels.length; i++) {
             RadioButton option = new RadioButton(this);
@@ -2272,9 +2272,9 @@ public class MainActivity extends Activity {
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{
                     Color.rgb(optionColors[i][0], optionColors[i][1], optionColors[i][2]),
-                    Color.rgb(Math.max(0, optionColors[i][0] - 8),
-                              Math.max(0, optionColors[i][1] - 8),
-                              Math.max(0, optionColors[i][2] - 8))
+                    Color.rgb(Math.max(0, optionColors[i][0] - 35),
+                              Math.max(0, optionColors[i][1] - 65),
+                              Math.max(0, optionColors[i][2] - 100))
                 });
             pill.setCornerRadius(dp(24));
             pill.setStroke(dp(2), Color.rgb(optionColors[i][3], optionColors[i][4], optionColors[i][5]));
