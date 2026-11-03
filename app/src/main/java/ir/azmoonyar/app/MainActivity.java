@@ -1369,7 +1369,7 @@ public class MainActivity extends Activity {
                 .append(".sheet:last-child{page-break-after:auto}")
                 .append(".head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;font-weight:bold;margin:0}")
                 .append(".sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
-                .append(".student{position:absolute;top:8mm;right:18mm;left:45mm;font-size:14px;font-weight:bold;text-align:right;height:12mm}.qr{position:absolute;top:7mm;left:25mm;width:20mm;height:20mm}.meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
+                .append(".student{position:absolute;top:8mm;right:28mm;left:45mm;font-size:14px;font-weight:bold;text-align:right;height:12mm}.qr{position:absolute;top:7mm;left:28mm;width:20mm;height:20mm}.meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
                 .append(".instruction{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
                 .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr;outline:0.45mm solid #111;outline-offset:1mm}")
                 .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
