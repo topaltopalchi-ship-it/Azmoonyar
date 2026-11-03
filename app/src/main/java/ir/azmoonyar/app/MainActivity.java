@@ -1843,12 +1843,72 @@ public class MainActivity extends Activity {
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); styleTurquoiseDashboardButton(saved);
         saved.setOnClickListener(v -> showSavedExamBatches()); panel.addView(saved);
+        Button bankItems = new Button(this); bankItems.setText("مشاهده سؤال‌های بانک و پاسخ‌ها"); styleTurquoiseDashboardButton(bankItems);
+        bankItems.setOnClickListener(v -> showQuestionBankItems()); panel.addView(bankItems);
         Button printQuestions = new Button(this); printQuestions.setText("چاپ پرسشنامه فقط"); styleTurquoiseDashboardButton(printQuestions);
         printQuestions.setOnClickListener(v -> printQuestionnaireOnly()); panel.addView(printQuestions);
         Button printAnswers = new Button(this); printAnswers.setText("چاپ پاسخنامه فقط"); styleTurquoiseDashboardButton(printAnswers);
         printAnswers.setOnClickListener(v -> printStandardAnswerSheets()); panel.addView(printAnswers);
         new AlertDialog.Builder(this).setTitle("بانک سؤال (" + bank.length() + ")")
             .setView(panel).setPositiveButton("بستن", null).show();
+    }
+
+    private void showQuestionBankItems() {
+        JSONArray bank = readQuestionBank();
+        if (bank.length() == 0) {
+            info("بانک سؤال خالی است. سؤال‌های اسکن‌شده پس از ثبت در اینجا نمایش داده می‌شوند.");
+            return;
+        }
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(12), dp(8), dp(12), dp(8));
+        scroll.addView(list);
+        for (int i = 0; i < bank.length(); i++) {
+            JSONObject item = bank.optJSONObject(i);
+            if (item == null) continue;
+            int number = item.optInt("question_number", i + 1);
+            int correct = item.optInt("correct_index", -1);
+            String answer = correct >= 0 && correct < 4 ? String.valueOf((char)('A' + correct)) : "ثبت‌نشده";
+            TextView title = new TextView(this);
+            title.setText("سؤال شمارهٔ " + number + " — پاسخ صحیح: " + answer
+                    + "\\n" + item.optString("text", "سؤال تصویری " + number));
+            title.setTextSize(16);
+            title.setTypeface(null, android.graphics.Typeface.BOLD);
+            title.setTextColor(Color.rgb(30, 41, 59));
+            title.setPadding(0, dp(12), 0, dp(8));
+            list.addView(title);
+            JSONArray options = item.optJSONArray("options");
+            if (options != null) {
+                for (int j = 0; j < options.length(); j++) {
+                    TextView option = new TextView(this);
+                    option.setText(String.valueOf((char)('A' + j)) + ". " + options.optString(j));
+                    option.setTextSize(14);
+                    option.setTextColor(j == correct ? Color.rgb(5, 150, 105) : Color.DKGRAY);
+                    option.setPadding(dp(8), dp(4), dp(8), dp(4));
+                    list.addView(option);
+                }
+            }
+            String imageData = item.optString("image_data", "");
+            if (imageData.startsWith("data:image") && imageData.contains(",")) {
+                try {
+                    byte[] imageBytes = Base64.decode(imageData.substring(imageData.indexOf(',') + 1), Base64.DEFAULT);
+                    android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    if (bitmap != null) {
+                        android.widget.ImageView image = new android.widget.ImageView(this);
+                        image.setImageBitmap(bitmap);
+                        image.setAdjustViewBounds(true);
+                        image.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+                        list.addView(image, new LinearLayout.LayoutParams(-1, -2));
+                    }
+                } catch (Exception ignored) { }
+            }
+            View divider = new View(this);
+            divider.setBackgroundColor(Color.rgb(226, 232, 240));
+            list.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
+        }
+        new AlertDialog.Builder(this).setTitle("سؤال‌های بانک (" + bank.length() + ")")
+                .setView(scroll).setPositiveButton("بستن", null).show();
     }
 
     private void confirmClearQuestionBank() {
