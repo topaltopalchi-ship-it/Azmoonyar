@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
-    private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;\n    private static final int REQUEST_QUESTION_IMAGE = 7316;
     private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
@@ -1597,7 +1597,7 @@ public class MainActivity extends Activity {
             } catch (Exception e) { info("ذخیرهٔ فایل کلید ناموفق بود."); }
             return;
         }
-        if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
+        if (requestCode == REQUEST_QUESTION_IMAGE) { saveScannedQuestionImage(data.getData()); return; }\n        if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
         android.net.Uri uri = data.getData();
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { }
@@ -1770,6 +1770,8 @@ public class MainActivity extends Activity {
         panel.addView(message);
         Button add = new Button(this); add.setText("افزودن سؤال"); styleTurquoiseDashboardButton(add);
         add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
+        Button scanQuestion = new Button(this); scanQuestion.setText("افزودن سؤال از طریق اسکنر"); styleTurquoiseDashboardButton(scanQuestion);
+        scanQuestion.setOnClickListener(v -> pickQuestionImage()); panel.addView(scanQuestion);
         Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); styleTurquoiseDashboardButton(clearBank);
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); styleTurquoiseDashboardButton(saved);
