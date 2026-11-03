@@ -788,7 +788,13 @@ public final class OmrScanActivity extends ComponentActivity {
                     OmrTemplateLayout.PAGE_HEIGHT_MM);
             getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
                     .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
-            updateStatus("عکس واقعی ذخیره شد؛ در حال بررسی مرحلهٔ اسکن…");\n            if (participantNameConfirmedForSheet) {\n                processRecognizedSheet(luma, width, height, transform);\n            } else {\n                String detectedName = readPersianParticipantName(bitmap, transform);\n                confirmParticipantName(detectedName, luma, width, height, transform);\n            }
+            updateStatus("عکس واقعی ذخیره شد؛ در حال بررسی مرحلهٔ اسکن…");
+            if (participantNameConfirmedForSheet) {
+                processRecognizedSheet(luma, width, height, transform);
+            } else {
+                String detectedName = readPersianParticipantName(bitmap, transform);
+                confirmParticipantName(detectedName, luma, width, height, transform);
+            }
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
         }
