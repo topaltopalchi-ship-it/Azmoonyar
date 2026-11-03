@@ -1093,14 +1093,26 @@ public class MainActivity extends Activity {
                     html.append("</section>");
                 }
 
-                String qrPayload = new JSONObject()
-                        .put("participant_id", participantId)
-                        .put("participant_name", participantName)
-                        .put("exam_name", examName())
-                        .put("model_id", modelId)
-                        .put("sheet_set_id", sheetSetId).toString();
-                String qrDataUri = createQrDataUri(qrPayload);
-                for (int page = 1; page <= pageCount; page++) {
+                JSONArray registeredStudents = readStudents();
+                boolean printRegisteredRoster = registeredStudents.length() > 0;
+                int rosterCount = printRegisteredRoster ? registeredStudents.length() : 1;
+                for (int rosterIndex = 0; rosterIndex < rosterCount; rosterIndex++) {
+                    if (printRegisteredRoster && rosterIndex % variants.length() != v) continue;
+                    JSONObject rosterStudent = printRegisteredRoster
+                            ? registeredStudents.optJSONObject(rosterIndex) : null;
+                    String sheetParticipantName = rosterStudent == null
+                            ? participantName : rosterStudent.optString("name", participantName);
+                    String sheetParticipantId = rosterStudent == null
+                            ? participantId : rosterStudent.optString("participant_id", participantId);
+                    if (sheetParticipantId.trim().isEmpty()) sheetParticipantId = UUID.randomUUID().toString();
+                    String qrPayload = new JSONObject()
+                            .put("participant_id", sheetParticipantId)
+                            .put("participant_name", sheetParticipantName)
+                            .put("exam_name", examName())
+                            .put("model_id", modelId)
+                            .put("sheet_set_id", sheetSetId).toString();
+                    String qrDataUri = createQrDataUri(qrPayload);
+                    for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
                     int last = printLayoutQuestionCount;
                     html.append("<section class='page answer-page'><span class='mark tl'></span><span class='mark tr'></span>")
@@ -1108,10 +1120,10 @@ public class MainActivity extends Activity {
                         .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         // Keep the upper answer-sheet area blank for barcode placement.
-                        .append("<div style='position:absolute;top:24mm;left:12mm;font-size:11px;font-weight:bold'>نام دانش‌آموز: ").append(escapeHtml(participantName)).append(" | نسخه ").append(modelId).append("</div>")
+                        .append("<div style='position:absolute;top:24mm;left:12mm;font-size:11px;font-weight:bold'>نام دانش‌آموز: ").append(escapeHtml(sheetParticipantName)).append(" | نسخه ").append(modelId).append("</div>")
                         .append("<img alt='QR' style='position:absolute;top:10mm;right:12mm;width:22mm;height:22mm' src='").append(qrDataUri).append("'/>")
                         // Omit the template caption to preserve barcode space above the answer grid.
-                        .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(participantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
+                        .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(sheetParticipantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
                     for (int col = 0; col < 4; col++) {
                         int colFirst = first + col * 25;
