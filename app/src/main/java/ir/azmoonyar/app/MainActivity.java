@@ -1633,7 +1633,7 @@ public class MainActivity extends Activity {
                 // Calibrated to the actual four-column Azmoonyar A4 answer-key print:
                 // the first bubble centers are ~4.5 mm farther right and ~4 mm lower
                 // than the former estimate, which was sampling the gaps between bubbles.
-                float leftMm = 16.5f + col * 46.2f;
+                float leftMm = 23.5f + col * 46.2f;
                 float yMm = 60.0f + row * 8.0f;
                 double[] scores = new double[4];
                 for (int a = 0; a < 4; a++) {
