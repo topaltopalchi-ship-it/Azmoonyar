@@ -1310,6 +1310,47 @@ public class MainActivity extends Activity {
 
     /** Prints the standard OMR sheet as one A4 page per 100 questions. */
     private void printStandardAnswerSheets() {
+        JSONArray roster = readStudents();
+        if (roster.length() == 0) { info("ابتدا شرکت‌کنندگان را ثبت کن تا نام و QR روی پاسخنامه چاپ شود."); return; }
+        LinearLayout choices = new LinearLayout(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        choices.setPadding(dp(8), dp(4), dp(8), dp(4));
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        CheckBox[] checks = new CheckBox[roster.length()];
+        for (int i = 0; i < roster.length(); i++) {
+            JSONObject student = roster.optJSONObject(i);
+            checks[i] = new CheckBox(this);
+            checks[i].setText(student == null ? "بدون نام" : student.optString("name", "بدون نام"));
+            checks[i].setTextSize(16);
+            list.addView(checks[i]);
+        }
+        scroll.addView(list);
+        choices.addView(scroll, new LinearLayout.LayoutParams(-1, dp(360)));
+        Button all = new Button(this); all.setText("انتخاب همه / لغو انتخاب همه");
+        styleTurquoiseDashboardButton(all);
+        all.setOnClickListener(v -> {
+            boolean select = false;
+            for (CheckBox check : checks) if (!check.isChecked()) { select = true; break; }
+            for (CheckBox check : checks) check.setChecked(select);
+        });
+        choices.addView(all);
+        new AlertDialog.Builder(this).setTitle("انتخاب شرکت‌کنندگان برای چاپ پاسخنامه")
+            .setMessage("شرکت‌کنندگان را تیک بزن. نام و QR اختصاصی هر نفر روی پاسخنامه چاپ می‌شود.")
+            .setView(choices).setNegativeButton("لغو", null)
+            .setPositiveButton("چاپ پاسخنامه‌ها", (dialog, which) -> {
+                JSONArray selected = new JSONArray();
+                for (int i = 0; i < checks.length; i++) if (checks[i].isChecked()) {
+                    JSONObject student = roster.optJSONObject(i);
+                    if (student != null) selected.put(student);
+                }
+                if (selected.length() == 0) { info("حداقل یک شرکت‌کننده را انتخاب کن."); return; }
+                printStandardAnswerSheetsSelected(selected);
+            }).show();
+    }
+
+    private void printStandardAnswerSheetsSelected(JSONArray selectedStudents) {
         if (examName().trim().isEmpty()) {
             info("ابتدا آزمون را تعریف کن.");
             return;
@@ -1327,7 +1368,7 @@ public class MainActivity extends Activity {
                 .append(".sheet:last-child{page-break-after:auto}")
                 .append(".head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;font-weight:bold;margin:0}")
                 .append(".sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
-                .append(".meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
+                .append(".student{position:absolute;top:8mm;right:18mm;left:45mm;font-size:14px;font-weight:bold;text-align:right;height:12mm}.qr{position:absolute;top:7mm;left:15mm;width:22mm;height:22mm}.meta{position:absolute;top:25mm;left:12mm;right:12mm;height:5mm;font-size:10px;margin:0;display:flex;justify-content:space-between}")
                 .append(".instruction{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
                 .append(".cols{position:absolute;top:44mm;left:12mm;right:12mm;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;direction:ltr;outline:0.45mm solid #111;outline-offset:1mm}")
                 .append(".col{border:0.25mm solid #555;border-radius:0;padding:1mm;min-width:0;direction:ltr}")
@@ -1343,7 +1384,20 @@ public class MainActivity extends Activity {
                 .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append("</style></head><body>");
             int pages = (total + 99) / 100;
-            for (int page = 0; page < pages; page++) {
+            for (int studentIndex = 0; studentIndex < selectedStudents.length(); studentIndex++) {
+                JSONObject student = selectedStudents.optJSONObject(studentIndex);
+                if (student == null) continue;
+                String studentName = student.optString("name", "بدون نام");
+                String participantId = student.optString("participant_id", "");
+                if (participantId.isEmpty()) { participantId = UUID.randomUUID().toString(); student.put("participant_id", participantId); }
+                JSONObject qrPayload = new JSONObject();
+                qrPayload.put("participant_id", participantId);
+                qrPayload.put("participant_name", studentName);
+                qrPayload.put("exam_name", examName());
+                qrPayload.put("model_id", "A");
+                qrPayload.put("sheet_set_id", "roster-" + participantId);
+                String qrData = createQrDataUri(qrPayload.toString());
+                for (int page = 0; page < pages; page++) {
                 int first = page * 100 + 1;
                 int last = Math.min(total, first + 99);
                 html.append("<section class='sheet'>")
@@ -1351,7 +1405,7 @@ public class MainActivity extends Activity {
                     .append("<i class='small-mark stl'></i><i class='small-mark str'></i><i class='small-mark sbl'></i><i class='small-mark sbr'></i>")
                     // Keep the top of the OMR master blank for barcode placement.
                     // Omit the template caption to preserve the blank barcode area.
-                    .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
+                    .append("<div class='student'>نام و نام خانوادگی: ").append(escapeHtml(studentName)).append("</div><img class='qr' src='").append(qrData).append("'/><div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
                     .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
                     .append("<div class='cols'>");
                 for (int col = 0; col < 4; col++) {
@@ -1366,6 +1420,7 @@ public class MainActivity extends Activity {
                     html.append("</tbody></table></div>");
                 }
                 html.append("</div></section>");
+                }
             }
             html.append("</body></html>");
             WebView web = new WebView(this);
