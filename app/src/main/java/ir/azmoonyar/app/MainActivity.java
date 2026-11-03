@@ -788,6 +788,16 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        EditText studentCode = new EditText(this); styleInput(studentCode);
+        studentCode.setSingleLine(true); studentCode.setHint("کد دانشجویی / کد شرکت‌کننده (اختیاری)");
+        form.addView(studentCode, new LinearLayout.LayoutParams(-1, -2));
+        EditText studentGroup = new EditText(this); styleInput(studentGroup);
+        studentGroup.setSingleLine(true); studentGroup.setHint("کلاس / گروه / رشته (اختیاری)");
+        form.addView(studentGroup, new LinearLayout.LayoutParams(-1, -2));
+        EditText parentContact = new EditText(this); styleInput(parentContact);
+        parentContact.setSingleLine(true); parentContact.setHint("شماره تماس خانواده یا مسئول (اختیاری)");
+        parentContact.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        form.addView(parentContact, new LinearLayout.LayoutParams(-1, -2));
         TextView voiceStatus = new TextView(this);
         voiceStatus.setText(voiceMode ? "برای ثبت صوتی، نام و نام خانوادگی را واضح بگو." : "نام و نام خانوادگی را وارد کن.");
         voiceStatus.setTextSize(14);
@@ -856,6 +866,10 @@ public class MainActivity extends Activity {
             try {
                 JSONObject student = new JSONObject();
                 student.put("name", studentName);
+                student.put("participant_id", UUID.randomUUID().toString());
+                student.put("code", studentCode.getText().toString().trim());
+                student.put("group", studentGroup.getText().toString().trim());
+                student.put("parent_contact", parentContact.getText().toString().trim());
                 students.put(student);
                 prefs.edit().putString("students_json", students.toString()).apply();
                 refreshSummary();
