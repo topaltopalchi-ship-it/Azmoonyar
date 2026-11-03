@@ -1630,11 +1630,14 @@ public class MainActivity extends Activity {
             StringBuilder uncertain = new StringBuilder();
             for (int q = 0; q < count; q++) {
                 int col = q / 25, row = q % 25;
-                float leftMm = 12f + col * 47.25f;
-                float yMm = 44f + 1f + 7f + 4.15f + row * 8.3f;
+                // Calibrated to the actual four-column Azmoonyar A4 answer-key print:
+                // the first bubble centers are ~4.5 mm farther right and ~4 mm lower
+                // than the former estimate, which was sampling the gaps between bubbles.
+                float leftMm = 16.5f + col * 46.2f;
+                float yMm = 60.0f + row * 8.0f;
                 double[] scores = new double[4];
                 for (int a = 0; a < 4; a++) {
-                    float xMm = leftMm + 1f + 7f + 8.6875f * (a + 0.5f);
+                    float xMm = leftMm + 5.0f + 8.5f * a;
                     scores[a] = scanBubbleDarkness(bitmap, xMm / 210f * w, yMm / 297f * h,
                             2f / 210f * w, 1.7f / 297f * h);
                 }
