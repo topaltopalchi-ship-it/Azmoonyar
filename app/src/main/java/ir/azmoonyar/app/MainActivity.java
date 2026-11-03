@@ -1378,7 +1378,8 @@ public class MainActivity extends Activity {
 
     private void showKeyDialog() {
         if (examName().isEmpty()) { info("ابتدا یک آزمون تعریف کن."); return; }
-        String value = buildOriginalBankKey();
+        String storedKey = prefs.getString("answer_key", "");
+        String value = storedKey.matches("[A-D]{"+questionCount()+"}") ? storedKey : buildOriginalBankKey();
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(12), dp(8), dp(12), dp(8));
@@ -1391,7 +1392,7 @@ public class MainActivity extends Activity {
         form.addView(heading);
 
         TextView note = new TextView(this);
-        note.setText("این تنها کلید پاسخ برنامه است. کلید به‌ترتیب سؤال‌های بانک ساخته می‌شود و پاسخ صحیحی را نشان می‌دهد که هنگام ثبت هر سؤال انتخاب کرده‌ای.");
+        note.setText("کلید اصلی از پاسخ‌های ذخیره‌شده یا بانک سؤال نمایش داده می‌شود. اگر کلید را از تصویر وارد کرده‌ای، پاسخ‌ها در این قسمت قابل مشاهده‌اند.");
         note.setTextSize(14);
         note.setPadding(0, dp(8), 0, dp(8));
         form.addView(note);
@@ -1483,7 +1484,7 @@ public class MainActivity extends Activity {
     }
 
     private String keyHtml(String target) {
-        String value = "main".equals(target) ? buildOriginalBankKey() : getGeneratedModelKey(target);
+        String value = "main".equals(target) ? (prefs.getString("answer_key", "").matches("[A-D]{"+questionCount()+"}") ? prefs.getString("answer_key", "") : buildOriginalBankKey()) : getGeneratedModelKey(target);
         String title = "main".equals(target) ? "کلید اصلی بانک سؤال" : "کلید نسخه " + target;
         StringBuilder html = new StringBuilder("<html><head><meta charset=\"utf-8\"><style>body{font-family:sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}td,th{border:1px solid #333;padding:8px;text-align:center}</style></head><body>");
         html.append("<h1>").append(escapeHtml(examName())).append("</h1><h2>").append(escapeHtml(title)).append("</h2><table><tr><th>شماره سؤال</th><th>گزینه صحیح</th></tr>");
