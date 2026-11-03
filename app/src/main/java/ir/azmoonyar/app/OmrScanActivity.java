@@ -56,7 +56,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
-    private String participantName = "";\n    private boolean participantNameConfirmedForSheet;\n    private Button captureButton;
+    private String participantName = "";
+    private boolean participantNameConfirmedForSheet;
+    private Button captureButton;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
