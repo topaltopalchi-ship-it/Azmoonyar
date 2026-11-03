@@ -1585,6 +1585,9 @@ public class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
         actions.setPadding(0, dp(10), 0, dp(6));
+        Button editKey = new Button(this);
+        editKey.setText("ویرایش پاسخ‌های کلید");
+        styleTurquoiseDashboardButton(editKey);
         Button printSave = new Button(this);
         printSave.setText("چاپ / ذخیره کلید");
         styleTurquoiseDashboardButton(printSave);
@@ -1594,16 +1597,66 @@ public class MainActivity extends Activity {
         Button close = new Button(this);
         close.setText("بازگشت / خروج");
         styleTurquoiseDashboardButton(close);
-        for (Button button : new Button[]{printSave, loadImage, close}) {
+        for (Button button : new Button[]{editKey, printSave, loadImage, close}) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(48));
             lp.setMargins(0, dp(3), 0, dp(3));
             actions.addView(button, lp);
         }
         form.addView(actions);
+        editKey.setOnClickListener(v -> { dialog.dismiss(); showAnswerKeyEditor(value); });
         printSave.setOnClickListener(v -> { dialog.dismiss(); showKeyOutputChoices("main"); });
         loadImage.setOnClickListener(v -> { dialog.dismiss(); pendingKeyTarget = "main"; pickAnswerKeyImage(); });
         close.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
+    }
+
+    private void showAnswerKeyEditor(String currentKey) {
+        int count = questionCount();
+        StringBuilder normalized = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            char c = i < currentKey.length() ? Character.toUpperCase(currentKey.charAt(i)) : '-';
+            normalized.append(c >= 'A' && c <= 'D' ? c : '-');
+        }
+        final char[] edited = normalized.toString().toCharArray();
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        rows.setPadding(dp(12), dp(8), dp(12), dp(8));
+        for (int i = 0; i < count; i++) {
+            final int index = i;
+            Button answer = new Button(this);
+            answer.setAllCaps(false);
+            answer.setText("سؤال " + (i + 1) + " : " + (edited[i] == '-' ? "ثبت نشده" : edited[i]));
+            answer.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("پاسخ صحیح سؤال " + (index + 1))
+                .setItems(new String[]{"A", "B", "C", "D", "ثبت نشده"}, (d, choice) -> {
+                    edited[index] = choice == 4 ? '-' : (char)('A' + choice);
+                    answer.setText("سؤال " + (index + 1) + " : " + (edited[index] == '-' ? "ثبت نشده" : edited[index]));
+                }).show());
+            rows.addView(answer, new LinearLayout.LayoutParams(-1, dp(44)));
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(rows);
+        new AlertDialog.Builder(this).setTitle("ویرایش کلید پاسخ (" + count + " سؤال)")
+            .setView(scroll)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره تغییرات", (d, which) -> {
+                StringBuilder key = new StringBuilder();
+                for (char c : edited) key.append(c);
+                prefs.edit().putString("answer_key", key.toString()).apply();
+                JSONArray bank = readQuestionBank();
+                for (int i = 0; i < Math.min(count, bank.length()); i++) {
+                    JSONObject q = bank.optJSONObject(i);
+                    if (q != null) {
+                        char c = edited[i];
+                        try { q.put("correct_index", c >= 'A' && c <= 'D' ? c - 'A' : -1); }
+                        catch (Exception ignored) { }
+                    }
+                }
+                prefs.edit().putString("question_bank_json", bank.toString()).apply();
+                info("کلید پاسخ و پاسخ‌های بانک سؤال ذخیره شد.");
+                showKeyDialog();
+            }).show();
     }
 
     private void showKeyOutputChoices(String target) {
