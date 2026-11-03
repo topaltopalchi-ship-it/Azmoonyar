@@ -40,6 +40,14 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
+import java.util.EnumMap;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.Result;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.RGBLuminanceSource;
 
 /**
  * Live-camera alignment cue only. Corner-window detection is intentionally not
@@ -769,6 +777,28 @@ public final class OmrScanActivity extends ComponentActivity {
                 luma[i] = (byte) ((Color.red(c) * 299 + Color.green(c) * 587
                         + Color.blue(c) * 114) / 1000);
             }
+            // QR is read from the captured, orientation-corrected photo (never from
+            // preview pixels). If present, its roster participant and model override
+            // any manual scanner defaults before selecting the matching grading key.
+            try {
+                String qrText = decodeParticipantQr(pixels, width, height);
+                if (qrText != null) {
+                    JSONObject qr = new JSONObject(qrText);
+                    String qrName = qr.optString("participant_name", "").trim();
+                    String qrModel = qr.optString("model_id", "");
+                    if (!qrName.isEmpty() && qrModel.matches("[AB]")) {
+                        participantName = qrName;
+                        getIntent().putExtra("participant_name", qrName);
+                        getIntent().putExtra("answer_model", qrModel);
+                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                                .putString("last_qr_participant_id", qr.optString("participant_id", ""))
+                                .putString("last_qr_model_id", qrModel).apply();
+                        updateStatus("QR شناسایی شد: " + qrName + " — نسخه " + qrModel);
+                    }
+                }
+            } catch (Exception qrError) {
+                android.util.Log.d("AzmoonyarQR", "No readable participant QR on captured sheet", qrError);
+            }
             MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
             if (detection.count != 4) {
                 throw new java.io.IOException("Could not locate all four sheet registration marks");
@@ -792,6 +822,28 @@ public final class OmrScanActivity extends ComponentActivity {
             processRecognizedSheet(luma, width, height, transform);
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
+        }
+    }
+
+    /** Decode the printed participant QR from a full captured bitmap. */
+    private String decodeParticipantQr(int[] pixels, int width, int height) {
+        if (pixels == null || width <= 0 || height <= 0) return null;
+        int[] rgb = new int[pixels.length];
+        for (int i = 0; i < pixels.length; i++) rgb[i] = pixels[i] & 0x00ffffff;
+        RGBLuminanceSource source = new RGBLuminanceSource(width, height, rgb);
+        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+        MultiFormatReader reader = new MultiFormatReader();
+        EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, java.util.Collections.singletonList(BarcodeFormat.QR_CODE));
+        reader.setHints(hints);
+        try {
+            Result result = reader.decodeWithState(bitmap);
+            return result == null ? null : result.getText();
+        } catch (com.google.zxing.NotFoundException notFound) {
+            return null;
+        } finally {
+            reader.reset();
         }
     }
 
