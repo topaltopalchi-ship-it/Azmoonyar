@@ -2688,12 +2688,102 @@ public class MainActivity extends Activity {
             if (t == null) { t = new double[2]; totals.put(name, t); }
             t[0] += r.optDouble("score", 0.0); t[1]++;
         }
-        StringBuilder out = new StringBuilder();
-        for (java.util.Map.Entry<String, double[]> e : totals.entrySet())
-            out.append(e.getKey()).append("\nتعداد نتایج: ").append((int)e.getValue()[1])
-                .append("\nمیانگین نمره: ").append(String.format(Locale.US, "%.1f", e.getValue()[0] / e.getValue()[1]))
-                .append(" از 100\n\n");
-        showAnalysisText("آنالیز هر آزمون", out.toString());
+
+        LinearLayout cards = new LinearLayout(this);
+        cards.setOrientation(LinearLayout.VERTICAL);
+        cards.setPadding(dp(12), dp(8), dp(12), dp(8));
+        for (java.util.Map.Entry<String, double[]> entry : totals.entrySet()) {
+            final double average = entry.getValue()[0] / entry.getValue()[1];
+            final int count = (int) entry.getValue()[1];
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(14), dp(14), dp(14), dp(14));
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(Color.WHITE);
+            bg.setCornerRadius(dp(20));
+            bg.setStroke(dp(1), Color.rgb(220, 230, 245));
+            card.setBackground(bg);
+            card.setElevation(dp(2));
+
+            LinearLayout details = new LinearLayout(this);
+            details.setOrientation(LinearLayout.VERTICAL);
+            details.setGravity(Gravity.CENTER_VERTICAL);
+            TextView examTitle = new TextView(this);
+            examTitle.setText(entry.getKey());
+            examTitle.setTextSize(18);
+            examTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+            examTitle.setTextColor(Color.rgb(15, 35, 90));
+            examTitle.setGravity(Gravity.RIGHT);
+            details.addView(examTitle, new LinearLayout.LayoutParams(-1, -2));
+
+            TextView countText = new TextView(this);
+            countText.setText("👥 تعداد نتایج ثبت‌شده: " + count);
+            countText.setTextSize(14);
+            countText.setTextColor(Color.rgb(71, 85, 105));
+            countText.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams countLp = new LinearLayout.LayoutParams(-1, -2);
+            countLp.topMargin = dp(8);
+            details.addView(countText, countLp);
+
+            TextView averageText = new TextView(this);
+            averageText.setText("میانگین کلاس: " + String.format(Locale.US, "%.1f", average) + " از 100");
+            averageText.setTextSize(15);
+            averageText.setTypeface(null, android.graphics.Typeface.BOLD);
+            averageText.setTextColor(Color.rgb(13, 148, 136));
+            averageText.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams avgLp = new LinearLayout.LayoutParams(-1, -2);
+            avgLp.topMargin = dp(4);
+            details.addView(averageText, avgLp);
+
+            CircleScoreView circle = new CircleScoreView(this, average, count);
+            LinearLayout.LayoutParams circleLp = new LinearLayout.LayoutParams(dp(116), dp(116));
+            circleLp.setMargins(dp(12), 0, 0, 0);
+            card.addView(circle, circleLp);
+            card.addView(details, new LinearLayout.LayoutParams(0, -2, 1f));
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
+            cardLp.setMargins(0, dp(5), 0, dp(10));
+            cards.addView(card, cardLp);
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(cards);
+        new AlertDialog.Builder(this).setTitle("آمار دایره‌ای آزمون‌ها")
+            .setView(scroll).setPositiveButton("بستن", null)
+            .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private class CircleScoreView extends View {
+        private final double score;
+        private final int count;
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        CircleScoreView(Context context, double score, int count) {
+            super(context);
+            this.score = Math.max(0, Math.min(100, score));
+            this.count = count;
+        }
+        @Override protected void onDraw(android.graphics.Canvas canvas) {
+            super.onDraw(canvas);
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float radius = Math.min(getWidth(), getHeight()) * 0.39f;
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(9));
+            paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            paint.setColor(Color.rgb(226, 232, 240));
+            canvas.drawCircle(cx, cy, radius, paint);
+            paint.setColor(score >= 70 ? Color.rgb(13, 148, 136) : score >= 50 ? Color.rgb(245, 158, 11) : Color.rgb(239, 68, 68));
+            android.graphics.RectF arc = new android.graphics.RectF(cx-radius, cy-radius, cx+radius, cy+radius);
+            canvas.drawArc(arc, -90, (float)(score * 3.6), false, paint);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setColor(Color.rgb(15, 23, 42));
+            paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD));
+            paint.setTextSize(dp(20));
+            canvas.drawText(String.format(Locale.US, "%.1f", score), cx, cy + dp(2), paint);
+            paint.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL));
+            paint.setTextSize(dp(10));
+            paint.setColor(Color.rgb(100, 116, 139));
+            canvas.drawText("از 100", cx, cy + dp(18), paint);
+        }
     }
 
     private void showAnalysisText(String title, String value) {
