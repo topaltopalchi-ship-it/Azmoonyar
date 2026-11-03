@@ -427,14 +427,16 @@ public class MainActivity extends Activity {
                 .setView(panel)
                 .setPositiveButton("ادامه", (dialog, which) -> {
                     String name = participantName.getText().toString().trim();
-                    if (name.isEmpty()) {
-                        info("ابتدا نام شرکت‌کننده را به‌صورت متنی یا صوتی وارد کنید.");
+                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
+                    if (name.isEmpty() && !qrExam) {
+                        info("ابتدا نام شرکت‌کننده را از فهرست یا به‌صورت متنی ثبت کنید.");
                         return;
                     }
+                    // In QR identity mode, the printed roster QR supplies the participant
+                    // identity; do not force manual name entry before scanning.
                     prefs.edit().putString("pending_scan_participant", name).apply();
                     Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
                     scanIntent.putExtra("participant_name", name);
-                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
                     boolean hasVariants = "AB".equals(prefs.getString("exam_variant_mode", "A"));
                     if (!qrExam && hasVariants) {
                         new AlertDialog.Builder(MainActivity.this)
