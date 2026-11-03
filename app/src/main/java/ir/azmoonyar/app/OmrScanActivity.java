@@ -870,7 +870,10 @@ public final class OmrScanActivity extends ComponentActivity {
                         sheetConsumed = false;
                         return;
                     }
-                    participantNameConfirmedForSheet = true;\n                    if (captureButton != null) captureButton.setText("عکس بگیر و حباب‌ها را تصحیح کن");\n                    updateSheetResultStatus("نام ثبت شد: " + participantName\n                            + "؛ اکنون کل پاسخنامه را داخل کادر بگیرید و عکس حباب‌ها را ثبت کنید.");
+                    participantNameConfirmedForSheet = true;
+                    if (captureButton != null) captureButton.setText("عکس بگیر و حباب‌ها را تصحیح کن");
+                    updateSheetResultStatus("نام ثبت شد: " + participantName
+                            + "؛ اکنون کل پاسخنامه را داخل کادر بگیرید و عکس حباب‌ها را ثبت کنید.");
                 })
                 .setNegativeButton("لغو", (dialog, which) -> {
                     sheetConsumed = false;
