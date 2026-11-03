@@ -50,7 +50,8 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root;
     private TextView summary;
-    private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;\n    private static final int REQUEST_QUESTION_IMAGE = 7316;
+    private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private static final int REQUEST_QUESTION_IMAGE = 7316;
     private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
@@ -1603,7 +1604,8 @@ public class MainActivity extends Activity {
             } catch (Exception e) { info("ذخیرهٔ فایل کلید ناموفق بود."); }
             return;
         }
-        if (requestCode == REQUEST_QUESTION_IMAGE) { saveScannedQuestionImage(data.getData()); return; }\n        if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
+        if (requestCode == REQUEST_QUESTION_IMAGE) { saveScannedQuestionImage(data.getData()); return; }
+        if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
         android.net.Uri uri = data.getData();
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { }
