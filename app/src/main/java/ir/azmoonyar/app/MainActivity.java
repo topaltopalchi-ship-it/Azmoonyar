@@ -2722,51 +2722,137 @@ public class MainActivity extends Activity {
     }
 
     private void showResultList(String title, JSONArray results, int first, int last) {
-        StringBuilder message = new StringBuilder();
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(10), dp(8), dp(10), dp(8));
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout cards = new LinearLayout(this);
+        cards.setOrientation(LinearLayout.VERTICAL);
+        cards.setPadding(dp(3), dp(3), dp(3), dp(3));
+
         for (int i = last; i >= first; i--) {
-            JSONObject result = results.optJSONObject(i);
+            final JSONObject result = results.optJSONObject(i);
             if (result == null) continue;
-            message.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام"))
-                .append("\nآزمون: ").append(result.optString("examName", "—"))
-                .append("\nنمره: ").append(String.format(Locale.US, "%.1f", result.optDouble("score", 0.0))).append(" از 100")
-                .append("\nدرست: ").append(result.optInt("correct", 0))
-                .append(" | غلط: ").append(result.optInt("wrong", 0))
-                .append(" | سفید: ").append(result.optInt("blank", 0))
-                .append(" | نیازمند بازبینی: ").append(result.optInt("needsReview", 0))
-                .append("\nجزئیات تیرگی گزینه‌ها (A، B، C، D):");
+            String name = result.optString("name", "بدون نام");
+            String exam = result.optString("examName", "—");
+            double score = result.optDouble("score", 0.0);
+
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(dp(14), dp(12), dp(14), dp(12));
+            int color = ((last - i) % 2 == 0) ? Color.rgb(232, 248, 239) : Color.rgb(232, 242, 255);
+            int stroke = ((last - i) % 2 == 0) ? Color.rgb(34, 160, 95) : Color.rgb(45, 120, 210);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(color);
+            bg.setCornerRadius(dp(12));
+            bg.setStroke(dp(2), stroke);
+            card.setBackground(bg);
+
+            TextView summary = new TextView(this);
+            summary.setText("شرکت‌کننده: " + name + "\nآزمون: " + exam
+                    + "\nنمره: " + String.format(Locale.US, "%.1f", score) + " از 100"
+                    + "\nدرست: " + result.optInt("correct", 0)
+                    + " | غلط: " + result.optInt("wrong", 0)
+                    + " | سفید: " + result.optInt("blank", 0)
+                    + " | نیازمند بازبینی: " + result.optInt("needsReview", 0));
+            summary.setTextSize(16);
+            summary.setTextColor(Color.rgb(45, 55, 65));
+            summary.setTextDirection(View.TEXT_DIRECTION_RTL);
+            summary.setGravity(Gravity.RIGHT);
+            card.addView(summary);
+
+            TextView detailText = new TextView(this);
+            StringBuilder detail = new StringBuilder("جزئیات تیرگی گزینه‌ها (A، B، C، D):");
             JSONArray questionDetails = result.optJSONArray("questionDetails");
             if (questionDetails == null || questionDetails.length() == 0) {
-                message.append("\nجزئیات عددی برای این نتیجهٔ قدیمی ذخیره نشده است.");
+                detail.append("\nجزئیات عددی برای این نتیجهٔ قدیمی ذخیره نشده است.");
             } else {
                 for (int q = 0; q < questionDetails.length(); q++) {
-                    JSONObject detail = questionDetails.optJSONObject(q);
-                    if (detail == null) continue;
-                    JSONArray scores = detail.optJSONArray("optionScores");
-                    message.append("\nسؤال ").append(detail.optInt("question", q + 1))
-                        .append(" — ").append(persianOcrStatus(detail.optString("status", "")))
-                        .append(" | کلید: ").append(detail.optString("correctOption", "—"))
-                        .append(" | انتخاب: ").append(detail.optString("selectedOption", "—"));
+                    JSONObject d = questionDetails.optJSONObject(q);
+                    if (d == null) continue;
+                    detail.append("\nسؤال ").append(d.optInt("question", q + 1))
+                            .append(" — پاسخ ثبت‌شده: ").append(persianOcrStatus(d.optString("status", "")))
+                            .append(" | کلید: ").append(d.optString("correctOption", "—"))
+                            .append(" | انتخاب: ").append(d.optString("selectedOption", "—"));
+                    JSONArray scores = d.optJSONArray("optionScores");
                     if (scores != null && scores.length() == 4) {
-                        message.append("\n  A: ").append(String.format(Locale.US, "%.3f", scores.optDouble(0)))
-                            .append("  B: ").append(String.format(Locale.US, "%.3f", scores.optDouble(1)))
-                            .append("  C: ").append(String.format(Locale.US, "%.3f", scores.optDouble(2)))
-                            .append("  D: ").append(String.format(Locale.US, "%.3f", scores.optDouble(3)));
+                        detail.append("\nA: ").append(String.format(Locale.US, "%.3f", scores.optDouble(0)))
+                                .append("  B: ").append(String.format(Locale.US, "%.3f", scores.optDouble(1)))
+                                .append("  C: ").append(String.format(Locale.US, "%.3f", scores.optDouble(2)))
+                                .append("  D: ").append(String.format(Locale.US, "%.3f", scores.optDouble(3)));
                     }
                 }
             }
-            message.append("\n\n--------------------\n\n");
+            detailText.setText(detail.toString());
+            detailText.setTextSize(14);
+            detailText.setTextColor(Color.rgb(75, 85, 95));
+            detailText.setTextDirection(View.TEXT_DIRECTION_RTL);
+            detailText.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams detailLp = new LinearLayout.LayoutParams(-1, -2);
+            detailLp.topMargin = dp(8);
+            card.addView(detailText, detailLp);
+
+            Button delete = new Button(this);
+            delete.setText("پاک کردن این نتیجه");
+            delete.setTextColor(Color.WHITE);
+            delete.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(205, 55, 55)));
+            LinearLayout.LayoutParams deleteLp = new LinearLayout.LayoutParams(-1, dp(46));
+            deleteLp.topMargin = dp(8);
+            card.addView(delete, deleteLp);
+            delete.setOnClickListener(v -> confirmDeleteGradingResult(result, title, results, first, last));
+
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
+            cardLp.setMargins(0, dp(5), 0, dp(8));
+            cards.addView(card, cardLp);
         }
-        ScrollView scroll = new ScrollView(this);
-        TextView text = new TextView(this);
-        text.setText(message.toString());
-        text.setTextSize(16);
-        text.setTextDirection(View.TEXT_DIRECTION_RTL);
-        text.setGravity(Gravity.RIGHT);
-        text.setPadding(dp(16), dp(12), dp(16), dp(12));
-        scroll.addView(text);
-        new AlertDialog.Builder(this).setTitle(title).setView(scroll)
-            .setPositiveButton("بستن", null)
-            .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+        scroll.addView(cards);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        Button clearAll = new Button(this);
+        clearAll.setText("پاک کردن همهٔ نتایج");
+        clearAll.setTextColor(Color.WHITE);
+        clearAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(170, 35, 35)));
+        LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(-1, dp(50));
+        clearLp.setMargins(dp(3), dp(8), dp(3), dp(2));
+        root.addView(clearAll, clearLp);
+        clearAll.setOnClickListener(v -> confirmClearAllResultsFromList(title));
+
+        new AlertDialog.Builder(this).setTitle(title).setView(root)
+                .setPositiveButton("بستن", null)
+                .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    private void confirmDeleteGradingResult(JSONObject target, String title, JSONArray displayed, int first, int last) {
+        new AlertDialog.Builder(this)
+                .setTitle("پاک کردن نتیجه؟")
+                .setMessage("نتیجهٔ «" + target.optString("name", "بدون نام") + "» حذف شود؟")
+                .setPositiveButton("پاک شود", (d, w) -> {
+                    JSONArray stored = readGradingResults();
+                    JSONArray kept = new JSONArray();
+                    boolean removed = false;
+                    for (int i = 0; i < stored.length(); i++) {
+                        JSONObject item = stored.optJSONObject(i);
+                        if (!removed && item != null && item.toString().equals(target.toString())) {
+                            removed = true;
+                        } else if (item != null) kept.put(item);
+                    }
+                    prefs.edit().putString("grading_results", kept.toString()).commit();
+                    info(removed ? "نتیجه پاک شد." : "نتیجه پیدا نشد؛ فهرست تازه شد.");
+                    showResultList(title, displayed, first, last);
+                })
+                .setNegativeButton("انصراف", null).show();
+    }
+
+    private void confirmClearAllResultsFromList(String title) {
+        new AlertDialog.Builder(this)
+                .setTitle("پاک کردن همه نتایج؟")
+                .setMessage("تمام نتایج ذخیره‌شده حذف می‌شوند. این کار برگشت‌پذیر نیست.")
+                .setPositiveButton("بله، همه پاک شوند", (d, w) -> {
+                    prefs.edit().putString("grading_results", "[]").commit();
+                    info("تمام نتایج پاک شدند.");
+                })
+                .setNegativeButton("انصراف", null).show();
     }
 
     private void showParticipantAnalysis() {
