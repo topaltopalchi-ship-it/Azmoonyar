@@ -800,17 +800,16 @@ public final class OmrScanActivity extends ComponentActivity {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
-            String answerKey = prefs.getString("answer_key", "");
-            // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
-            // not from the legacy answer_key field. Prefer a complete saved model key,
-            // then derive the original key from the same question bank shown in that dialog.
+            String answerModel = getIntent().getStringExtra("answer_model");
+            if (answerModel == null || !answerModel.matches("[AB]")) answerModel = "A";
+            String answerKey = prefs.getString("answer_key_model_" + answerModel, "");
+            // Use the selected exam model key when A/B mode is enabled; retain the
+            // original-bank fallback for A-only exams and legacy saved exams.
             if (!isValidAnswerKey(answerKey, total)) {
-                String modelKey = prefs.getString("answer_key_model_A", "");
-                if (isValidAnswerKey(modelKey, total)) {
-                    answerKey = modelKey;
-                } else {
-                    answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
-                }
+                answerKey = prefs.getString("answer_key", "");
+            }
+            if (!isValidAnswerKey(answerKey, total)) {
+                answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
             }
             if (participantName.trim().isEmpty()) {
                 updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
