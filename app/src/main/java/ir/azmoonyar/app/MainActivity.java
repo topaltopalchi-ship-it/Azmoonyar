@@ -1287,7 +1287,13 @@ public class MainActivity extends Activity {
                     info("سؤال " + (i+1) + " باید چهار گزینهٔ کامل داشته باشد؛ چاپ انجام نشد."); return;
                 }
                 html.append("<article class='q'><b>").append(i+1).append(". ")
-                    .append(escapeHtml(q.optString("text",""))).append("</b><div class='opts'>");
+                    .append(escapeHtml(q.optString("text",""))).append("</b>");
+                String imageData = q.optString("image_data", "");
+                if (imageData.startsWith("data:image/")) {
+                    html.append("<div style='text-align:center;margin:2mm 0'><img style='max-width:100%;max-height:85mm;object-fit:contain' src='")
+                        .append(imageData).append("'></div>");
+                }
+                html.append("<div class='opts'>");
                 for(int j=0;j<4;j++) {
                     String option=options.optString(j,"").trim();
                     if(option.isEmpty()) { info("گزینهٔ " + (char)('A'+j) + " سؤال " + (i+1) + " خالی است."); return; }
@@ -2050,6 +2056,63 @@ public class MainActivity extends Activity {
         });
         dialog.show();
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
+    }
+
+    private void pickQuestionImage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try { startActivityForResult(intent, REQUEST_QUESTION_IMAGE); }
+        catch (Exception e) { info("بازکردن انتخاب‌گر تصویر سؤال ممکن نشد."); }
+    }
+
+    private void saveScannedQuestionImage(android.net.Uri uri) {
+        try {
+            android.graphics.Bitmap bitmap;
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) throw new java.io.IOException("empty image");
+                bitmap = android.graphics.BitmapFactory.decodeStream(input);
+            }
+            if (bitmap == null) throw new java.io.IOException("invalid image");
+            // Resize large scans to keep the local question bank reasonably small.
+            int maxSide = 1600;
+            if (Math.max(bitmap.getWidth(), bitmap.getHeight()) > maxSide) {
+                float scale = maxSide / (float) Math.max(bitmap.getWidth(), bitmap.getHeight());
+                android.graphics.Bitmap scaled = android.graphics.Bitmap.createScaledBitmap(bitmap,
+                        Math.max(1, Math.round(bitmap.getWidth() * scale)),
+                        Math.max(1, Math.round(bitmap.getHeight() * scale)), true);
+                if (scaled != bitmap) bitmap.recycle();
+                bitmap = scaled;
+            }
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, bytes);
+            bitmap.recycle();
+            String imageData = "data:image/jpeg;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+
+            JSONArray bank = readQuestionBank();
+            int questionNumber = bank.length() + 1;
+            String answerKey = key();
+            char answer = questionNumber <= answerKey.length() ? answerKey.charAt(questionNumber - 1) : '-';
+            int correctIndex = answer >= 'A' && answer <= 'D' ? answer - 'A' : -1;
+            JSONArray options = new JSONArray();
+            for (int i = 0; i < 4; i++) options.put("گزینه " + (char)('A' + i));
+            JSONObject item = new JSONObject();
+            item.put("question_number", questionNumber);
+            item.put("id", UUID.randomUUID().toString());
+            item.put("text", "سؤال تصویری " + questionNumber);
+            item.put("topic", "");
+            item.put("options", options);
+            item.put("correct_index", correctIndex);
+            item.put("image_data", imageData);
+            bank.put(item);
+            prefs.edit().putString("question_bank_json", bank.toString()).apply();
+            info(correctIndex >= 0
+                    ? "تصویر سؤال " + questionNumber + " به بانک اضافه شد و پاسخ " + answer + " از کلید آزمون برداشت شد."
+                    : "تصویر سؤال " + questionNumber + " اضافه شد؛ پاسخ این شماره در کلید آزمون ثبت نشده است.");
+        } catch (Exception e) {
+            info("افزودن تصویر سؤال ناموفق بود: " + e.getMessage());
+        }
     }
 
     private void showAddBankQuestionDialog() {
