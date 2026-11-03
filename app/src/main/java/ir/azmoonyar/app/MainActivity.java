@@ -812,6 +812,15 @@ public class MainActivity extends Activity {
         typedParams.bottomMargin = dp(6);
         content.addView(typed, typedParams);
 
+        Button printQr = new Button(this);
+        printQr.setText("▦ تولید و چاپ QR شرکت‌کنندگان");
+        printQr.setAllCaps(false);
+        stylePinkOvalButton(printQr);
+        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(-1, dp(58));
+        qrParams.topMargin = dp(6);
+        qrParams.bottomMargin = dp(6);
+        content.addView(printQr, qrParams);
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("ثبت‌نام شرکت‌کنندگان")
                 .setView(content)
@@ -819,7 +828,60 @@ public class MainActivity extends Activity {
                 .create();
         voice.setOnClickListener(v -> { dialog.dismiss(); showAddStudentDialog(true); });
         typed.setOnClickListener(v -> { dialog.dismiss(); showAddStudentDialog(false); });
+        printQr.setOnClickListener(v -> {
+            dialog.dismiss();
+            printParticipantQrRoster();
+        });
         dialog.show();
+    }
+
+    private void printParticipantQrRoster() {
+        JSONArray students = readStudents();
+        if (students.length() == 0) {
+            info("ابتدا شرکت‌کنندگان را ثبت‌نام کن.");
+            return;
+        }
+        if (!"qr".equals(prefs.getString("exam_identity_mode", "manual"))) {
+            info("برای چاپ QR، در تعریف آزمون روش «با QR اختصاصی شرکت‌کننده» را انتخاب و ذخیره کن.");
+            return;
+        }
+        try {
+            StringBuilder html = new StringBuilder("<html><head><meta charset='utf-8'><style>")
+                    .append("@page{size:A4;margin:12mm}body{font-family:sans-serif;direction:rtl}")
+                    .append(".grid{display:grid;grid-template-columns:1fr 1fr;gap:8mm}")
+                    .append(".card{border:1px solid #333;padding:6mm;text-align:center;page-break-inside:avoid}")
+                    .append("img{width:38mm;height:38mm}.name{font-size:15pt;font-weight:bold;margin:3mm}")
+                    .append(".code{font-size:8pt;word-break:break-all}</style></head><body><h2>")
+                    .append(escapeHtml(examName())).append(" — QR شرکت‌کنندگان</h2><div class='grid'>");
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student == null) continue;
+                String participantId = student.optString("participant_id", "").trim();
+                if (participantId.isEmpty()) {
+                    participantId = UUID.randomUUID().toString();
+                    student.put("participant_id", participantId);
+                }
+                String participantName = student.optString("name", "").trim();
+                JSONObject payload = new JSONObject()
+                        .put("participant_id", participantId)
+                        .put("participant_name", participantName)
+                        .put("exam_name", examName())
+                        .put("model_id", "A")
+                        .put("sheet_set_id", "roster-" + participantId);
+                html.append("<div class='card'><div class='name'>")
+                        .append(escapeHtml(participantName))
+                        .append("</div><img alt='QR' src='")
+                        .append(createQrDataUri(payload.toString()))
+                        .append("'/><div class='code'>")
+                        .append(escapeHtml(participantId))
+                        .append("</div></div>");
+            }
+            html.append("</div></body></html>");
+            prefs.edit().putString("students_json", students.toString()).apply();
+            printHtmlDocument("Azmoonyar-Participant-QR", html.toString());
+        } catch (Exception e) {
+            info("تولید QR شرکت‌کنندگان ناموفق بود؛ دوباره تلاش کن.");
+        }
     }
 
     private void showAddStudentDialog(boolean voiceMode) {
