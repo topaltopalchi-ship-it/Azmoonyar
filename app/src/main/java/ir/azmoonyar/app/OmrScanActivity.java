@@ -57,8 +57,6 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
-    private boolean participantNameConfirmedForSheet;
-    private Button captureButton;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
@@ -180,8 +178,8 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
-        captureButton = new Button(this);
-        captureButton.setText("عکس بگیر و نام را اسکن کن");
+        Button captureButton = new Button(this);
+        captureButton.setText("عکس بگیر و تصحیح کن");
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
@@ -790,104 +788,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     OmrTemplateLayout.PAGE_HEIGHT_MM);
             getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
                     .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
-            updateStatus("عکس واقعی ذخیره شد؛ در حال بررسی مرحلهٔ اسکن…");
-            if (participantNameConfirmedForSheet) {
-                processRecognizedSheet(luma, width, height, transform);
-            } else {
-                String detectedName = readPersianParticipantName(bitmap, transform);
-                confirmParticipantName(detectedName, luma, width, height, transform);
-            }
+            updateStatus("عکس واقعی ذخیره شد؛ تصحیح از همان فایل انجام می‌شود…");
+            processRecognizedSheet(luma, width, height, transform);
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
         }
-    }
-
-    
-    /**
-     * OCR only the printed participant-name zone after sheet perspective registration.
-     * Persian Tesseract data is downloaded once and kept locally; recognition failures
-     * fall back to an editable name dialog rather than silently registering bad text.
-     */
-    private String readPersianParticipantName(Bitmap page, SheetPerspectiveTransform transform) {
-        try {
-            java.io.File tessDir = new java.io.File(getFilesDir(), "tesseract");
-            java.io.File dataDir = new java.io.File(tessDir, "tessdata");
-            if (!dataDir.exists() && !dataDir.mkdirs()) return "";
-            java.io.File trainedData = new java.io.File(dataDir, "fas.traineddata");
-            if (!trainedData.exists() || trainedData.length() < 100000) {
-                java.net.URL url = new java.net.URL(
-                        "https://github.com/tesseract-ocr/tessdata_fast/raw/main/fas.traineddata");
-                java.net.HttpURLConnection connection =
-                        (java.net.HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(10000);
-                connection.setReadTimeout(20000);
-                try (java.io.InputStream input = connection.getInputStream();
-                     java.io.FileOutputStream output = new java.io.FileOutputStream(trainedData)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                } finally {
-                    connection.disconnect();
-                }
-            }
-            SheetPerspectiveTransform.Point p1 = transform.toImage(126.0, 14.0);
-            SheetPerspectiveTransform.Point p2 = transform.toImage(181.0, 27.0);
-            int left = Math.max(0, (int)Math.floor(Math.min(p1.x, p2.x)));
-            int top = Math.max(0, (int)Math.floor(Math.min(p1.y, p2.y)));
-            int right = Math.min(page.getWidth(), (int)Math.ceil(Math.max(p1.x, p2.x)));
-            int bottom = Math.min(page.getHeight(), (int)Math.ceil(Math.max(p1.y, p2.y)));
-            if (right - left < 40 || bottom - top < 20) return "";
-            Bitmap crop = Bitmap.createBitmap(page, left, top, right - left, bottom - top);
-            com.googlecode.tesseract.android.TessBaseAPI api =
-                    new com.googlecode.tesseract.android.TessBaseAPI();
-            try {
-                if (!api.init(tessDir.getAbsolutePath(), "fas")) return "";
-                api.setPageSegMode(com.googlecode.tesseract.android.TessBaseAPI.PageSegMode
-                        .PSM_SINGLE_LINE);
-                api.setImage(crop);
-                String text = api.getUTF8Text();
-                return text == null ? "" : text.replaceAll("[\\r\\n]+", " ").trim();
-            } finally {
-                api.end();
-                crop.recycle();
-            }
-        } catch (Exception e) {
-            android.util.Log.w("AzmoonyarNameOCR", "Persian name OCR unavailable", e);
-            return "";
-        }
-    }
-
-    private void confirmParticipantName(String detected, byte[] luma, int width, int height,
-            SheetPerspectiveTransform transform) {
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setText(detected == null ? "" : detected);
-        input.setHint("نام و نام خانوادگی شرکت‌کننده");
-        input.setTextDirection(View.TEXT_DIRECTION_RTL);
-        new AlertDialog.Builder(this)
-                .setTitle("تأیید نام شرکت‌کننده")
-                .setMessage(detected == null || detected.trim().isEmpty()
-                        ? "نام به‌طور خودکار خوانده نشد؛ لطفاً نام را وارد کنید."
-                        : "نام استخراج‌شده را بررسی و در صورت نیاز اصلاح کنید.")
-                .setView(input)
-                .setCancelable(false)
-                .setPositiveButton("ثبت و تصحیح", (dialog, which) -> {
-                    participantName = input.getText().toString().trim();
-                    if (participantName.isEmpty()) {
-                        updateSheetResultStatus("نام شرکت‌کننده خالی است؛ نام را وارد کنید.");
-                        sheetConsumed = false;
-                        return;
-                    }
-                    participantNameConfirmedForSheet = true;
-                    if (captureButton != null) captureButton.setText("عکس بگیر و حباب‌ها را تصحیح کن");
-                    updateSheetResultStatus("نام ثبت شد: " + participantName
-                            + "؛ اکنون کل پاسخنامه را داخل کادر بگیرید و عکس حباب‌ها را ثبت کنید.");
-                })
-                .setNegativeButton("لغو", (dialog, which) -> {
-                    sheetConsumed = false;
-                    updateSheetResultStatus("ثبت نام و تصحیح برگه لغو شد.");
-                })
-                .show();
     }
 
     private void processRecognizedSheet(byte[] luma, int width, int height,
