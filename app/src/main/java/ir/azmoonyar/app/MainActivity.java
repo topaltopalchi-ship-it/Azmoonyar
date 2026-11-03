@@ -1038,7 +1038,7 @@ public class MainActivity extends Activity {
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
                         .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
-                        .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
+                        .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(participantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
                     for (int col = 0; col < 4; col++) {
                         int colFirst = first + col * 25;
