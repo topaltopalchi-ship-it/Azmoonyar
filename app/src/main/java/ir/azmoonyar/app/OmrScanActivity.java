@@ -56,7 +56,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
-    private String participantName = "";
+    private String participantName = "";\n    private boolean participantNameConfirmedForSheet;\n    private Button captureButton;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
@@ -178,8 +178,8 @@ public final class OmrScanActivity extends ComponentActivity {
         statusView.setPadding(16, 12, 16, 12);
         page.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
 
-        Button captureButton = new Button(this);
-        captureButton.setText("عکس بگیر و تصحیح کن");
+        captureButton = new Button(this);
+        captureButton.setText("عکس بگیر و نام را اسکن کن");
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
@@ -788,9 +788,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     OmrTemplateLayout.PAGE_HEIGHT_MM);
             getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
                     .putString("last_answer_sheet_photo", photoFile.getAbsolutePath()).apply();
-            updateStatus("عکس واقعی ذخیره شد؛ تصحیح از همان فایل انجام می‌شود…");
-            String detectedName = readPersianParticipantName(bitmap, transform);
-            confirmParticipantName(detectedName, luma, width, height, transform);
+            updateStatus("عکس واقعی ذخیره شد؛ در حال بررسی مرحلهٔ اسکن…");\n            if (participantNameConfirmedForSheet) {\n                processRecognizedSheet(luma, width, height, transform);\n            } else {\n                String detectedName = readPersianParticipantName(bitmap, transform);\n                confirmParticipantName(detectedName, luma, width, height, transform);\n            }
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
         }
@@ -872,7 +870,7 @@ public final class OmrScanActivity extends ComponentActivity {
                         sheetConsumed = false;
                         return;
                     }
-                    processRecognizedSheet(luma, width, height, transform);
+                    participantNameConfirmedForSheet = true;\n                    if (captureButton != null) captureButton.setText("عکس بگیر و حباب‌ها را تصحیح کن");\n                    updateSheetResultStatus("نام ثبت شد: " + participantName\n                            + "؛ اکنون کل پاسخنامه را داخل کادر بگیرید و عکس حباب‌ها را ثبت کنید.");
                 })
                 .setNegativeButton("لغو", (dialog, which) -> {
                     sheetConsumed = false;
