@@ -1045,10 +1045,10 @@ public class MainActivity extends Activity {
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
-                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
+                        // Keep the upper answer-sheet area blank for barcode placement.
                         .append("<div style='position:absolute;top:24mm;left:12mm;font-size:11px;font-weight:bold'>نام دانش‌آموز: ").append(escapeHtml(participantName)).append(" | نسخه ").append(modelId).append("</div>")
                         .append("<img alt='QR' style='position:absolute;top:10mm;right:12mm;width:22mm;height:22mm' src='").append(qrDataUri).append("'/>")
-                        .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
+                        // Omit the template caption to preserve barcode space above the answer grid.
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(participantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
                     for (int col = 0; col < 4; col++) {
@@ -1267,8 +1267,8 @@ public class MainActivity extends Activity {
                 html.append("<section class='sheet'>")
                     .append("<i class='marks tl'></i><i class='marks tr'></i><i class='marks bl'></i><i class='marks br'></i>")
                     .append("<i class='small-mark stl'></i><i class='small-mark str'></i><i class='small-mark sbl'></i><i class='small-mark sbr'></i>")
-                    .append("<h1 class='head'>آزمون‌یار | پاسخنامه چهارگزینه‌ای</h1>")
-                    .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page + 1).append(" از ").append(pages).append("</p>")
+                    // Keep the top of the OMR master blank for barcode placement.
+                    // Omit the template caption to preserve the blank barcode area.
                     .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first).append(" تا ").append(last).append("</span></div>")
                     .append("<div class='instruction'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div>")
                     .append("<div class='cols'>");
