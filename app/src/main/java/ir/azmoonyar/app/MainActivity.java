@@ -434,7 +434,21 @@ public class MainActivity extends Activity {
                     prefs.edit().putString("pending_scan_participant", name).apply();
                     Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
                     scanIntent.putExtra("participant_name", name);
-                    startActivity(scanIntent);
+                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
+                    boolean hasVariants = "AB".equals(prefs.getString("exam_variant_mode", "A"));
+                    if (!qrExam && hasVariants) {
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("انتخاب نسخهٔ پاسخنامه")
+                                .setItems(new String[]{"نسخهٔ A", "نسخهٔ B"}, (choiceDialog, choice) -> {
+                                    scanIntent.putExtra("answer_model", choice == 0 ? "A" : "B");
+                                    startActivity(scanIntent);
+                                })
+                                .setNegativeButton("انصراف", null)
+                                .show();
+                    } else {
+                        scanIntent.putExtra("answer_model", "A");
+                        startActivity(scanIntent);
+                    }
                 })
                 .setNegativeButton("انصراف", (dialog, which) -> {
                     if (recognizer[0] != null) recognizer[0].stop();
@@ -679,6 +693,28 @@ public class MainActivity extends Activity {
         (savedIdentityMode.equals("qr") ? qrMode : manualMode).setChecked(true);
         content.addView(identityMode);
 
+        TextView variantLabel = new TextView(this);
+        variantLabel.setText("نسخهٔ سؤال‌ها");
+        variantLabel.setTextSize(16);
+        variantLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        variantLabel.setTextColor(Color.rgb(7, 40, 130));
+        LinearLayout.LayoutParams variantLabelParams = new LinearLayout.LayoutParams(-1, -2);
+        variantLabelParams.topMargin = dp(10);
+        content.addView(variantLabel, variantLabelParams);
+        RadioGroup variantMode = new RadioGroup(this);
+        variantMode.setOrientation(RadioGroup.VERTICAL);
+        RadioButton onlyA = new RadioButton(this);
+        onlyA.setText("فقط نسخهٔ A");
+        onlyA.setTag("A");
+        RadioButton variantsAB = new RadioButton(this);
+        variantsAB.setText("دو نسخهٔ A و B (ترتیب سؤال‌ها متفاوت)");
+        variantsAB.setTag("AB");
+        variantMode.addView(onlyA);
+        variantMode.addView(variantsAB);
+        String savedVariantMode = prefs.getString("exam_variant_mode", "A");
+        (savedVariantMode.equals("AB") ? variantsAB : onlyA).setChecked(true);
+        content.addView(variantMode);
+
         Button save = new Button(this); save.setText("ذخیره"); stylePinkOvalButton(save);
         Button students = new Button(this); students.setText("ثبت‌نام شرکت‌کنندگان"); stylePinkOvalButton(students);
         Button cancel = new Button(this); cancel.setText("انصراف"); stylePinkOvalButton(cancel);
@@ -702,8 +738,13 @@ public class MainActivity extends Activity {
             if (checkedIdentity == -1) { info("روش شناسایی شرکت‌کننده را انتخاب کن."); return; }
             RadioButton identitySelected = identityMode.findViewById(checkedIdentity);
             String identityModeValue = String.valueOf(identitySelected.getTag());
+            int checkedVariant = variantMode.getCheckedRadioButtonId();
+            if (checkedVariant == -1) { info("نسخهٔ سؤال‌ها را انتخاب کن."); return; }
+            RadioButton variantSelected = variantMode.findViewById(checkedVariant);
+            String variantModeValue = String.valueOf(variantSelected.getTag());
             prefs.edit().putString("exam_name", n).putInt("question_count", c)
                     .putString("exam_identity_mode", identityModeValue)
+                    .putString("exam_variant_mode", variantModeValue)
                     .putString("answer_key", nk.toString()).apply();
             refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
         });
