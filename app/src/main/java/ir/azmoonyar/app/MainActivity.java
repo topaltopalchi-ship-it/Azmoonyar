@@ -1026,8 +1026,8 @@ public class MainActivity extends Activity {
                 .append(".page:last-child{page-break-after:auto}.head{font-size:17px;font-weight:bold;margin:0 0 3mm}")
                 .append(".meta{font-size:10px;margin:2mm 0}.clear{clear:both}")
                 .append(".instructions{font-size:9px;border:1px solid #333;padding:2mm;margin:2mm 0}")
-                .append(".question{font-size:11px;margin:0 0 3mm;page-break-inside:avoid}")
-                .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1mm;margin:1mm 5mm 0;font-size:10px;direction:ltr;text-align:left}")
+                .append(".question{font-size:10pt;line-height:1.25;margin:0 0 4mm;padding:0 1mm;page-break-inside:avoid;break-inside:avoid}")
+                .append(".options{display:grid;grid-template-columns:1fr 1fr;gap:1.5mm;margin:1.5mm 5mm 0;font-size:9pt;line-height:1.2;direction:ltr;text-align:left}")
                 .append(".cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:3mm}")
                 .append(".col{border:0.3mm solid #111;padding:2mm 1.5mm;border-radius:1mm}")
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
@@ -1067,7 +1067,7 @@ public class MainActivity extends Activity {
                 // Print question text on its own pages (25 questions per page).
                 // belong only on answer sheets, so scanning a question page cannot be counted
                 // as a scanned answer sheet.
-                final int questionsPerPage = 25;
+                final int questionsPerPage = 10;
                 final int questionPageCount = Math.max(1, (total + questionsPerPage - 1) / questionsPerPage);
                 for (int questionPage = 1; questionPage <= questionPageCount; questionPage++) {
                     int questionFirst = (questionPage - 1) * questionsPerPage;
