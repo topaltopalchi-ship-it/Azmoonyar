@@ -1029,6 +1029,13 @@ public class MainActivity extends Activity {
                     html.append("</section>");
                 }
 
+                String qrPayload = new JSONObject()
+                        .put("participant_id", participantId)
+                        .put("participant_name", participantName)
+                        .put("exam_name", examName())
+                        .put("model_id", modelId)
+                        .put("sheet_set_id", sheetSetId).toString();
+                String qrDataUri = createQrDataUri(qrPayload);
                 for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
                     int last = printLayoutQuestionCount;
@@ -1037,6 +1044,8 @@ public class MainActivity extends Activity {
                         .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
+                        .append("<div style='position:absolute;top:24mm;left:12mm;font-size:11px;font-weight:bold'>نام دانش‌آموز: ").append(escapeHtml(participantName)).append(" | نسخه ").append(modelId).append("</div>")
+                        .append("<img alt='QR' style='position:absolute;top:10mm;right:12mm;width:22mm;height:22mm' src='").append(qrDataUri).append("'/>")
                         .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(participantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
@@ -1140,6 +1149,21 @@ public class MainActivity extends Activity {
         // Immutable keys are saved per sheetSetId inside printPairedSheets.
         long seed = System.nanoTime() ^ UUID.randomUUID().getMostSignificantBits();
         return RandomExamBuilder.generateVariants(bank, count, seed);
+    }
+
+    private String createQrDataUri(String payload) throws Exception {
+        com.google.zxing.common.BitMatrix matrix = new com.google.zxing.qrcode.QRCodeWriter()
+                .encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 240, 240);
+        Bitmap bitmap = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888);
+        for (int y = 0; y < 240; y++) {
+            for (int x = 0; x < 240; x++) {
+                bitmap.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+            }
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+        bitmap.recycle();
+        return "data:image/png;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
     }
 
     private String escapeHtml(String value) {
