@@ -1526,7 +1526,83 @@ public class MainActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { }
         prefs.edit().putString("answer_key_image_" + pendingKeyTarget, uri.toString()).apply();
-        info("تصویر کلید ذخیره شد. تشخیص خودکار حباب‌ها هنوز فعال نیست.");
+        scanPrintedAzmoonyarKey(uri, pendingKeyTarget);
+    }
+
+
+    private void scanPrintedAzmoonyarKey(android.net.Uri uri, String target) {
+        android.graphics.Bitmap bitmap = null;
+        try {
+            java.io.InputStream input = getContentResolver().openInputStream(uri);
+            if (input == null) throw new java.io.IOException("empty image");
+            bitmap = android.graphics.BitmapFactory.decodeStream(input);
+            input.close();
+            if (bitmap == null) throw new java.io.IOException("invalid image");
+            int w = bitmap.getWidth(), h = bitmap.getHeight();
+            if (w < 500 || h < 700 || Math.abs(w / (float) h - 210f / 297f) > 0.12f) {
+                info("لطفاً تصویر صاف و کامل برگه A4 آزمون‌یار را انتخاب کن؛ تصویر نباید برش خورده باشد.");
+                return;
+            }
+            int count = Math.min(100, questionCount());
+            StringBuilder answers = new StringBuilder();
+            StringBuilder uncertain = new StringBuilder();
+            for (int q = 0; q < count; q++) {
+                int col = q / 25, row = q % 25;
+                float leftMm = 12f + col * 47.25f;
+                float yMm = 44f + 1f + 7f + 4.15f + row * 8.3f;
+                double[] scores = new double[4];
+                for (int a = 0; a < 4; a++) {
+                    float xMm = leftMm + 1f + 7f + 8.6875f * (a + 0.5f);
+                    scores[a] = scanBubbleDarkness(bitmap, xMm / 210f * w, yMm / 297f * h,
+                            2f / 210f * w, 1.7f / 297f * h);
+                }
+                int best = 0;
+                for (int a = 1; a < 4; a++) if (scores[a] > scores[best]) best = a;
+                double runner = 0;
+                for (int a = 0; a < 4; a++) if (a != best) runner = Math.max(runner, scores[a]);
+                answers.append((char) ('A' + best));
+                if (scores[best] < 0.16 || scores[best] - runner < 0.025) uncertain.append(q + 1).append("، ");
+            }
+            showScannedKeyReview(answers.toString(), target, uncertain.toString());
+        } catch (Exception e) {
+            info("تحلیل تصویر انجام نشد؛ لطفاً عکس واضح و کامل برگه را انتخاب کن.");
+        } finally {
+            if (bitmap != null) bitmap.recycle();
+        }
+    }
+
+    private double scanBubbleDarkness(android.graphics.Bitmap bitmap, float cx, float cy, float rx, float ry) {
+        int l = Math.max(0, (int)(cx-rx)), r = Math.min(bitmap.getWidth()-1, (int)(cx+rx));
+        int t = Math.max(0, (int)(cy-ry)), b = Math.min(bitmap.getHeight()-1, (int)(cy+ry));
+        long sum = 0; int n = 0;
+        int sy = Math.max(1, (b-t)/12), sx = Math.max(1, (r-l)/12);
+        for (int y=t; y<=b; y+=sy) for (int x=l; x<=r; x+=sx) {
+            int c=bitmap.getPixel(x,y);
+            int gray=(int)(0.299*Color.red(c)+0.587*Color.green(c)+0.114*Color.blue(c));
+            sum += 255-gray; n++;
+        }
+        return n==0 ? 0 : sum/(255.0*n);
+    }
+
+    private void showScannedKeyReview(String extracted, String target, String uncertain) {
+        EditText editor = new EditText(this);
+        editor.setText(extracted);
+        editor.setSingleLine(false);
+        editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        String message = "کلید تقریبی است؛ پیش از ذخیره پاسخ‌ها را بررسی و اصلاح کن."
+                + (uncertain.isEmpty() ? "" : "\nسؤال‌های نامطمئن: " + uncertain);
+        new AlertDialog.Builder(this).setTitle("بازبینی کلید اسکن‌شده").setMessage(message).setView(editor)
+                .setPositiveButton("تأیید و ذخیره", (d, which) -> {
+                    String normalized = editor.getText().toString().toUpperCase(Locale.US).replaceAll("[^A-D]", "");
+                    if (normalized.length() != questionCount()) {
+                        info("تعداد پاسخ‌ها باید دقیقاً " + questionCount() + " مورد باشد.");
+                        return;
+                    }
+                    if ("main".equals(target)) prefs.edit().putString("answer_key", normalized).apply();
+                    else prefs.edit().putString("answer_key_" + target, normalized).apply();
+                    refreshSummary();
+                    info("کلید پس از بازبینی ذخیره شد.");
+                }).setNegativeButton("لغو", null).show();
     }
 
     private String buildOriginalBankKey() {
