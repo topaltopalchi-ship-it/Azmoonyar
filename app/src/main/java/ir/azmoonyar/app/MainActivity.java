@@ -2525,7 +2525,20 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle("آنالیز شرکت‌کننده — نام را انتخاب کن")
                 .setItems(names, (dialog, which) -> showParticipantExamChoices(names[which], results))
+                .setPositiveButton("پاک کردن همه", (dialog, which) -> confirmClearAllParticipantResults())
                 .setNegativeButton("بازگشت", (d, w) -> showExamResultsMenu())
+                .show();
+    }
+
+    private void confirmClearAllParticipantResults() {
+        new AlertDialog.Builder(this)
+                .setTitle("پاک کردن همه نتایج؟")
+                .setMessage("تمام نتایج ثبت‌شدهٔ دانش‌آموزان از حافظهٔ محلی برنامه حذف می‌شود. این کار برگشت‌پذیر نیست. مطمئنی؟")
+                .setPositiveButton("بله، پاک شود", (dialog, which) -> {
+                    prefs.edit().putString("grading_results", "[]").commit();
+                    info("همه نتایج دانش‌آموزان پاک شد.");
+                })
+                .setNegativeButton("انصراف", null)
                 .show();
     }
 
