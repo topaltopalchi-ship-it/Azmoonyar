@@ -439,9 +439,9 @@ public final class OmrScanActivity extends ComponentActivity {
      * and bubble sampling are validated against printed sheets.
      */
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
-        // Work on a half-resolution luma image. Accept both the legacy 3 mm
-        // outlined marks and new 16 mm solid vector marks.
-        final int sample = 2;
+        // Analyze full-resolution luma so small corner marks remain detectable
+        // when the A4 sheet is distant or the camera preview is softly focused.
+        final int sample = 1;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
@@ -450,8 +450,8 @@ public final class OmrScanActivity extends ComponentActivity {
         // Search a wider outer corner window so perspective/margins do not put
         // the printed registration squares outside the detector's search area.
         // Opposite windows remain separated, avoiding duplicate corner matches.
-        final int cornerW = Math.max(12, (int) Math.round(gw * 0.40));
-        final int cornerH = Math.max(12, (int) Math.round(gh * 0.40));
+        final int cornerW = Math.max(12, (int) Math.round(gw * 0.46));
+        final int cornerH = Math.max(12, (int) Math.round(gh * 0.46));
         final int rightStart = gw - cornerW;
         final int bottomStart = gh - cornerH;
         final int[][] regions = {
