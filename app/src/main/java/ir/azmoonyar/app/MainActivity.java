@@ -2123,41 +2123,152 @@ public class MainActivity extends Activity {
     private void showCorrectionResults() {
         JSONArray results = readGradingResults();
         if (results.length() == 0) {
-            new AlertDialog.Builder(this)
-                .setTitle("نتایج تصحیح")
+            new AlertDialog.Builder(this).setTitle("نتایج تصحیح")
                 .setMessage("هنوز نتیجهٔ تصحیحی ثبت نشده است.")
-                .setPositiveButton("باشه", null)
-                .show();
+                .setPositiveButton("باشه", null).show();
             return;
         }
-        StringBuilder report = new StringBuilder();
-        report.append("نام شرکت‌کننده").append("                         ").append("نمره").append("\n");
-        report.append("────────────────────────────────").append("\\n");
-        int shown = 0;
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(12), dp(8), dp(12), dp(8));
         for (int i = results.length() - 1; i >= 0; i--) {
             JSONObject result = results.optJSONObject(i);
             if (result == null) continue;
             String name = result.optString("name", "").trim();
             if (name.isEmpty()) name = "بدون نام";
-            String score = String.format(Locale.US, "%.1f", result.optDouble("score", 0.0));
-            report.append(++shown).append(". ").append(name)
-                .append("  —  ").append(score).append(" از 100").append("\\n");
+            String exam = result.optString("examName", "آزمون بدون نام");
+            double score = result.optDouble("score", 0.0);
+
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(dp(16), dp(12), dp(16), dp(12));
+            android.graphics.drawable.GradientDrawable cardBg = new android.graphics.drawable.GradientDrawable();
+            cardBg.setColor(Color.WHITE);
+            cardBg.setCornerRadius(dp(18));
+            cardBg.setStroke(dp(1), Color.rgb(218, 228, 250));
+            card.setBackground(cardBg);
+            card.setElevation(dp(2));
+
+            TextView student = new TextView(this);
+            student.setText(name);
+            student.setTextSize(18);
+            student.setTypeface(null, android.graphics.Typeface.BOLD);
+            student.setTextColor(Color.rgb(7, 40, 130));
+            student.setGravity(Gravity.RIGHT);
+            card.addView(student, new LinearLayout.LayoutParams(-1, -2));
+
+            TextView examLine = new TextView(this);
+            examLine.setText(exam);
+            examLine.setTextSize(14);
+            examLine.setTextColor(Color.rgb(85, 99, 125));
+            examLine.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams examLp = new LinearLayout.LayoutParams(-1, -2);
+            examLp.topMargin = dp(4);
+            card.addView(examLine, examLp);
+
+            TextView grade = new TextView(this);
+            grade.setText(String.format(Locale.US, "%.1f", score) + " از 100");
+            grade.setTextSize(23);
+            grade.setTypeface(null, android.graphics.Typeface.BOLD);
+            grade.setTextColor(score >= 50 ? Color.rgb(13, 148, 136) : Color.rgb(220, 38, 38));
+            grade.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams gradeLp = new LinearLayout.LayoutParams(-1, -2);
+            gradeLp.topMargin = dp(6);
+            card.addView(grade, gradeLp);
+
+            TextView stats = new TextView(this);
+            stats.setText("درست: " + result.optInt("correct", 0)
+                    + "   •   غلط: " + result.optInt("wrong", 0)
+                    + "   •   سفید: " + result.optInt("blank", 0)
+                    + "   •   بازبینی: " + result.optInt("needsReview", 0));
+            stats.setTextSize(13);
+            stats.setTextColor(Color.rgb(71, 85, 105));
+            stats.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(-1, -2);
+            statsLp.topMargin = dp(5);
+            card.addView(stats, statsLp);
+
+            Button share = new Button(this);
+            share.setText("ارسال گزارش به خانواده");
+            styleTurquoiseDashboardButton(share);
+            LinearLayout.LayoutParams shareLp = new LinearLayout.LayoutParams(-1, dp(46));
+            shareLp.topMargin = dp(8);
+            card.addView(share, shareLp);
+            final JSONObject chosenResult = result;
+            share.setOnClickListener(v -> chooseReportShareMethod(chosenResult));
+
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
+            cardLp.setMargins(0, dp(5), 0, dp(9));
+            list.addView(card, cardLp);
         }
-        TextView content = new TextView(this);
-        content.setText(report.toString());
-        content.setTextSize(17);
-        content.setTextDirection(View.TEXT_DIRECTION_RTL);
-        content.setGravity(Gravity.RIGHT);
-        content.setPadding(dp(18), dp(14), dp(18), dp(14));
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.addView(content);
+        scroll.setFillViewport(false);
+        scroll.addView(list);
         new AlertDialog.Builder(this)
-            .setTitle("نتایج تصحیح — نام و نمرهٔ همهٔ شرکت‌کنندگان")
+            .setTitle("نتایج تصحیح • گزارش دانش‌آموزان")
             .setView(scroll)
             .setPositiveButton("بستن", null)
             .setNeutralButton("جزئیات و آمار", (d, w) -> showReportsCenter())
             .show();
+    }
+
+    private String buildGuardianReportText(JSONObject result) {
+        String name = result.optString("name", "بدون نام");
+        String exam = result.optString("examName", "آزمون بدون نام");
+        String score = String.format(Locale.US, "%.1f", result.optDouble("score", 0.0));
+        StringBuilder report = new StringBuilder();
+        report.append("📘 گزارش نتیجه آزمون — آزمون‌یار\n")
+            .append("دانش‌آموز: ").append(name).append("\n")
+            .append("آزمون: ").append(exam).append("\n")
+            .append("نمره: ").append(score).append(" از 100\n")
+            .append("✅ صحیح: ").append(result.optInt("correct", 0)).append("\n")
+            .append("❌ غلط: ").append(result.optInt("wrong", 0)).append("\n")
+            .append("⬜ بدون پاسخ: ").append(result.optInt("blank", 0)).append("\n")
+            .append("🔎 نیازمند بازبینی: ").append(result.optInt("needsReview", 0)).append("\n\n")
+            .append("این گزارش از نتیجه ثبت‌شده روی دستگاه تهیه شده است. برای موارد نیازمند بازبینی، نمره را قطعی تلقی نکنید.");
+        return report.toString();
+    }
+
+    private void chooseReportShareMethod(JSONObject result) {
+        final String[] methods = {"واتساپ", "تلگرام", "پیامک", "سایر برنامه‌ها (اشتراک‌گذاری)"};
+        new AlertDialog.Builder(this)
+            .setTitle("روش ارسال گزارش")
+            .setItems(methods, (dialog, which) -> shareGuardianReport(result, which))
+            .setNegativeButton("انصراف", null)
+            .show();
+    }
+
+    private void shareGuardianReport(JSONObject result, int method) {
+        String reportText = buildGuardianReportText(result);
+        try {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_SUBJECT, "گزارش نتیجه آزمون — " + result.optString("name", "دانش‌آموز"));
+            send.putExtra(Intent.EXTRA_TEXT, reportText);
+            if (method == 2) {
+                Intent sms = new Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:"));
+                sms.putExtra("sms_body", reportText);
+                startActivity(sms);
+                return;
+            }
+            if (method == 0) send.setPackage("com.whatsapp");
+            else if (method == 1) send.setPackage("org.telegram.messenger");
+            else {
+                startActivity(Intent.createChooser(send, "ارسال گزارش با"));
+                return;
+            }
+            if (send.resolveActivity(getPackageManager()) != null) {
+                startActivity(send);
+            } else {
+                Intent fallback = new Intent(Intent.ACTION_SEND);
+                fallback.setType("text/plain");
+                fallback.putExtra(Intent.EXTRA_TEXT, reportText);
+                startActivity(Intent.createChooser(fallback, "برنامه موردنظر نصب نیست؛ ارسال با"));
+            }
+        } catch (Exception e) {
+            info("باز کردن برنامه ارسال گزارش ممکن نشد. لطفاً نصب بودن برنامه را بررسی کن.");
+        }
     }
 
     private void showExamResultsMenu() {
@@ -2600,26 +2711,84 @@ public class MainActivity extends Activity {
     }
 
     private void showReportsPrivacyDetails() {
+        new AlertDialog.Builder(this)
+            .setTitle("صندوق گزارش‌ها و حریم خصوصی")
+            .setItems(new String[]{"صندوق گزارش‌های محلی", "تنظیمات و راهنمای حریم خصوصی", "راهنمای ارسال نتیجه به خانواده"}, (dialog, which) -> {
+                if (which == 0) showLocalReportInbox();
+                else if (which == 1) showPrivacyGuidance();
+                else showGuardianShareGuidance();
+            })
+            .setNegativeButton("بستن", null)
+            .show();
+    }
+
+    private void showLocalReportInbox() {
         ReportStore reportStore = new ReportStore(this);
         JSONArray inbox = reportStore.getInbox();
-        StringBuilder message = new StringBuilder("صندوق گزارش‌های محلی\\n");
-        message.append("گزارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.\\n\\n");
-        if (inbox.length() == 0) message.append("هنوز گزارشی ثبت نشده است.\\n\\n");
-        else for (int i = inbox.length() - 1; i >= 0; i--) {
-            JSONObject item = inbox.optJSONObject(i);
-            if (item == null) continue;
-            message.append(item.optString("title", "گزارش ارزیابی")).append("\\n")
-                .append(item.optString("body", "")).append("\\n")
-                .append(item.optString("created_at", "")).append("\\n\\n");
-            reportStore.markRead(item.optString("id", ""));
+        LinearLayout items = new LinearLayout(this);
+        items.setOrientation(LinearLayout.VERTICAL);
+        items.setPadding(dp(12), dp(8), dp(12), dp(8));
+        if (inbox.length() == 0) {
+            TextView empty = new TextView(this);
+            empty.setText("هنوز گزارشی در صندوق محلی ثبت نشده است.\nگزارش‌های تصحیح دانش‌آموزان از بخش «نتایج تصحیح» قابل اشتراک‌گذاری هستند.");
+            empty.setTextSize(16);
+            empty.setTextColor(Color.rgb(71, 85, 105));
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(16), dp(24), dp(16), dp(24));
+            items.addView(empty);
+        } else {
+            for (int i = inbox.length() - 1; i >= 0; i--) {
+                JSONObject item = inbox.optJSONObject(i);
+                if (item == null) continue;
+                TextView card = new TextView(this);
+                card.setText(item.optString("title", "گزارش") + "\n"
+                    + item.optString("body", "") + "\n"
+                    + item.optString("created_at", ""));
+                card.setTextSize(15);
+                card.setTextColor(Color.rgb(30, 41, 59));
+                card.setGravity(Gravity.RIGHT);
+                card.setPadding(dp(14), dp(12), dp(14), dp(12));
+                android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+                bg.setColor(Color.WHITE);
+                bg.setCornerRadius(dp(16));
+                bg.setStroke(dp(1), Color.rgb(218, 228, 250));
+                card.setBackground(bg);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+                lp.setMargins(0, dp(4), 0, dp(8));
+                items.addView(card, lp);
+                reportStore.markRead(item.optString("id", ""));
+            }
         }
-        message.append("حریم خصوصی و رضایت\\n")
-            .append("• ارسال به والدین تا زمان ثبت رضایت و تأیید واقعی شماره تماس غیرفعال است.\\n")
-            .append("• ثبت نام یا شماره به‌تنهایی به معنی تأیید هویت نیست.\\n")
-            .append("• ارسال پیامک/ایمیل یا اعلان خارج از برنامه هنوز فعال نشده است.\\n")
-            .append("• تحلیل و تصحیح خودکار هنوز تکمیل نشده؛ هیچ نتیجهٔ ساختگی ارسال نمی‌شود.");
-        new AlertDialog.Builder(this).setTitle("صندوق گزارش‌ها و حریم خصوصی")
-            .setMessage(message.toString()).setPositiveButton("باشه", null).show();
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(items);
+        new AlertDialog.Builder(this).setTitle("صندوق گزارش‌های محلی")
+            .setView(scroll).setPositiveButton("بستن", null)
+            .setNegativeButton("حریم خصوصی", (d, w) -> showPrivacyGuidance()).show();
+    }
+
+    private void showPrivacyGuidance() {
+        String message = "🔐 حریم خصوصی و کنترل ارسال\n\n"
+            + "• نتایج تصحیح و صندوق گزارش‌ها روی همین دستگاه نگه‌داری می‌شوند.\n"
+            + "• ارسال نتیجه فقط پس از انتخاب شما و باز کردن برنامه مقصد انجام می‌شود؛ برنامه به‌صورت خودکار برای والدین پیام نمی‌فرستد.\n"
+            + "• قبل از ارسال، نام دانش‌آموز و نمره را بررسی کنید و فقط با رضایت خانواده اشتراک‌گذاری کنید.\n"
+            + "• انتخاب واتساپ/تلگرام به معنی تأیید هویت یا شماره تماس والدین نیست.\n"
+            + "• برنامه فعلاً شماره والدین را با OTP تأیید نمی‌کند و گزارش ابری یا ارسال زمان‌بندی‌شده ندارد.\n"
+            + "• داده‌های خصوصی یا جزئیات پاسخ‌ها را بدون ضرورت ارسال نکنید.\n\n"
+            + "برای حذف یا مدیریت گزارش‌های ذخیره‌شده، از تنظیمات دستگاه و داده‌های محلی برنامه استفاده کنید.";
+        new AlertDialog.Builder(this).setTitle("حریم خصوصی و رضایت")
+            .setMessage(message).setPositiveButton("متوجه شدم", null)
+            .setNeutralButton("راهنمای ارسال", (d, w) -> showGuardianShareGuidance()).show();
+    }
+
+    private void showGuardianShareGuidance() {
+        String message = "۱) وارد «نتایج تصحیح» شوید.\n"
+            + "۲) کارت دانش‌آموز موردنظر را پیدا کنید.\n"
+            + "۳) «ارسال گزارش به خانواده» را بزنید.\n"
+            + "۴) واتساپ، تلگرام، پیامک یا سایر برنامه‌ها را انتخاب کنید.\n"
+            + "۵) مخاطب خانواده را خودتان انتخاب کرده و متن را قبل از ارسال مرور کنید.\n\n"
+            + "گزارش شامل نام دانش‌آموز، نام آزمون، نمره از ۱۰۰ و تعداد پاسخ‌های صحیح، غلط، سفید و نیازمند بازبینی است.";
+        new AlertDialog.Builder(this).setTitle("ارسال گزارش به خانواده")
+            .setMessage(message).setPositiveButton("باشه", null).show();
     }
 
     private void info(String message) {
