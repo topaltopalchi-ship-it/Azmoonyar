@@ -69,6 +69,87 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile double diagnosticMarkerSizeMm;
     private volatile double[][][] diagnosticCenters;
     private volatile long lastDiagnosticFrameSaved;
+    private SheetGuideOverlay sheetGuideOverlay;
+    private LiveBubbleOverlay liveBubbleOverlay;
+    private double[][][] liveBubbleCenters;
+
+    /**
+     * Draws the 400 option rings in camera-preview coordinates. The analyzer
+     * supplies freshly perspective-mapped centers on every valid frame; this
+     * view smooths small detector fluctuations but never extrapolates after
+     * marker loss.
+     */
+    private static final class LiveBubbleOverlay extends View {
+        private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final int[] colors = {
+                Color.rgb(255, 35, 35), Color.rgb(20, 105, 255),
+                Color.rgb(0, 190, 70), Color.rgb(255, 190, 0)
+        };
+        private float[] smoothed;
+        private int frameWidth, frameHeight;
+        private int missedFrames;
+        private boolean hasFrame;
+
+        LiveBubbleOverlay(android.content.Context context) {
+            super(context);
+            setWillNotDraw(false);
+            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            ringPaint.setStyle(Paint.Style.STROKE);
+            ringPaint.setStrokeWidth(1.6f * getResources().getDisplayMetrics().density);
+        }
+
+        synchronized void submitFrame(float[] points, int width, int height) {
+            if (points == null || points.length != 400 * 4 || width <= 0 || height <= 0) {
+                markMissingFrame();
+                return;
+            }
+            if (smoothed == null || smoothed.length != points.length
+                    || frameWidth != width || frameHeight != height) {
+                smoothed = points.clone();
+            } else {
+                // Exponential smoothing damps one-frame marker jitter while
+                // following real movement of the sheet and camera.
+                final float alpha = 0.42f;
+                for (int i = 0; i < points.length; i++) {
+                    smoothed[i] += alpha * (points[i] - smoothed[i]);
+                }
+            }
+            frameWidth = width;
+            frameHeight = height;
+            missedFrames = 0;
+            hasFrame = true;
+            postInvalidate();
+        }
+
+        synchronized void markMissingFrame() {
+            missedFrames++;
+            // A short grace period avoids flicker from a single blurred frame.
+            // After that, hide rings rather than leaving stale positions on screen.
+            if (missedFrames >= 3) {
+                hasFrame = false;
+                smoothed = null;
+            }
+            postInvalidate();
+        }
+
+        @Override protected synchronized void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (!hasFrame || smoothed == null || frameWidth <= 0 || frameHeight <= 0) return;
+            float scale = Math.min(getWidth() / (float) frameWidth,
+                    getHeight() / (float) frameHeight);
+            float offsetX = (getWidth() - frameWidth * scale) * 0.5f;
+            float offsetY = (getHeight() - frameHeight * scale) * 0.5f;
+            for (int i = 0; i < 400; i++) {
+                int base = i * 4;
+                float cx = offsetX + smoothed[base] * scale;
+                float cy = offsetY + smoothed[base + 1] * scale;
+                float rx = Math.max(1.5f, smoothed[base + 2] * scale);
+                float ry = Math.max(1.5f, smoothed[base + 3] * scale);
+                ringPaint.setColor(colors[i % 4]);
+                canvas.drawOval(cx - rx, cy - ry, cx + rx, cy + ry, ringPaint);
+            }
+        }
+    }
 
     /** Draws an A4 portrait placement guide over the live camera preview. */
     private static final class SheetGuideOverlay extends View {
@@ -155,8 +236,13 @@ public final class OmrScanActivity extends ComponentActivity {
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FIT_CENTER);
         cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
-        SheetGuideOverlay sheetGuide = new SheetGuideOverlay(this);
-        cameraFrame.addView(sheetGuide, new FrameLayout.LayoutParams(-1, -1));
+        sheetGuideOverlay = new SheetGuideOverlay(this);
+        cameraFrame.addView(sheetGuideOverlay, new FrameLayout.LayoutParams(-1, -1));
+        liveBubbleOverlay = new LiveBubbleOverlay(this);
+        liveBubbleOverlay.setClickable(false);
+        cameraFrame.addView(liveBubbleOverlay, new FrameLayout.LayoutParams(-1, -1));
+        liveBubbleCenters = OmrTemplateLayout.bubbleCentersForPage(
+                OmrTemplateLayout.QUESTIONS_PER_PAGE, 0);
         page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
@@ -315,6 +401,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 }
             }
             if (transform != null && markerCount == 4) {
+                updateLiveBubbleOverlay(transform, upright.width, upright.height);
                 long diagnosticNow = android.os.SystemClock.elapsedRealtime();
                 if (diagnosticNow - lastDiagnosticFrameSaved > 300) {
                     diagnosticLuma = upright.pixels.clone();
@@ -335,6 +422,7 @@ public final class OmrScanActivity extends ComponentActivity {
                 // Preview analysis is used for guidance only and never triggers a photo.
             } else {
                 stableMarkerFrames = 0;
+                if (liveBubbleOverlay != null) liveBubbleOverlay.markMissingFrame();
                 // TEMPORARILY DISABLED: do not trigger the next-sheet / next-participant
                 // flow when the previous sheet leaves the camera. Keep the preview available
                 // so the operator can capture diagnostic screenshots without a dialog blocking it.
@@ -371,6 +459,55 @@ public final class OmrScanActivity extends ComponentActivity {
             updateStatus("کیفیت تصویر کافی نیست؛ فاصله و نور را تنظیم کنید.");
         } finally {
             image.close();
+        }
+    }
+
+    /**
+     * Reprojects all 400 option centers and their physical ellipse radii into
+     * the current upright camera frame. Called only after all four page markers
+     * pass geometric validation.
+     */
+    private void updateLiveBubbleOverlay(SheetPerspectiveTransform transform,
+            int frameWidth, int frameHeight) {
+        LiveBubbleOverlay overlay = liveBubbleOverlay;
+        double[][][] centers = liveBubbleCenters;
+        if (overlay == null || transform == null || centers == null
+                || frameWidth <= 0 || frameHeight <= 0) return;
+        float[] mapped = new float[400 * 4];
+        int index = 0;
+        try {
+            for (int q = 0; q < centers.length; q++) {
+                for (int option = 0; option < 4; option++) {
+                    double x = centers[q][option][0];
+                    double y = centers[q][option][1];
+                    SheetPerspectiveTransform.Point p = transform.toImage(x, y);
+                    SheetPerspectiveTransform.Point left = transform.toImage(
+                            Math.max(0.0, x - 2.60), y);
+                    SheetPerspectiveTransform.Point right = transform.toImage(
+                            Math.min(OmrTemplateLayout.PAGE_WIDTH_MM, x + 2.60), y);
+                    SheetPerspectiveTransform.Point top = transform.toImage(
+                            x, Math.max(0.0, y - 2.05));
+                    SheetPerspectiveTransform.Point bottom = transform.toImage(
+                            x, Math.min(OmrTemplateLayout.PAGE_HEIGHT_MM, y + 2.05));
+                    float rx = (float) (Math.hypot(p.x - left.x, p.y - left.y)
+                            + Math.hypot(right.x - p.x, right.y - p.y)) * 0.49f;
+                    float ry = (float) (Math.hypot(p.x - top.x, p.y - top.y)
+                            + Math.hypot(bottom.x - p.x, bottom.y - p.y)) * 0.49f;
+                    if (p.x < 0 || p.y < 0 || p.x >= frameWidth || p.y >= frameHeight
+                            || !Float.isFinite(rx) || !Float.isFinite(ry)
+                            || rx < 1f || ry < 1f) {
+                        overlay.markMissingFrame();
+                        return;
+                    }
+                    mapped[index++] = (float) p.x;
+                    mapped[index++] = (float) p.y;
+                    mapped[index++] = rx;
+                    mapped[index++] = ry;
+                }
+            }
+            overlay.submitFrame(mapped, frameWidth, frameHeight);
+        } catch (IllegalArgumentException invalidTransform) {
+            overlay.markMissingFrame();
         }
     }
 
