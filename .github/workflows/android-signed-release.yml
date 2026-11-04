@@ -111,6 +111,6 @@ jobs:
           name: azmoonyar-signed-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
 
 # Rebuild requested: Aysel Plus from altay-4.
