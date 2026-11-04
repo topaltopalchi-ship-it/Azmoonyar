@@ -764,7 +764,27 @@ public class MainActivity extends Activity {
     private JSONArray readStudents() {
         try {
             JSONArray students = new JSONArray(prefs.getString("students_json", "[]"));
-            // Preserve stable IDs and QR metadata for participant verification.
+            // Migrate existing roster rows without discarding any participant metadata.
+            boolean changed = false;
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student == null) continue;
+                String id = student.optString("id", "").trim();
+                if (id.isEmpty()) {
+                    id = student.optString("participant_id", "").trim();
+                    if (id.isEmpty()) id = UUID.randomUUID().toString();
+                    student.put("id", id);
+                    student.put("participant_id", id);
+                    changed = true;
+                }
+                String model = student.optString("model_id", "A").trim().toUpperCase(Locale.ROOT);
+                if (!"A".equals(model) && !"B".equals(model)) model = "A";
+                if (!model.equals(student.optString("model_id", ""))) {
+                    student.put("model_id", model);
+                    changed = true;
+                }
+            }
+            if (changed) prefs.edit().putString("students_json", students.toString()).apply();
             return students;
         } catch (Exception e) {
             return new JSONArray();
