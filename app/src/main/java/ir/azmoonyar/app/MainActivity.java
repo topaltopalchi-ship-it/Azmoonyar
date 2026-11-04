@@ -441,7 +441,7 @@ public class MainActivity extends Activity {
                 .setTitle("اسکن و تصحیح پاسخنامه")
                 .setView(panel)
                 .setPositiveButton("ادامه", (dialog, which) -> {
-                    if (prefs.getBoolean("qr_required", false)) {
+                    if (prefs.getBoolean("qr_required_" + examName().trim(), false)) {
                         startActivity(new Intent(MainActivity.this, ScanActivity.class));
                         return;
                     }
@@ -705,7 +705,7 @@ public class MainActivity extends Activity {
             for (int i = 0; i < c; i++) nk.append(i < old.length() ? old.charAt(i) : '-');
             prefs.edit().putString("exam_name", n).putInt("question_count", c)
                     .putString("answer_key", nk.toString())
-                    .putBoolean("qr_required", qrRequired.isChecked()).apply();
+                    .putBoolean("qr_required_" + n, qrRequired.isChecked()).apply();
             refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
         });
         students.setOnClickListener(v -> { dialog.dismiss(); showStudentsDialog(); });
