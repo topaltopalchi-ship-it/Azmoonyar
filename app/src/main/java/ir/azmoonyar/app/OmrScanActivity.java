@@ -48,6 +48,7 @@ import com.google.zxing.Result;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.PlanarYUVLuminanceSource;
 
 /**
  * Live-camera alignment cue only. Corner-window detection is intentionally not
@@ -65,6 +66,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
+    private boolean qrIdentityRequired;
+    private volatile boolean qrIdentityScanned;
+    private volatile long lastQrAnalysis;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
@@ -191,6 +195,10 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                updateStatus("ابتدا QR شرکت‌کننده را مقابل دوربین بگیرید.");
+                return;
+            }
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
                 return;
@@ -245,6 +253,12 @@ public final class OmrScanActivity extends ComponentActivity {
 
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
+        qrIdentityRequired = "qr".equals(getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                .getString("exam_identity_mode", "manual"));
+        qrIdentityScanned = !qrIdentityRequired;
+        if (qrIdentityRequired) {
+            statusView.setText("مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید.");
+        }
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -313,6 +327,13 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int rotation = image.getImageInfo().getRotationDegrees();
             UprightLuma upright = rotateToUpright(luma, width, height, rotation);
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                long qrNow = android.os.SystemClock.elapsedRealtime();
+                if (qrNow - lastQrAnalysis >= 250) {
+                    lastQrAnalysis = qrNow;
+                    scanParticipantQrFromPreview(upright.pixels, upright.width, upright.height);
+                }
+            }
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
@@ -371,7 +392,11 @@ public final class OmrScanActivity extends ComponentActivity {
             if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
                 String message;
-                if (sheetConsumed) {
+                if (qrIdentityRequired && !qrIdentityScanned) {
+                    message = "مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید؛ پس از شناسایی، پاسخنامه را اسکن کنید.";
+                } else if (qrIdentityRequired && qrIdentityScanned && !sheetConsumed) {
+                    message = "QR تأیید شد: " + participantName + " — حالا پاسخنامه را داخل کادر قرار دهید.";
+                } else if (sheetConsumed) {
                     message = waitingForNextName
                             ? "برگهٔ قبلی کنار رفت؛ نام شرکت‌کنندهٔ بعدی را ثبت کنید."
                             : (lastSheetResultMessage.isEmpty()
@@ -822,6 +847,50 @@ public final class OmrScanActivity extends ComponentActivity {
             processRecognizedSheet(luma, width, height, transform);
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
+        }
+    }
+
+    /** Read the participant QR continuously from the live camera before accepting an answer sheet. */
+    private void scanParticipantQrFromPreview(byte[] luma, int width, int height) {
+        if (qrIdentityScanned || luma == null || width <= 0 || height <= 0) return;
+        try {
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    luma, width, height, 0, 0, width, height, false);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+            MultiFormatReader reader = new MultiFormatReader();
+            EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+            hints.put(DecodeHintType.POSSIBLE_FORMATS,
+                    java.util.Collections.singletonList(BarcodeFormat.QR_CODE));
+            reader.setHints(hints);
+            Result result;
+            try {
+                result = reader.decodeWithState(bitmap);
+            } finally {
+                reader.reset();
+            }
+            if (result == null || result.getText() == null) return;
+            JSONObject qr = new JSONObject(result.getText());
+            String qrName = qr.optString("participant_name", "").trim();
+            String qrModel = qr.optString("model_id", "").trim();
+            if (qrName.isEmpty() || !qrModel.matches("[AB]")) {
+                updateStatus("QR پیدا شد، اما اطلاعات شرکت‌کننده یا نسخهٔ پاسخنامه معتبر نیست.");
+                return;
+            }
+            participantName = qrName;
+            getIntent().putExtra("participant_name", qrName);
+            getIntent().putExtra("answer_model", qrModel);
+            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                    .putString("pending_scan_participant", qrName)
+                    .putString("last_qr_participant_id", qr.optString("participant_id", ""))
+                    .putString("last_qr_model_id", qrModel).apply();
+            qrIdentityScanned = true;
+            updateStatus("QR شرکت‌کننده تأیید شد: " + qrName + " — نسخهٔ " + qrModel
+                    + ". حالا پاسخنامه را داخل کادر قرار دهید.");
+        } catch (com.google.zxing.NotFoundException notFound) {
+            // No QR in this preview frame; keep waiting for the participant card.
+        } catch (Exception invalidQr) {
+            android.util.Log.d("AzmoonyarQR", "Ignoring unreadable participant QR preview", invalidQr);
         }
     }
 
