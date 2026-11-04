@@ -883,6 +883,7 @@ public final class OmrScanActivity extends ComponentActivity {
             String qrName = qr.optString("participant_name", "").trim();
             String qrModel = qr.optString("model_id", "").trim();
             String qrExam = qr.optString("exam_name", "").trim();
+            String qrParticipantId = qr.optString("participant_id", "").trim();
             String qrParticipantCode = qr.optString("participant_code", "").trim();
             String qrGrade = qr.optString("grade_level", "").trim();
             String qrGroup = qr.optString("group", "").trim();
