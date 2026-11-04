@@ -1038,9 +1038,12 @@ public class MainActivity extends Activity {
                 } else {
                     qrPayload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|" + modelId + "|T1|1|1";
                 }
+                java.util.EnumMap<com.google.zxing.EncodeHintType, Object> qrHints =
+                        new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
+                qrHints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
                 com.google.zxing.common.BitMatrix qrMatrix =
                         new com.google.zxing.qrcode.QRCodeWriter().encode(
-                                qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320);
+                                qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320, qrHints);
                 Bitmap qrBitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
                 for (int y = 0; y < 320; y++) {
                     for (int x = 0; x < 320; x++) {
