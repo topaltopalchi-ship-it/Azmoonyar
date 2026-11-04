@@ -679,7 +679,7 @@ public class MainActivity extends Activity {
         CheckBox qrRequired = new CheckBox(this);
         qrRequired.setText("برای تصحیح، شناسایی QR شرکت‌کننده الزامی باشد");
         qrRequired.setTextSize(14);
-        qrRequired.setChecked(prefs.getBoolean("qr_required", false));
+        qrRequired.setChecked(prefs.getBoolean("qr_required_" + examName().trim(), false));
         LinearLayout.LayoutParams qrRequiredParams = new LinearLayout.LayoutParams(-1, -2);
         qrRequiredParams.topMargin = dp(8);
         content.addView(qrRequired, qrRequiredParams);
