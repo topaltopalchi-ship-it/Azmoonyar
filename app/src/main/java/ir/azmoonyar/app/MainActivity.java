@@ -351,113 +351,16 @@ public class MainActivity extends Activity {
 
 
     private void showScanCorrectionEntry() {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(18), dp(10), dp(18), dp(4));
+        // The scan button now opens the participant QR scanner directly.
+        // QR supplies the participant identity and answer-sheet model; no voice
+        // registration or manual name-entry step is shown before scanning.
+        prefs.edit()
+                .putString("exam_identity_mode", "qr")
+                .putString("pending_scan_participant", "")
+                .apply();
 
-        TextView help = new TextView(this);
-        help.setText("نام شرکت‌کننده را وارد کنید یا با صدا بگویید، سپس دوربین زنده را باز کنید. تشخیص حباب و نمره‌دهی نهایی تا تکمیل کالیبراسیون برگه فعال نمی‌شود.");
-        help.setTextSize(15);
-        help.setTextColor(Color.rgb(45, 58, 86));
-        help.setGravity(Gravity.CENTER);
-        panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
-
-        EditText participantName = new EditText(this);
-        participantName.setSingleLine(true);
-        participantName.setHint("نام و نام خانوادگی شرکت‌کننده");
-        participantName.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(-1, -2);
-        nameParams.topMargin = dp(14);
-        panel.addView(participantName, nameParams);
-
-        Button voiceEntry = new Button(this);
-        voiceEntry.setText("🎙 ثبت نام با صدا");
-        voiceEntry.setAllCaps(false);
-        voiceEntry.setTextColor(Color.WHITE);
-        voiceEntry.setTextSize(19);
-        voiceEntry.setTypeface(null, android.graphics.Typeface.BOLD);
-        voiceEntry.setGravity(Gravity.CENTER);
-        voiceEntry.setPadding(dp(18), dp(14), dp(18), dp(14));
-        android.graphics.drawable.GradientDrawable redBase = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(255, 92, 110), Color.rgb(235, 35, 65), Color.rgb(170, 0, 38)});
-        redBase.setCornerRadius(dp(42));
-        redBase.setStroke(dp(3), Color.rgb(255, 150, 160));
-        voiceEntry.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(150,255,255,255)), redBase, null));
-        voiceEntry.setElevation(dp(12));
-        voiceEntry.setStateListAnimator(null);
-        voiceEntry.setOnTouchListener((view, event) -> {
-            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
-                view.animate().translationY(dp(4)).setDuration(70).start();
-                view.setElevation(dp(4));
-            } else if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
-                    || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
-                view.animate().translationY(0).setDuration(100).start();
-                view.setElevation(dp(12));
-            }
-            return false;
-        });
-        LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, dp(66));
-        voiceParams.topMargin = dp(10);
-        panel.addView(voiceEntry, voiceParams);
-        final PersianVosk[] recognizer = new PersianVosk[1];
-        voiceEntry.setOnClickListener(v -> {
-            if (recognizer[0] != null) recognizer[0].stop();
-            recognizer[0] = new PersianVosk();
-            voiceEntry.setEnabled(false);
-            voiceEntry.setText("در حال آماده‌سازی مدل صوتی...");
-            recognizer[0].start(this, new PersianVosk.Callback() {
-                @Override public void onText(String text) {
-                    participantName.setText(text);
-                    voiceEntry.setEnabled(true);
-                    voiceEntry.setText("🎙 ثبت نام با صدا");
-                    if (recognizer[0] != null) recognizer[0].stop();
-                }
-                @Override public void onStatus(String status) {
-                    voiceEntry.setText(status.length() > 48 ? status.substring(0, 45) + "…" : status);
-                    if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
-                            || status.startsWith("ضبط بدون دریافت گفتار")) {
-                        voiceEntry.setEnabled(true);
-                    }
-                }
-            });
-        });
-
-        styledDialogBuilder()
-                .setTitle("اسکن و تصحیح پاسخنامه")
-                .setView(panel)
-                .setPositiveButton("ادامه", (dialog, which) -> {
-                    String name = participantName.getText().toString().trim();
-                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
-                    if (name.isEmpty() && !qrExam) {
-                        info("ابتدا نام شرکت‌کننده را از فهرست یا به‌صورت متنی ثبت کنید.");
-                        return;
-                    }
-                    // In QR identity mode, the printed roster QR supplies the participant
-                    // identity; do not force manual name entry before scanning.
-                    prefs.edit().putString("pending_scan_participant", name).apply();
-                    Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
-                    scanIntent.putExtra("participant_name", name);
-                    boolean hasVariants = "AB".equals(prefs.getString("exam_variant_mode", "A"));
-                    if (!qrExam && hasVariants) {
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("انتخاب نسخهٔ پاسخنامه")
-                                .setItems(new String[]{"نسخهٔ A", "نسخهٔ B"}, (choiceDialog, choice) -> {
-                                    scanIntent.putExtra("answer_model", choice == 0 ? "A" : "B");
-                                    startActivity(scanIntent);
-                                })
-                                .setNegativeButton("انصراف", null)
-                                .show();
-                    } else {
-                        scanIntent.putExtra("answer_model", "A");
-                        startActivity(scanIntent);
-                    }
-                })
-                .setNegativeButton("انصراف", (dialog, which) -> {
-                    if (recognizer[0] != null) recognizer[0].stop();
-                })
-                .show();
+        Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
+        startActivity(scanIntent);
     }
 
     private void addRegistrationButtons() {
