@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/enable-bubble-coordinate-overlay
+      - fix/omr-overlay-bubble-alignment
 
 permissions:
   contents: read

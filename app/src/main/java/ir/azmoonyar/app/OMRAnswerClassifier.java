@@ -79,17 +79,49 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
-        }
         double margin = strongest - Math.max(0, second);
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+
+        // A completely unmarked row stays blank. Preserve only the narrowly
+        // calibrated 0.10 near-white exception; values at 0.11 and above
+        // remain blank so ordinary paper/noise cannot become an answer.
+        if (strongest <= blankThreshold) {
+            if (strongest >= 0.10 && strongest < 0.11 && second >= 0.08
+                    && margin > 0.0 && margin <= 0.0200001) {
+                return new Result(Status.ANSWERED, strongestIndex, margin,
+                        Math.min(1.0, strongest * 2.0));
+            }
+            return new Result(Status.BLANK, -1, margin, strongest);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+
+        // Evidence between the blank and reliable-mark bands is not enough
+        // to make an automatic decision. Ask for human review.
+        if (strongest < 0.25) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+
+        // Two independently strong bubbles are a multiple mark. If the
+        // runner-up is substantial but not strong enough to call a second
+        // mark, the row remains ambiguous and must be reviewed.
+        if (second >= 0.50 && second >= strongest * 0.75) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
+        }
+        if (tiedForStrongest) {
+            return new Result(Status.REVIEW, -1, 0, strongest);
+        }
+
+        // Preserve the scanner's explicit near-tie behavior for non-identical
+        // scores (the exact tie above is still reviewed). All other weakly
+        // separated marks, including a faint runner-up, require review.
+        boolean deliberateNearTie = margin > 0.0 && margin <= 0.0011
+                && strongest >= 0.25;
+        if (!deliberateNearTie && margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
+
+        // The strongest mark is sufficiently separated from the alternatives.
+        // Keep the historical display score scaling, but never use it to
+        // turn a weak mark into an answered question.
+        return new Result(Status.ANSWERED, strongestIndex, margin,
+                Math.min(1.0, strongest * 2.0));
     }
 }
