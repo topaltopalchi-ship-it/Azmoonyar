@@ -770,6 +770,10 @@ public class MainActivity extends Activity {
                 JSONObject payload = new JSONObject()
                         .put("participant_id", participantId)
                         .put("participant_name", participantName)
+                        .put("participant_code", student.optString("code", "").trim())
+                        .put("grade_level", student.optString("grade_level", "").trim())
+                        .put("group", student.optString("group", "").trim())
+                        .put("parent_contact", student.optString("parent_contact", "").trim())
                         .put("exam_name", examName())
                         .put("model_id", "A")
                         .put("sheet_set_id", "roster-" + participantId);
@@ -1013,6 +1017,10 @@ public class MainActivity extends Activity {
                     String qrPayload = new JSONObject()
                             .put("participant_id", sheetParticipantId)
                             .put("participant_name", sheetParticipantName)
+                            .put("participant_code", rosterStudent == null ? "" : rosterStudent.optString("code", "").trim())
+                            .put("grade_level", rosterStudent == null ? "" : rosterStudent.optString("grade_level", "").trim())
+                            .put("group", rosterStudent == null ? "" : rosterStudent.optString("group", "").trim())
+                            .put("parent_contact", rosterStudent == null ? "" : rosterStudent.optString("parent_contact", "").trim())
                             .put("exam_name", examName())
                             .put("model_id", modelId)
                             .put("sheet_set_id", sheetSetId).toString();
@@ -1134,8 +1142,11 @@ public class MainActivity extends Activity {
     }
 
     private String createQrDataUri(String payload) throws Exception {
+        java.util.EnumMap<com.google.zxing.EncodeHintType, Object> qrHints =
+                new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
+        qrHints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
         com.google.zxing.common.BitMatrix matrix = new com.google.zxing.qrcode.QRCodeWriter()
-                .encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 240, 240);
+                .encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 240, 240, qrHints);
         Bitmap bitmap = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888);
         for (int y = 0; y < 240; y++) {
             for (int x = 0; x < 240; x++) {
