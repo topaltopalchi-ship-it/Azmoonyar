@@ -957,11 +957,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The standard A4 answer sheet prints each bubble as a 5.2 x 4.1 mm ellipse.
-            // Match those physical dimensions in the diagnostic rings; the homography
-            // scales them locally so perspective is handled across all four columns.
-            final double halfBubbleWidthMm = 2.60;
-            final double halfBubbleHeightMm = 2.05;
+            // The paired answer sheet shown by the user prints each bubble as
+            // 4.2 x 3.2 mm. Match its exact dimensions in the diagnostic rings;
+            // homography scales locally to account for perspective.
+            final double halfBubbleWidthMm = 2.10;
+            final double halfBubbleHeightMm = 1.60;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -979,8 +979,8 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Keep a slight inset within the printed 5.2 x 4.1 mm ellipse
-                    // so the colored rings sit on, rather than cover, its black border.
+                    // Keep the colored ring slightly inside the printed 4.2 x 3.2 mm
+                    // ellipse border while retaining the exact bubble center.
                     rx = Math.max(2.0f, rx * 0.98f);
                     ry = Math.max(2.0f, ry * 0.98f);
                     paint.setColor(bubbleOverlayColors[option]);
