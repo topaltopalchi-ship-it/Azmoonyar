@@ -883,6 +883,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 catch (Exception ignored) { queue = new JSONArray(); }
                 JSONObject pending = new JSONObject();
                 pending.put("name", participantName.trim());
+                if (qrVerified) {
+                    pending.put("participant_id", participantId);
+                    pending.put("model_id", issuedModelId);
+                    pending.put("sheet_set_id", issuedSheetSetId);
+                }
                 pending.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
                 pending.put("createdAt", System.currentTimeMillis());
                 pending.put("source", "saved_camera_photo");
@@ -916,6 +921,11 @@ public final class OmrScanActivity extends ComponentActivity {
             catch (Exception ignored) { saved = new JSONArray(); }
             JSONObject record = new JSONObject();
             record.put("name", participantName.trim());
+            if (qrVerified) {
+                record.put("participant_id", participantId);
+                record.put("model_id", issuedModelId);
+                record.put("sheet_set_id", issuedSheetSetId);
+            }
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
