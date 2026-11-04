@@ -2615,6 +2615,14 @@ public class MainActivity extends Activity {
             final JSONObject chosenResult = result;
             share.setOnClickListener(v -> chooseReportShareMethod(chosenResult));
 
+            TextView detailHint = new TextView(this);
+            detailHint.setText("برای دیدن پاسخ‌های هر سؤال، لمس کنید");
+            detailHint.setTextSize(12);
+            detailHint.setTextColor(Color.rgb(37, 99, 150));
+            detailHint.setGravity(Gravity.RIGHT);
+            card.addView(detailHint, new LinearLayout.LayoutParams(-1, -2));
+            card.setOnClickListener(v -> showParticipantExamResultDetails(chosenResult));
+
             LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
             cardLp.setMargins(0, dp(5), 0, dp(9));
             list.addView(card, cardLp);
@@ -2628,6 +2636,41 @@ public class MainActivity extends Activity {
             .setPositiveButton("بستن", null)
             .setNeutralButton("جزئیات و آمار", (d, w) -> showReportsCenter())
             .show();
+    }
+
+    private void showParticipantExamResultDetails(JSONObject result) {
+        StringBuilder details = new StringBuilder();
+        details.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام"))
+                .append("\\nکد شرکت‌کننده: ").append(result.optString("participantCode", "—"))
+                .append("\\nآزمون: ").append(result.optString("examName", "—"))
+                .append("\\nنمره فعلی: ").append(String.format(Locale.US, "%.1f", result.optDouble("score", 0)))
+                .append(" از ۱۰۰")
+                .append("\\nدرست: ").append(result.optInt("correct", 0))
+                .append(" | غلط: ").append(result.optInt("wrong", 0))
+                .append(" | سفید: ").append(result.optInt("blank", 0))
+                .append(" | بازبینی: ").append(result.optInt("needsReview", 0));
+        if (result.optBoolean("provisional", false)) {
+            details.append("\\n\\nاین نمره موقت است؛ سؤال‌های نامطمئن فعلاً نمره صفر دارند و پس از بازبینی باید به‌روزرسانی شوند.");
+        }
+        org.json.JSONArray questions = result.optJSONArray("questionDetails");
+        if (questions != null) {
+            details.append("\\n\\nجزئیات سؤال‌ها:");
+            for (int i = 0; i < questions.length(); i++) {
+                org.json.JSONObject q = questions.optJSONObject(i);
+                if (q == null) continue;
+                details.append("\\nسؤال ").append(q.optInt("question", i + 1))
+                        .append(" | کلید: ").append(q.optString("correctOption", "—"))
+                        .append(" | پاسخ: ").append(q.optString("selectedOption", "—"))
+                        .append(" | ").append(q.optBoolean("isCorrect", false) ? "صحیح" :
+                                ("REVIEW".equals(q.optString("status")) ? "نیازمند بازبینی" :
+                                ("BLANK".equals(q.optString("status")) ? "بدون پاسخ" : "غلط")));
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("کارنامه شرکت‌کننده")
+                .setMessage(details.toString())
+                .setPositiveButton("بستن", null)
+                .show();
     }
 
     private String buildGuardianReportText(JSONObject result) {
