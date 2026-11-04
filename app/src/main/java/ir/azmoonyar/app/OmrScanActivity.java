@@ -976,7 +976,7 @@ public final class OmrScanActivity extends ComponentActivity {
             if (isFinishing() || isDestroyed()) return;
             LinearLayout details = new LinearLayout(this);
             details.setOrientation(LinearLayout.VERTICAL);
-            details.setPadding(dp(8), dp(4), dp(8), dp(4));
+            details.setPadding((int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f));
             addQrDetailRow(details, "نام و نام خانوادگی", name);
             addQrDetailRow(details, "کد شرکت‌کننده", participantCode);
             addQrDetailRow(details, "مقطع / پایه", gradeLevel);
@@ -1000,7 +1000,7 @@ public final class OmrScanActivity extends ComponentActivity {
         row.setTextSize(17);
         row.setTextColor(Color.rgb(30, 41, 59));
         row.setGravity(Gravity.RIGHT);
-        row.setPadding(dp(4), dp(8), dp(4), dp(8));
+        row.setPadding((int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f));
         container.addView(row, new LinearLayout.LayoutParams(-1, -2));
     }
 
