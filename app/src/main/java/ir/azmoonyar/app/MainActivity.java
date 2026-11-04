@@ -805,6 +805,9 @@ public class MainActivity extends Activity {
         EditText studentCode = new EditText(this); styleInput(studentCode);
         studentCode.setSingleLine(true); studentCode.setHint("کد دانشجویی / کد شرکت‌کننده (اختیاری)");
         form.addView(studentCode, new LinearLayout.LayoutParams(-1, -2));
+        EditText studentGrade = new EditText(this); styleInput(studentGrade);
+        studentGrade.setSingleLine(true); studentGrade.setHint("مقطع / پایه تحصیلی (اختیاری)");
+        form.addView(studentGrade, new LinearLayout.LayoutParams(-1, -2));
         EditText studentGroup = new EditText(this); styleInput(studentGroup);
         studentGroup.setSingleLine(true); studentGroup.setHint("کلاس / گروه / رشته (اختیاری)");
         form.addView(studentGroup, new LinearLayout.LayoutParams(-1, -2));
@@ -882,6 +885,7 @@ public class MainActivity extends Activity {
                 student.put("name", studentName);
                 student.put("participant_id", UUID.randomUUID().toString());
                 student.put("code", studentCode.getText().toString().trim());
+                student.put("grade_level", studentGrade.getText().toString().trim());
                 student.put("group", studentGroup.getText().toString().trim());
                 student.put("parent_contact", parentContact.getText().toString().trim());
                 students.put(student);
