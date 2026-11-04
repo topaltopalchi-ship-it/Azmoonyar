@@ -434,8 +434,11 @@ public class MainActivity extends Activity {
                         info("ابتدا نام شرکت‌کننده را از فهرست یا به‌صورت متنی ثبت کنید.");
                         return;
                     }
-                    // In QR identity mode, the printed roster QR supplies the participant
-                    // identity; do not force manual name entry before scanning.
+                    // QR-required exams must identify the exact participant and issued sheet first.
+                    if (qrExam) {
+                        startActivity(new Intent(MainActivity.this, ScanActivity.class));
+                        return;
+                    }
                     prefs.edit().putString("pending_scan_participant", name).apply();
                     Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
                     scanIntent.putExtra("participant_name", name);
@@ -774,7 +777,10 @@ public class MainActivity extends Activity {
         for (int i = 0; i < students.length(); i++) {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
-                    .append(student.optString("name", "بدون نام")).append("\n");
+                    .append(student.optString("name", "بدون نام"))
+                    .append(" — ").append(student.optString("model_id", "A"))
+                    .append(" — ").append(student.optString("id", student.optString("participant_id", "بدون شناسه")))
+                    .append("\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
 
@@ -1054,6 +1060,22 @@ public class MainActivity extends Activity {
 
                 .append("</style></head><body>");
 
+            JSONArray rosterForPrint = readStudents();
+            boolean qrRequiredForPrint = prefs.getBoolean("qr_required_" + examName().trim(),
+                    "qr".equals(prefs.getString("exam_identity_mode", "manual")));
+            if (qrRequiredForPrint && rosterForPrint.length() == 0) {
+                info("برای آزمونی که QR اجباری دارد، ابتدا فهرست شرکت‌کنندگان را ثبت کن.");
+                return;
+            }
+            if (qrRequiredForPrint && variants.length() < 2) {
+                for (int ri = 0; ri < rosterForPrint.length(); ri++) {
+                    JSONObject rs = rosterForPrint.optJSONObject(ri);
+                    if (rs != null && "B".equalsIgnoreCase(rs.optString("model_id", "A"))) {
+                        info("برای شرکت‌کنندگان گروه B، ابتدا حالت دو نسخهٔ A و B را در تنظیمات آزمون فعال کن.");
+                        return;
+                    }
+                }
+            }
             for (int v = 0; v < variants.length(); v++) {
                 JSONObject variant = variants.optJSONObject(v);
                 if (variant == null) continue;
