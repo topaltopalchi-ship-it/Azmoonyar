@@ -65,6 +65,10 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
+    private String participantId = "";
+    private String issuedSheetSetId = "";
+    private String issuedModelId = "";
+    private boolean qrVerified = false;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
@@ -245,6 +249,13 @@ public final class OmrScanActivity extends ComponentActivity {
 
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
+        participantId = getIntent().getStringExtra("participant_id");
+        if (participantId == null) participantId = "";
+        issuedSheetSetId = getIntent().getStringExtra("sheet_set_id");
+        if (issuedSheetSetId == null) issuedSheetSetId = "";
+        issuedModelId = getIntent().getStringExtra("model_id");
+        if (issuedModelId == null) issuedModelId = "";
+        qrVerified = getIntent().getBooleanExtra("qr_verified", false);
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -852,6 +863,12 @@ public final class OmrScanActivity extends ComponentActivity {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
+            boolean qrRequired = prefs.getBoolean("qr_required_" + prefs.getString("exam_name", "").trim(),
+                    "qr".equals(prefs.getString("exam_identity_mode", "manual")));
+            if (qrRequired && !qrVerified) {
+                updateSheetResultStatus("این آزمون شناسایی QR را الزامی کرده است؛ ابتدا QR پاسخنامه را اسکن کن.");
+                return;
+            }
             String answerModel = getIntent().getStringExtra("answer_model");
             if (answerModel == null || !answerModel.matches("[AB]")) answerModel = "A";
             String answerKey = prefs.getString("answer_key_model_" + answerModel, "");
@@ -862,6 +879,27 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             if (!isValidAnswerKey(answerKey, total)) {
                 answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
+            }
+            if (qrVerified) {
+                String issuedRaw = prefs.getString("issued_exam_" + issuedSheetSetId + "_" + issuedModelId, "");
+                if (issuedRaw.isEmpty()) {
+                    updateSheetResultStatus("نسخهٔ اختصاصی این پاسخنامه در دستگاه پیدا نشد؛ تصحیح متوقف شد.");
+                    return;
+                }
+                JSONObject issued = new JSONObject(issuedRaw);
+                if (!participantId.equals(issued.optString("participant_id", ""))
+                        || !participantName.equals(issued.optString("participant_name", ""))
+                        || !issuedSheetSetId.equals(issued.optString("sheet_set_id", ""))
+                        || !issuedModelId.equals(issued.optString("model_id", ""))) {
+                    updateSheetResultStatus("هویت QR با نسخهٔ چاپ‌شده مطابقت ندارد؛ تصحیح متوقف شد.");
+                    return;
+                }
+                total = issued.optInt("question_count", 0);
+                answerKey = issued.optString("answer_key", "");
+                if (total < 1 || total > 100 || !isValidAnswerKey(answerKey, total)) {
+                    updateSheetResultStatus("کلید اختصاصی QR معتبر نیست؛ هیچ نمره‌ای ثبت نشد.");
+                    return;
+                }
             }
             if (participantName.trim().isEmpty()) {
                 updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
@@ -925,6 +963,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 catch (Exception ignored) { queue = new JSONArray(); }
                 JSONObject pending = new JSONObject();
                 pending.put("name", participantName.trim());
+                if (qrVerified) {
+                    pending.put("participant_id", participantId);
+                    pending.put("model_id", issuedModelId);
+                    pending.put("sheet_set_id", issuedSheetSetId);
+                }
                 pending.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
                 pending.put("createdAt", System.currentTimeMillis());
                 pending.put("source", "saved_camera_photo");
@@ -958,6 +1001,11 @@ public final class OmrScanActivity extends ComponentActivity {
             catch (Exception ignored) { saved = new JSONArray(); }
             JSONObject record = new JSONObject();
             record.put("name", participantName.trim());
+            if (qrVerified) {
+                record.put("participant_id", participantId);
+                record.put("model_id", issuedModelId);
+                record.put("sheet_set_id", issuedSheetSetId);
+            }
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
