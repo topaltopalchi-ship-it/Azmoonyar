@@ -24,6 +24,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
+import android.widget.CheckBox;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -440,6 +441,10 @@ public class MainActivity extends Activity {
                 .setTitle("اسکن و تصحیح پاسخنامه")
                 .setView(panel)
                 .setPositiveButton("ادامه", (dialog, which) -> {
+                    if (prefs.getBoolean("qr_required", false)) {
+                        startActivity(new Intent(MainActivity.this, ScanActivity.class));
+                        return;
+                    }
                     String name = participantName.getText().toString().trim();
                     if (name.isEmpty()) {
                         info("ابتدا نام شرکت‌کننده را به‌صورت متنی یا صوتی وارد کنید.");
@@ -671,6 +676,14 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-1, -2);
         countParams.topMargin = dp(6); content.addView(count, countParams);
 
+        CheckBox qrRequired = new CheckBox(this);
+        qrRequired.setText("برای تصحیح، شناسایی QR شرکت‌کننده الزامی باشد");
+        qrRequired.setTextSize(14);
+        qrRequired.setChecked(prefs.getBoolean("qr_required", false));
+        LinearLayout.LayoutParams qrRequiredParams = new LinearLayout.LayoutParams(-1, -2);
+        qrRequiredParams.topMargin = dp(8);
+        content.addView(qrRequired, qrRequiredParams);
+
         Button save = new Button(this); save.setText("ذخیره"); stylePinkOvalButton(save);
         Button students = new Button(this); students.setText("ثبت‌نام شرکت‌کنندگان"); stylePinkOvalButton(students);
         Button cancel = new Button(this); cancel.setText("انصراف"); stylePinkOvalButton(cancel);
@@ -691,7 +704,8 @@ public class MainActivity extends Activity {
             String old = key(); StringBuilder nk = new StringBuilder();
             for (int i = 0; i < c; i++) nk.append(i < old.length() ? old.charAt(i) : '-');
             prefs.edit().putString("exam_name", n).putInt("question_count", c)
-                    .putString("answer_key", nk.toString()).apply();
+                    .putString("answer_key", nk.toString())
+                    .putBoolean("qr_required", qrRequired.isChecked()).apply();
             refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
         });
         students.setOnClickListener(v -> { dialog.dismiss(); showStudentsDialog(); });
