@@ -660,7 +660,7 @@ public class MainActivity extends Activity {
         String name=examName().isEmpty() ? "هنوز آزمونی تعریف نشده" : "آزمون: "+examName();
         int scanned=prefs.getInt("scanned_sheet_count",0);
         int studentCount=readStudents().length();
-        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nصفحه‌های ثبت‌شده: "+scanned);
+        summary.setText(name+"\nتعداد سؤال: "+questionCount()+"\nکلید ثبت‌شده: "+filled+" از "+questionCount()+"\nشرکت‌کنندگان ثبت‌شده: "+studentCount+"\nپاسخنامه‌های دارای QR ثبت‌شده: "+scanned);
     }
 
     private void showExamDialog() {
