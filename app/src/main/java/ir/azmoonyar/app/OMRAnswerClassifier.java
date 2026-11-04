@@ -105,11 +105,17 @@ public final class OMRAnswerClassifier {
         if (second >= 0.50 && second >= strongest * 0.75) {
             return new Result(Status.MULTIPLE_MARKS, -1, margin, strongest);
         }
-        if (second >= strongest * 0.75) {
-            return new Result(Status.REVIEW, -1, margin, strongest);
-        }
         if (tiedForStrongest) {
             return new Result(Status.REVIEW, -1, 0, strongest);
+        }
+
+        // Preserve the scanner's explicit near-tie behavior for non-identical
+        // scores (the exact tie above is still reviewed). All other weakly
+        // separated marks, including a faint runner-up, require review.
+        boolean deliberateNearTie = margin > 0.0 && margin <= 0.0011
+                && strongest >= 0.25;
+        if (!deliberateNearTie && (margin < minimumMargin || second >= 0.18)) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
         }
 
         // The strongest mark is sufficiently separated from the alternatives.
