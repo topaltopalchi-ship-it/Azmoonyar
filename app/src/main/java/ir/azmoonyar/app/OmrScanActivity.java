@@ -56,6 +56,10 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
+    private String participantId = "";
+    private String issuedSheetSetId = "";
+    private String issuedModelId = "";
+    private boolean qrVerified = false;
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
@@ -222,6 +226,13 @@ public final class OmrScanActivity extends ComponentActivity {
 
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
+        participantId = getIntent().getStringExtra("participant_id");
+        if (participantId == null) participantId = "";
+        issuedSheetSetId = getIntent().getStringExtra("sheet_set_id");
+        if (issuedSheetSetId == null) issuedSheetSetId = "";
+        issuedModelId = getIntent().getStringExtra("model_id");
+        if (issuedModelId == null) issuedModelId = "";
+        qrVerified = getIntent().getBooleanExtra("qr_verified", false);
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -773,6 +784,32 @@ public final class OmrScanActivity extends ComponentActivity {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             String answerKey = prefs.getString("answer_key", "");
+            if (prefs.getBoolean("qr_required", false) && !qrVerified) {
+                updateSheetResultStatus("این آزمون شناسایی QR را الزامی کرده است؛ ابتدا QR پاسخنامه را اسکن کن.");
+                return;
+            }
+            if (qrVerified) {
+                String issuedRaw = prefs.getString(
+                        "issued_exam_" + issuedSheetSetId + "_" + issuedModelId, "");
+                if (issuedRaw.isEmpty()) {
+                    updateSheetResultStatus("نسخهٔ اختصاصی این پاسخنامه در دستگاه پیدا نشد؛ تصحیح متوقف شد.");
+                    return;
+                }
+                JSONObject issued = new JSONObject(issuedRaw);
+                if (!participantId.equals(issued.optString("participant_id", ""))
+                        || !participantName.equals(issued.optString("participant_name", ""))
+                        || !issuedSheetSetId.equals(issued.optString("sheet_set_id", ""))
+                        || !issuedModelId.equals(issued.optString("model_id", ""))) {
+                    updateSheetResultStatus("هویت QR با نسخهٔ چاپ‌شده مطابقت ندارد؛ تصحیح متوقف شد.");
+                    return;
+                }
+                total = issued.optInt("question_count", 0);
+                answerKey = issued.optString("answer_key", "");
+                if (total < 1 || total > 100 || !isValidAnswerKey(answerKey, total)) {
+                    updateSheetResultStatus("کلید اختصاصی QR معتبر نیست؛ هیچ نمره‌ای ثبت نشد.");
+                    return;
+                }
+            }
             // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
             // not from the legacy answer_key field. Prefer a complete saved model key,
             // then derive the original key from the same question bank shown in that dialog.
