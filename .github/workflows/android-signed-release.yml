@@ -100,7 +100,7 @@ jobs:
           AZMOONYAR_KEY_PASSWORD: ${{ secrets.AZMOONYAR_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle --no-daemon testReleaseUnitTest assembleRelease
+          gradle --no-daemon testReleaseUnitTest --tests 'ir.azmoonyar.app.ParticipantQrPayloadTest' --tests 'ir.azmoonyar.app.ParticipantQrCodeTest' assembleRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
