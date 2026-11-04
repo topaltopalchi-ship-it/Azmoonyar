@@ -360,6 +360,20 @@ public class MainActivity extends Activity {
         help.setGravity(Gravity.CENTER);
         panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
 
+        Button qrScan = new Button(this);
+        qrScan.setText("اسکن و شناسایی QR پاسخنامه");
+        stylePinkOvalButton(qrScan);
+        LinearLayout.LayoutParams qrScanParams = new LinearLayout.LayoutParams(-1, dp(54));
+        qrScanParams.topMargin = dp(10);
+        panel.addView(qrScan, qrScanParams);
+        qrScan.setOnClickListener(v -> {
+            if (examName().trim().isEmpty()) {
+                info("ابتدا آزمون را تعریف کن.");
+                return;
+            }
+            startActivity(new Intent(MainActivity.this, ScanActivity.class));
+        });
+
         EditText participantName = new EditText(this);
         participantName.setSingleLine(true);
         participantName.setHint("نام و نام خانوادگی شرکت‌کننده");
