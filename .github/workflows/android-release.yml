@@ -6,6 +6,7 @@ on:
     branches:
       - version-altay
       - altay-1
+      - altay-4
 
 permissions:
   contents: read
@@ -90,12 +91,18 @@ jobs:
           jarsigner -verify app/build/outputs/bundle/release/app-release.aab >/dev/null
           echo "Signed Release APK and AAB were created and verified."
 
-      - name: Upload Release APK and AAB
+      - name: Upload installable Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: azmoonyar-release-apk-aab
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+          name: Azmoonyar-Installable-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Google Play AAB separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Azmoonyar-Play-AAB
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
