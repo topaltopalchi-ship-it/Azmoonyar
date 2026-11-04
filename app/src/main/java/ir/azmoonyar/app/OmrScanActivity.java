@@ -1268,12 +1268,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The printed bubble border-box is an ellipse (4.2 x 3.2 mm), not a circle.
+            // Match the actual Aysel Plus printed bubble border-box (5.2 x 4.1 mm).
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.10;
-            final double halfBubbleHeightMm = 1.60;
+            final double halfBubbleWidthMm = OmrTemplateLayout.BUBBLE_WIDTH_MM * 0.5;
+            final double halfBubbleHeightMm = OmrTemplateLayout.BUBBLE_HEIGHT_MM * 0.5;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -1291,7 +1291,7 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Use the measured 4.2 x 3.2 mm printed border-box directly.
+                    // Use the measured 5.2 x 4.1 mm printed border-box directly.
                     // The homography already accounts for scale and perspective;
                     // applying another shrink factor would misrepresent alignment.
                     paint.setColor(bubbleOverlayColors[option]);
