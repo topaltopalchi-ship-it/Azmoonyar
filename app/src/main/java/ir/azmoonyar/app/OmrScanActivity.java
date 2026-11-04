@@ -494,7 +494,8 @@ public final class OmrScanActivity extends ComponentActivity {
                     float ry = (float) (Math.hypot(p.x - top.x, p.y - top.y)
                             + Math.hypot(bottom.x - p.x, bottom.y - p.y)) * 0.49f;
                     if (p.x < 0 || p.y < 0 || p.x >= frameWidth || p.y >= frameHeight
-                            || !Float.isFinite(rx) || !Float.isFinite(ry)
+                            || Float.isNaN(rx) || Float.isInfinite(rx)
+                            || Float.isNaN(ry) || Float.isInfinite(ry)
                             || rx < 1f || ry < 1f) {
                         overlay.markMissingFrame();
                         return;
