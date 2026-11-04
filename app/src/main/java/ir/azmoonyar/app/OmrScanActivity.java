@@ -817,15 +817,29 @@ public final class OmrScanActivity extends ComponentActivity {
                 String qrText = decodeParticipantQr(pixels, width, height);
                 if (qrText != null) {
                     JSONObject qr = new JSONObject(qrText);
-                    String qrName = qr.optString("participant_name", "").trim();
+                    String qrParticipantId = qr.optString("participant_id", "").trim();
                     String qrModel = qr.optString("model_id", "");
-                    if (!qrName.isEmpty() && qrModel.matches("[AB]")) {
+                    JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+                    String qrName = rosterStudent == null
+                            ? qr.optString("participant_name", "").trim()
+                            : rosterStudent.optString("name", "").trim();
+                    if (!qrName.isEmpty() && !qrName.matches("[?\\s]+")
+                            && qrModel.matches("[AB]")) {
                         participantName = qrName;
                         getIntent().putExtra("participant_name", qrName);
                         getIntent().putExtra("answer_model", qrModel);
                         getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                                .putString("last_qr_participant_id", qr.optString("participant_id", ""))
-                                .putString("last_qr_model_id", qrModel).apply();
+                                .putString("last_qr_participant_id", qrParticipantId)
+                                .putString("last_qr_model_id", qrModel)
+                                .putString("last_qr_participant_code", rosterStudent == null
+                                        ? qr.optString("participant_code", "")
+                                        : rosterStudent.optString("code", ""))
+                                .putString("last_qr_grade_level", rosterStudent == null
+                                        ? qr.optString("grade_level", "")
+                                        : rosterStudent.optString("grade_level", ""))
+                                .putString("last_qr_group", rosterStudent == null
+                                        ? qr.optString("group", "")
+                                        : rosterStudent.optString("group", "")).apply();
                         updateStatus("QR شناسایی شد: " + qrName + " — نسخه " + qrModel);
                     }
                 }
@@ -880,16 +894,35 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             if (result == null || result.getText() == null) return;
             JSONObject qr = new JSONObject(result.getText());
-            String qrName = qr.optString("participant_name", "").trim();
-            String qrModel = qr.optString("model_id", "").trim();
-            String qrExam = qr.optString("exam_name", "").trim();
             String qrParticipantId = qr.optString("participant_id", "").trim();
-            String qrParticipantCode = qr.optString("participant_code", "").trim();
-            String qrGrade = qr.optString("grade_level", "").trim();
-            String qrGroup = qr.optString("group", "").trim();
-            String qrParentContact = qr.optString("parent_contact", "").trim();
-            if (qrName.isEmpty() || !qrModel.matches("[AB]")) {
-                updateStatus("QR پیدا شد، اما اطلاعات شرکت‌کننده یا نسخهٔ پاسخنامه معتبر نیست.");
+            String qrModel = qr.optString("model_id", "").trim();
+            if (qrParticipantId.isEmpty() || !qrModel.matches("[AB]")) {
+                updateStatus("QR پیدا شد، اما شناسه یا مدل پاسخنامه معتبر نیست.");
+                return;
+            }
+
+            // The printed QR's Persian name may have been encoded incorrectly in
+            // older releases. Resolve the stable participant UUID against the
+            // original roster saved on this same device; that roster is authoritative.
+            JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+            String qrName = rosterStudent == null
+                    ? qr.optString("participant_name", "").trim()
+                    : rosterStudent.optString("name", "").trim();
+            String qrParticipantCode = rosterStudent == null
+                    ? qr.optString("participant_code", "").trim()
+                    : rosterStudent.optString("code", "").trim();
+            String qrGrade = rosterStudent == null
+                    ? qr.optString("grade_level", "").trim()
+                    : rosterStudent.optString("grade_level", "").trim();
+            String qrGroup = rosterStudent == null
+                    ? qr.optString("group", "").trim()
+                    : rosterStudent.optString("group", "").trim();
+            String qrParentContact = rosterStudent == null
+                    ? qr.optString("parent_contact", "").trim()
+                    : rosterStudent.optString("parent_contact", "").trim();
+            String qrExam = qr.optString("exam_name", "").trim();
+            if (qrName.isEmpty() || qrName.matches("[?\\s]+")) {
+                updateStatus("شناسه QR خوانده شد، اما شرکت‌کننده در فهرست این گوشی پیدا نشد. فهرست شرکت‌کنندگان را بازیابی کنید.");
                 return;
             }
             participantName = qrName;
@@ -914,6 +947,25 @@ public final class OmrScanActivity extends ComponentActivity {
         } catch (Exception invalidQr) {
             android.util.Log.d("AzmoonyarQR", "Ignoring unreadable participant QR preview", invalidQr);
         }
+    }
+
+    /** Find the original participant record using the stable UUID embedded in printed QR codes. */
+    private JSONObject findRosterStudentById(String participantId) {
+        if (participantId == null || participantId.trim().isEmpty()) return null;
+        try {
+            String rosterJson = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                    .getString("students_json", "[]");
+            org.json.JSONArray students = new org.json.JSONArray(rosterJson);
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student == null) continue;
+                String savedId = student.optString("participant_id", "").trim();
+                if (participantId.equals(savedId)) return student;
+            }
+        } catch (Exception error) {
+            android.util.Log.e("AzmoonyarQR", "Cannot read local participant roster", error);
+        }
+        return null;
     }
 
     /** Show the identity and exam metadata read from the participant QR. */
