@@ -784,7 +784,7 @@ public final class OmrScanActivity extends ComponentActivity {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
             String answerKey = prefs.getString("answer_key", "");
-            if (prefs.getBoolean("qr_required", false) && !qrVerified) {
+            if (prefs.getBoolean("qr_required_" + prefs.getString("exam_name", "").trim(), false) && !qrVerified) {
                 updateSheetResultStatus("این آزمون شناسایی QR را الزامی کرده است؛ ابتدا QR پاسخنامه را اسکن کن.");
                 return;
             }
