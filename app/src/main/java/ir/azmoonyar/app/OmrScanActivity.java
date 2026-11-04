@@ -110,10 +110,10 @@ public final class OmrScanActivity extends ComponentActivity {
             for (int q=0;q<centers.length;q++) for(int o=0;o<4;o++) {
                 double x=centers[q][o][0], y=centers[q][o][1];
                 SheetPerspectiveTransform.Point c=transform.toImage(x,y);
-                SheetPerspectiveTransform.Point l=transform.toImage(Math.max(0,x-2.10),y);
-                SheetPerspectiveTransform.Point r=transform.toImage(Math.min(OmrTemplateLayout.PAGE_WIDTH_MM,x+2.10),y);
-                SheetPerspectiveTransform.Point t=transform.toImage(x,Math.max(0,y-1.60));
-                SheetPerspectiveTransform.Point b=transform.toImage(x,Math.min(OmrTemplateLayout.PAGE_HEIGHT_MM,y+1.60));
+                SheetPerspectiveTransform.Point l=transform.toImage(Math.max(0,x-2.70),y);
+                SheetPerspectiveTransform.Point r=transform.toImage(Math.min(OmrTemplateLayout.PAGE_WIDTH_MM,x+2.70),y);
+                SheetPerspectiveTransform.Point t=transform.toImage(x,Math.max(0,y-1.40));
+                SheetPerspectiveTransform.Point b=transform.toImage(x,Math.min(OmrTemplateLayout.PAGE_HEIGHT_MM,y+1.40));
                 mapped[q][o][0]=(float)c.x; mapped[q][o][1]=(float)c.y;
                 mapped[q][o][2]=(float)((Math.hypot(c.x-l.x,c.y-l.y)+Math.hypot(r.x-c.x,r.y-c.y))*0.5);
                 mapped[q][o][3]=(float)((Math.hypot(c.x-t.x,c.y-t.y)+Math.hypot(b.x-c.x,b.y-c.y))*0.5);
@@ -1331,8 +1331,8 @@ public final class OmrScanActivity extends ComponentActivity {
             // Derive each overlay's local width/height through the homography so
             // the rings shrink/grow with perspective instead of drifting outside
             // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.10;
-            final double halfBubbleHeightMm = 1.60;
+            final double halfBubbleWidthMm = 2.70;
+            final double halfBubbleHeightMm = 1.40;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
