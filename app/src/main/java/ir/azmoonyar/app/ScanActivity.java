@@ -400,7 +400,7 @@ public class ScanActivity extends ComponentActivity {
     }
 
     private void registerPageQr(String[] parts) {
-        if (prefs.getBoolean("qr_required", false)) {
+        if (prefs.getBoolean("qr_required_" + examName, false)) {
             showStatus("این QR قدیمی و فاقد هویت شرکت‌کننده است؛ پاسخنامهٔ اختصاصی را دوباره چاپ کن.");
             return;
         }
