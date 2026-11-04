@@ -357,7 +357,7 @@ public class ScanActivity extends ComponentActivity {
 
     private void registerParticipantQrPayload(String rawPayload) {
         try {
-            if (!prefs.getBoolean("qr_required", false)) {
+            if (!prefs.getBoolean("qr_required_" + examName, false)) {
                 showStatus("این آزمون QR اجباری ندارد؛ برای تصحیح می‌توانی مسیر دستی را ادامه بدهی.");
             }
             ParticipantQrPayload qr = ParticipantQrPayload.parse(rawPayload);
