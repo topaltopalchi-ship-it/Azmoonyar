@@ -100,7 +100,6 @@ jobs:
           AZMOONYAR_KEY_PASSWORD: ${{ secrets.AZMOONYAR_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:testReleaseUnitTest --tests 'ir.azmoonyar.app.ParticipantQrPayloadTest' --tests 'ir.azmoonyar.app.ParticipantQrCodeTest'
           gradle --no-daemon assembleRelease
           APK="app/build/outputs/apk/release/app-release.apk"
           test -f "$APK"
@@ -114,8 +113,4 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-# Rebuild requested again to produce a fresh signed APK.
-
 # Rebuild requested: Aysel Plus from altay-4.
-
-# Build the merged Aysel Plus Altay 4 participant-QR release.

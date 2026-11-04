@@ -429,16 +429,13 @@ public class MainActivity extends Activity {
                 .setView(panel)
                 .setPositiveButton("ادامه", (dialog, which) -> {
                     String name = participantName.getText().toString().trim();
-                    boolean qrExam = prefs.getBoolean("qr_required_" + examName().trim(), "qr".equals(prefs.getString("exam_identity_mode", "manual")));
+                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
                     if (name.isEmpty() && !qrExam) {
                         info("ابتدا نام شرکت‌کننده را از فهرست یا به‌صورت متنی ثبت کنید.");
                         return;
                     }
-                    // QR-required exams must identify the exact participant and issued sheet first.
-                    if (qrExam) {
-                        startActivity(new Intent(MainActivity.this, ScanActivity.class));
-                        return;
-                    }
+                    // In QR identity mode, the printed roster QR supplies the participant
+                    // identity; do not force manual name entry before scanning.
                     prefs.edit().putString("pending_scan_participant", name).apply();
                     Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
                     scanIntent.putExtra("participant_name", name);
@@ -696,7 +693,7 @@ public class MainActivity extends Activity {
         manualMode.setTag("manual");
         identityMode.addView(qrMode);
         identityMode.addView(manualMode);
-        String savedIdentityMode = prefs.getBoolean("qr_required_" + examName().trim(), "qr".equals(prefs.getString("exam_identity_mode", "manual"))) ? "qr" : "manual";
+        String savedIdentityMode = prefs.getString("exam_identity_mode", "manual");
         (savedIdentityMode.equals("qr") ? qrMode : manualMode).setChecked(true);
         content.addView(identityMode);
 
@@ -751,7 +748,6 @@ public class MainActivity extends Activity {
             String variantModeValue = String.valueOf(variantSelected.getTag());
             prefs.edit().putString("exam_name", n).putInt("question_count", c)
                     .putString("exam_identity_mode", identityModeValue)
-                    .putBoolean("qr_required_" + n, "qr".equals(identityModeValue))
                     .putString("exam_variant_mode", variantModeValue)
                     .putString("answer_key", nk.toString()).apply();
             refreshSummary(); dialog.dismiss(); info("آزمون روی دستگاه ذخیره شد.");
@@ -764,27 +760,17 @@ public class MainActivity extends Activity {
     private JSONArray readStudents() {
         try {
             JSONArray students = new JSONArray(prefs.getString("students_json", "[]"));
-            // Migrate existing roster rows without discarding any participant metadata.
-            boolean changed = false;
+            boolean removedIdentifiers = false;
             for (int i = 0; i < students.length(); i++) {
                 JSONObject student = students.optJSONObject(i);
-                if (student == null) continue;
-                String id = student.optString("id", "").trim();
-                if (id.isEmpty()) {
-                    id = student.optString("participant_id", "").trim();
-                    if (id.isEmpty()) id = UUID.randomUUID().toString();
-                    student.put("id", id);
-                    student.put("participant_id", id);
-                    changed = true;
-                }
-                String model = student.optString("model_id", "A").trim().toUpperCase(Locale.ROOT);
-                if (!"A".equals(model) && !"B".equals(model)) model = "A";
-                if (!model.equals(student.optString("model_id", ""))) {
-                    student.put("model_id", model);
-                    changed = true;
+                if (student != null && student.has("id")) {
+                    student.remove("id");
+                    removedIdentifiers = true;
                 }
             }
-            if (changed) prefs.edit().putString("students_json", students.toString()).apply();
+            if (removedIdentifiers) {
+                prefs.edit().putString("students_json", students.toString()).apply();
+            }
             return students;
         } catch (Exception e) {
             return new JSONArray();
@@ -797,10 +783,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < students.length(); i++) {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
-                    .append(student.optString("name", "بدون نام"))
-                    .append(" — ").append(student.optString("model_id", "A"))
-                    .append(" — ").append(student.optString("id", student.optString("participant_id", "بدون شناسه")))
-                    .append("\n");
+                    .append(student.optString("name", "بدون نام")).append("\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
 
@@ -918,16 +901,6 @@ public class MainActivity extends Activity {
         EditText studentGroup = new EditText(this); styleInput(studentGroup);
         studentGroup.setSingleLine(true); studentGroup.setHint("کلاس / گروه / رشته (اختیاری)");
         form.addView(studentGroup, new LinearLayout.LayoutParams(-1, -2));
-        TextView modelLabel = new TextView(this);
-        modelLabel.setText("گروه پاسخنامه (A/B) — فقط در QR ثبت می‌شود");
-        modelLabel.setTextSize(14);
-        form.addView(modelLabel, new LinearLayout.LayoutParams(-1, -2));
-        RadioGroup modelChoice = new RadioGroup(this);
-        modelChoice.setOrientation(RadioGroup.HORIZONTAL);
-        RadioButton modelA = new RadioButton(this); modelA.setText("گروه A"); modelA.setTag("A");
-        RadioButton modelB = new RadioButton(this); modelB.setText("گروه B"); modelB.setTag("B");
-        modelChoice.addView(modelA); modelChoice.addView(modelB); modelA.setChecked(true);
-        form.addView(modelChoice, new LinearLayout.LayoutParams(-1, -2));
         EditText parentContact = new EditText(this); styleInput(parentContact);
         parentContact.setSingleLine(true); parentContact.setHint("شماره تماس خانواده یا مسئول (اختیاری)");
         parentContact.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
@@ -1000,12 +973,7 @@ public class MainActivity extends Activity {
             try {
                 JSONObject student = new JSONObject();
                 student.put("name", studentName);
-                String participantId = UUID.randomUUID().toString();
-                student.put("id", participantId);
-                student.put("participant_id", participantId);
-                int checkedModelId = modelChoice.getCheckedRadioButtonId();
-                RadioButton selectedModel = modelChoice.findViewById(checkedModelId);
-                student.put("model_id", selectedModel == null ? "A" : String.valueOf(selectedModel.getTag()));
+                student.put("participant_id", UUID.randomUUID().toString());
                 student.put("code", studentCode.getText().toString().trim());
                 student.put("group", studentGroup.getText().toString().trim());
                 student.put("parent_contact", parentContact.getText().toString().trim());
@@ -1080,22 +1048,6 @@ public class MainActivity extends Activity {
 
                 .append("</style></head><body>");
 
-            JSONArray rosterForPrint = readStudents();
-            boolean qrRequiredForPrint = prefs.getBoolean("qr_required_" + examName().trim(),
-                    "qr".equals(prefs.getString("exam_identity_mode", "manual")));
-            if (qrRequiredForPrint && rosterForPrint.length() == 0) {
-                info("برای آزمونی که QR اجباری دارد، ابتدا فهرست شرکت‌کنندگان را ثبت کن.");
-                return;
-            }
-            if (qrRequiredForPrint && variants.length() < 2) {
-                for (int ri = 0; ri < rosterForPrint.length(); ri++) {
-                    JSONObject rs = rosterForPrint.optJSONObject(ri);
-                    if (rs != null && "B".equalsIgnoreCase(rs.optString("model_id", "A"))) {
-                        info("برای شرکت‌کنندگان گروه B، ابتدا حالت دو نسخهٔ A و B را در تنظیمات آزمون فعال کن.");
-                        return;
-                    }
-                }
-            }
             for (int v = 0; v < variants.length(); v++) {
                 JSONObject variant = variants.optJSONObject(v);
                 if (variant == null) continue;
@@ -1147,36 +1099,21 @@ public class MainActivity extends Activity {
                 boolean printRegisteredRoster = registeredStudents.length() > 0;
                 int rosterCount = printRegisteredRoster ? registeredStudents.length() : 1;
                 for (int rosterIndex = 0; rosterIndex < rosterCount; rosterIndex++) {
+                    if (printRegisteredRoster && rosterIndex % variants.length() != v) continue;
                     JSONObject rosterStudent = printRegisteredRoster
                             ? registeredStudents.optJSONObject(rosterIndex) : null;
-                    String rosterModel = rosterStudent == null ? modelId
-                            : rosterStudent.optString("model_id", String.valueOf((char)('A' + (rosterIndex % variants.length()))));
-                    if (printRegisteredRoster && !modelId.equals(rosterModel)) continue;
-                    String participantSheetSetId = UUID.randomUUID().toString();
                     String sheetParticipantName = rosterStudent == null
                             ? participantName : rosterStudent.optString("name", participantName);
                     String sheetParticipantId = rosterStudent == null
-                            ? participantId : rosterStudent.optString("id", rosterStudent.optString("participant_id", participantId));
-                    if (sheetParticipantId.trim().isEmpty()) {
-                        sheetParticipantId = UUID.randomUUID().toString();
-                        if (rosterStudent != null) {
-                            rosterStudent.put("id", sheetParticipantId);
-                            rosterStudent.put("participant_id", sheetParticipantId);
-                        }
-                    }
-                    if (rosterStudent != null) {
-                        rosterStudent.put("id", sheetParticipantId);
-                        rosterStudent.put("participant_id", sheetParticipantId);
-                    }
-                    boolean qrRequiredForExam = prefs.getBoolean("qr_required_" + examName().trim(),
-                            "qr".equals(prefs.getString("exam_identity_mode", "manual")));
+                            ? participantId : rosterStudent.optString("participant_id", participantId);
+                    if (sheetParticipantId.trim().isEmpty()) sheetParticipantId = UUID.randomUUID().toString();
                     String qrPayload = new JSONObject()
                             .put("participant_id", sheetParticipantId)
                             .put("participant_name", sheetParticipantName)
                             .put("exam_name", examName())
                             .put("model_id", modelId)
-                            .put("sheet_set_id", participantSheetSetId).toString();
-                    String qrDataUri = qrRequiredForExam ? createQrDataUri(qrPayload) : "";
+                            .put("sheet_set_id", sheetSetId).toString();
+                    String qrDataUri = createQrDataUri(qrPayload);
                     for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
                     int last = printLayoutQuestionCount;
@@ -1186,9 +1123,7 @@ public class MainActivity extends Activity {
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         // Keep the upper answer-sheet area blank for barcode placement.
                         .append("<div style='position:absolute;top:24mm;left:12mm;font-size:11px;font-weight:bold'>نام دانش‌آموز: ").append(escapeHtml(sheetParticipantName)).append(" | نسخه ").append(modelId).append("</div>")
-                        ;
-                    if (!qrDataUri.isEmpty()) html.append("<img alt='QR' style='position:absolute;top:10mm;right:12mm;width:22mm;height:22mm' src='").append(qrDataUri).append("'/>");
-                    html.append("")
+                        .append("<img alt='QR' style='position:absolute;top:10mm;right:12mm;width:22mm;height:22mm' src='").append(qrDataUri).append("'/>")
                         // Omit the template caption to preserve barcode space above the answer grid.
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>نام دانش‌آموز: ").append(escapeHtml(sheetParticipantName)).append("</span><span>نسخه: ").append(modelId).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
@@ -1206,23 +1141,7 @@ public class MainActivity extends Activity {
                     }
                     html.append("</div></section>");
                     }
-                    JSONObject participantIssued = new JSONObject();
-                    participantIssued.put("schema_version", 1);
-                    participantIssued.put("exam_name", examName());
-                    participantIssued.put("participant_id", sheetParticipantId);
-                    participantIssued.put("participant_name", sheetParticipantName);
-                    participantIssued.put("sheet_set_id", participantSheetSetId);
-                    participantIssued.put("model_id", modelId);
-                    participantIssued.put("template_id", "T1");
-                    participantIssued.put("question_count", total);
-                    participantIssued.put("answer_key", answerKey.substring(0, total));
-                    participantIssued.put("questions", questions);
-                    participantIssued.put("created_at", System.currentTimeMillis());
-                    prefs.edit().putString("issued_exam_" + participantSheetSetId + "_" + modelId,
-                            participantIssued.toString()).apply();
-                    batchVariants.put(participantIssued);
                 }
-                prefs.edit().putString("students_json", registeredStudents.toString()).apply();
                 // Save an immutable grading snapshot for this exact printed batch and model.
                 // Save the exact answer key and question order for this printed batch/model.
                 JSONObject issuedExam = new JSONObject();

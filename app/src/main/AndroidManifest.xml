@@ -12,8 +12,6 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <activity android:name=".ScanActivity" android:exported="false" android:screenOrientation="portrait" />
-
         <activity
             android:name="ir.azmoonyar.app.OmrScanActivity"
             android:exported="false" />
