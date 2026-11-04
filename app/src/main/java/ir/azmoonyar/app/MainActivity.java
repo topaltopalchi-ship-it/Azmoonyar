@@ -702,7 +702,9 @@ public class MainActivity extends Activity {
         for (int i = 0; i < students.length(); i++) {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
-                    .append(student.optString("name", "بدون نام")).append("\n");
+                    .append(student.optString("name", "بدون نام"))
+                    .append("  •  گروه ").append(student.optString("model_id", "A"))
+                    .append("\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
 
@@ -752,6 +754,25 @@ public class MainActivity extends Activity {
         name.setSingleLine(true);
         name.setHint("نام و نام خانوادگی شرکت‌کننده");
         form.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        TextView groupLabel = new TextView(this);
+        groupLabel.setText("گروه پاسخنامه (در QR ثبت می‌شود و روی برگه چاپ نمی‌شود)");
+        groupLabel.setTextColor(Color.rgb(45, 58, 86));
+        groupLabel.setTextSize(14);
+        LinearLayout.LayoutParams groupLabelParams = new LinearLayout.LayoutParams(-1, -2);
+        groupLabelParams.topMargin = dp(8);
+        form.addView(groupLabel, groupLabelParams);
+        RadioGroup groupChoice = new RadioGroup(this);
+        groupChoice.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton groupA = new RadioButton(this);
+        groupA.setText("گروه A");
+        groupA.setId(View.generateViewId());
+        RadioButton groupB = new RadioButton(this);
+        groupB.setText("گروه B");
+        groupB.setId(View.generateViewId());
+        groupChoice.addView(groupA);
+        groupChoice.addView(groupB);
+        groupA.setChecked(true);
+        form.addView(groupChoice, new LinearLayout.LayoutParams(-1, -2));
         TextView voiceStatus = new TextView(this);
         voiceStatus.setText(voiceMode ? "برای ثبت صوتی، نام و نام خانوادگی را واضح بگو." : "نام و نام خانوادگی را وارد کن.");
         voiceStatus.setTextSize(14);
@@ -819,7 +840,9 @@ public class MainActivity extends Activity {
             JSONArray students = readStudents();
             try {
                 JSONObject student = new JSONObject();
+                student.put("id", UUID.randomUUID().toString());
                 student.put("name", studentName);
+                student.put("model_id", groupB.isChecked() ? "B" : "A");
                 students.put(student);
                 prefs.edit().putString("students_json", students.toString()).apply();
                 refreshSummary();
