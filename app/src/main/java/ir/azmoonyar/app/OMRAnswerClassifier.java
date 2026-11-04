@@ -27,7 +27,11 @@ public final class OMRAnswerClassifier {
     private final double twoMarkGap;
 
     public OMRAnswerClassifier() {
-        this(0.15, 0.20);
+        // The current 100-question A4 sheet is commonly filled with pencil.
+        // A 0.15 cutoff rejected light but valid graphite marks, especially in
+        // the second column. Lower the single-mark sensitivity conservatively;
+        // the multi-mark separation rule remains unchanged to protect blanks.
+        this(0.10, 0.20);
     }
 
     /** Compatibility constructor for callers that still supply the former blank threshold. */
@@ -102,7 +106,7 @@ public final class OMRAnswerClassifier {
             return new Result(Status.BLANK, -1, 0, 0);
         }
         if (markedCount == 1) {
-            if (strongest < 0.16) {
+            if (strongest < 0.10) {
                 return new Result(Status.REVIEW, -1, strongest, strongest);
             }
             return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
