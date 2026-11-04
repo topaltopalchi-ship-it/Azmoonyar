@@ -731,8 +731,9 @@ public class MainActivity extends Activity {
             JSONObject student = students.optJSONObject(i);
             if (student != null) list.append(i + 1).append(". ")
                     .append(student.optString("name", "بدون نام"))
+                    .append("\nشناسه یکتا: ").append(student.optString("id", "ثبت نشده"))
                     .append("  •  گروه ").append(student.optString("model_id", "A"))
-                    .append("\n");
+                    .append("\n\n");
         }
         if (list.length() == 0) list.append("هنوز شرکت‌کننده‌ای ثبت نشده است.\n");
 
