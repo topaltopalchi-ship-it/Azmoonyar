@@ -317,6 +317,10 @@ public class ScanActivity extends ComponentActivity {
 
     private void registerIfValid(String payload) {
         if (isFinishing() || !scannerActive) return;
+        if (payload != null && payload.trim().startsWith("{")) {
+            registerParticipantQrPayload(payload);
+            return;
+        }
         String[] parts = payload.split("\\|", -1);
         if (parts.length == 7 && "AZY3".equals(parts[0])) {
             registerPageQr(parts);
@@ -351,7 +355,55 @@ public class ScanActivity extends ComponentActivity {
         registerUniqueId(examName + "::" + sheetId, "QR شناسایی شد؛ اکنون نام شرکت‌کننده را صوتی ثبت کن.");
     }
 
+    private void registerParticipantQrPayload(String rawPayload) {
+        try {
+            if (!prefs.getBoolean("qr_required", false)) {
+                showStatus("این آزمون QR اجباری ندارد؛ برای تصحیح می‌توانی مسیر دستی را ادامه بدهی.");
+            }
+            ParticipantQrPayload qr = ParticipantQrPayload.parse(rawPayload);
+            JSONArray roster = new JSONArray(prefs.getString("students_json", "[]"));
+            JSONObject participant = null;
+            for (int i = 0; i < roster.length(); i++) {
+                JSONObject candidate = roster.optJSONObject(i);
+                if (candidate != null && qr.participantId.equals(candidate.optString("id", "").trim())) {
+                    participant = candidate;
+                    break;
+                }
+            }
+            if (participant == null) {
+                showStatus("شناسهٔ شرکت‌کننده در فهرست ثبت‌نام آزمون پیدا نشد.");
+                return;
+            }
+            String issuedRaw = prefs.getString(
+                    "issued_exam_" + qr.sheetSetId + "_" + qr.group, "");
+            if (issuedRaw.isEmpty()) {
+                showStatus("نسخهٔ چاپ‌شدهٔ متناظر با این QR در دستگاه پیدا نشد.");
+                return;
+            }
+            JSONObject issued = new JSONObject(issuedRaw);
+            if (!qr.matches(examName, participant, issued)) {
+                showStatus("اطلاعات QR با شرکت‌کننده، آزمون یا کلید نسخهٔ چاپ‌شده مطابقت ندارد.");
+                return;
+            }
+            scannerActive = false;
+            Intent omr = new Intent(this, OmrScanActivity.class);
+            omr.putExtra("qr_verified", true);
+            omr.putExtra("participant_id", qr.participantId);
+            omr.putExtra("participant_name", qr.participantName);
+            omr.putExtra("sheet_set_id", qr.sheetSetId);
+            omr.putExtra("model_id", qr.group);
+            startActivity(omr);
+            finish();
+        } catch (Exception invalidQr) {
+            showStatus("QR شرکت‌کننده معتبر نیست: " + invalidQr.getMessage());
+        }
+    }
+
     private void registerPageQr(String[] parts) {
+        if (prefs.getBoolean("qr_required", false)) {
+            showStatus("این QR قدیمی و فاقد هویت شرکت‌کننده است؛ پاسخنامهٔ اختصاصی را دوباره چاپ کن.");
+            return;
+        }
         String decodedExamName;
         try {
             decodedExamName = new String(Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP),
