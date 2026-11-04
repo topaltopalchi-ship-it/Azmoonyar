@@ -114,4 +114,4 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-# Rebuild requested on the restored Altay source baseline.
+# Rebuild requested again to produce a fresh signed APK.
