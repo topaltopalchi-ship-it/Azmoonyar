@@ -15,8 +15,8 @@ android {
         applicationId 'ir.azmoonyar.app'
         minSdk 24
         targetSdk 35
-        versionCode 3
-        versionName '4.0.0'
+        versionCode 4
+        versionName '4.0.1'
     }
 
     signingConfigs {
@@ -54,9 +54,6 @@ dependencies {
     // Offline Persian speech recognition with Vosk; model files are downloaded once to app storage.
     implementation 'com.alphacephei:vosk-android:0.3.75@aar'
     implementation 'net.java.dev.jna:jna:5.18.1@aar'
-
-    // QR generation for issued answer sheets.
-    implementation 'com.google.zxing:core:3.5.3'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
