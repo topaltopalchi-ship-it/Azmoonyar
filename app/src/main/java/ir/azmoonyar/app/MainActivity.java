@@ -969,6 +969,7 @@ public class MainActivity extends Activity {
                         .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
                         .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
+                        .append("<img class='qr' alt='QR' src='data:image/png;base64,").append(qrBase64).append("'/>")
                         .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
@@ -997,6 +998,7 @@ public class MainActivity extends Activity {
                 issuedExam.put("question_count", total);
                 issuedExam.put("answer_key", answerKey.substring(0, total));
                 issuedExam.put("questions", questions);
+                issuedExam.put("qr_payload", qrPayload);
                 issuedExam.put("created_at", System.currentTimeMillis());
                 // Persist the original bank key alongside this immutable printed variant.
                 String originalKey = buildOriginalBankKey();
