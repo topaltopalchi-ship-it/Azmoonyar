@@ -928,10 +928,40 @@ public class MainActivity extends Activity {
 
                 .append("</style></head><body>");
 
-            for (int v = 0; v < variants.length(); v++) {
-                JSONObject variant = variants.optJSONObject(v);
-                if (variant == null) continue;
-                String modelId = String.valueOf((char)('A' + v));
+            JSONArray roster = readStudents();
+            boolean participantSpecificPrint = roster.length() > 0;
+            boolean rosterUpdated = false;
+            for (int i = 0; i < roster.length(); i++) {
+                JSONObject student = roster.optJSONObject(i);
+                if (student == null) continue;
+                if (student.optString("id", "").trim().isEmpty()) {
+                    student.put("id", UUID.randomUUID().toString());
+                    rosterUpdated = true;
+                }
+                String savedModel = student.optString("model_id", "A").trim().toUpperCase(Locale.ROOT);
+                if (!"A".equals(savedModel) && !"B".equals(savedModel)) {
+                    savedModel = "A";
+                    rosterUpdated = true;
+                }
+                student.put("model_id", savedModel);
+            }
+            if (rosterUpdated) prefs.edit().putString("students_json", roster.toString()).apply();
+            final int assignmentCount = participantSpecificPrint ? roster.length() : variants.length();
+            for (int v = 0; v < assignmentCount; v++) {
+                JSONObject participant = participantSpecificPrint ? roster.optJSONObject(v) : null;
+                String modelId = participant != null
+                        ? participant.optString("model_id", "A")
+                        : String.valueOf((char)('A' + v));
+                int variantIndex = "B".equals(modelId) ? 1 : 0;
+                if (variantIndex >= variants.length()) {
+                    info("برای چاپ شرکت‌کنندگان گروه " + modelId + " باید هر دو مدل A و B آماده باشند.");
+                    return;
+                }
+                JSONObject variant = variants.optJSONObject(variantIndex);
+                if (variant == null) {
+                    info("مدل آزمون برای چاپ پیدا نشد.");
+                    return;
+                }
                 String sheetSetId = UUID.randomUUID().toString();
                 JSONArray questions = variant.optJSONArray("questions");
                 String answerKey = variant.optString("answer_key", "");
@@ -975,8 +1005,24 @@ public class MainActivity extends Activity {
                     html.append("</section>");
                 }
 
-                // Re-enable the original AZY3 QR on the printed answer sheet.
-                String qrPayload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|" + modelId + "|T1|1|1";
+                // Participant sheets carry the requested JSON identity contract.
+                // Unassigned/legacy printing retains the original AZY3 QR format.
+                String qrPayload;
+                String assignedParticipantId = "";
+                String assignedParticipantName = "";
+                if (participant != null) {
+                    assignedParticipantId = participant.optString("id", "").trim();
+                    assignedParticipantName = participant.optString("name", "").trim();
+                    JSONObject identity = new JSONObject();
+                    identity.put("participant_id", assignedParticipantId);
+                    identity.put("participant_name", assignedParticipantName);
+                    identity.put("exam_name", examName());
+                    identity.put("model_id", modelId);
+                    identity.put("sheet_set_id", sheetSetId);
+                    qrPayload = identity.toString();
+                } else {
+                    qrPayload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|" + modelId + "|T1|1|1";
+                }
                 com.google.zxing.common.BitMatrix qrMatrix =
                         new com.google.zxing.qrcode.QRCodeWriter().encode(
                                 qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320);
@@ -1028,6 +1074,10 @@ public class MainActivity extends Activity {
                 issuedExam.put("answer_key", answerKey.substring(0, total));
                 issuedExam.put("questions", questions);
                 issuedExam.put("qr_payload", qrPayload);
+                if (participant != null) {
+                    issuedExam.put("participant_id", assignedParticipantId);
+                    issuedExam.put("participant_name", assignedParticipantName);
+                }
                 issuedExam.put("created_at", System.currentTimeMillis());
                 // Persist the original bank key alongside this immutable printed variant.
                 String originalKey = buildOriginalBankKey();
@@ -1046,7 +1096,7 @@ public class MainActivity extends Activity {
             JSONObject savedBatch = new JSONObject();
             savedBatch.put("batch_id", batchId);
             savedBatch.put("exam_name", examName());
-            savedBatch.put("variant_count", variants.length());
+            savedBatch.put("variant_count", assignmentCount);
             savedBatch.put("created_at", System.currentTimeMillis());
             savedBatch.put("print_html", html.toString());
             savedBatch.put("variants", batchVariants);
