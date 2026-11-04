@@ -900,7 +900,8 @@ public class MainActivity extends Activity {
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:2.7mm;border:0.35mm solid #111;border-radius:50%}")
                 .append(".mark{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}.tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
-                .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
+                .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}
+                .append(".answer-page .qr{position:absolute;top:7mm;left:12mm;width:22mm;height:22mm;object-fit:contain}")")
                 .append(".answer-page .sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:25mm;left:12mm;right:12mm;height:6mm;font-size:10px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:8mm;white-space:nowrap}")
                 .append(".answer-page .instructions{position:absolute;top:31mm;left:12mm;right:12mm;height:12mm;font-size:9px;border:0.3mm solid #777;padding:2mm;margin:0;overflow:hidden}")
@@ -960,6 +961,21 @@ public class MainActivity extends Activity {
                     }
                     html.append("</section>");
                 }
+
+                // Re-enable the original AZY3 QR on the printed answer sheet.
+                String qrPayload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|" + modelId + "|T1|1|1";
+                com.google.zxing.common.BitMatrix qrMatrix =
+                        new com.google.zxing.qrcode.QRCodeWriter().encode(
+                                qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320);
+                Bitmap qrBitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
+                for (int y = 0; y < 320; y++) {
+                    for (int x = 0; x < 320; x++) {
+                        qrBitmap.setPixel(x, y, qrMatrix.get(x, y) ? Color.BLACK : Color.WHITE);
+                    }
+                }
+                ByteArrayOutputStream qrBytes = new ByteArrayOutputStream();
+                qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, qrBytes);
+                String qrBase64 = Base64.encodeToString(qrBytes.toByteArray(), Base64.NO_WRAP);
 
                 for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
