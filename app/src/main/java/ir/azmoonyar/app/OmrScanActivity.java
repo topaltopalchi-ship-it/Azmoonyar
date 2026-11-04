@@ -48,6 +48,7 @@ import com.google.zxing.Result;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.PlanarYUVLuminanceSource;
 
 /**
  * Live-camera alignment cue only. Corner-window detection is intentionally not
@@ -65,6 +66,9 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
+    private boolean qrIdentityRequired;
+    private volatile boolean qrIdentityScanned;
+    private volatile long lastQrAnalysis;
     private volatile int stableMarkerFrames;
     private int missingMarkerFrames;
     private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
@@ -191,6 +195,10 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                updateStatus("ابتدا QR شرکت‌کننده را مقابل دوربین بگیرید.");
+                return;
+            }
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
                 return;
@@ -245,6 +253,12 @@ public final class OmrScanActivity extends ComponentActivity {
 
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
+        qrIdentityRequired = "qr".equals(getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                .getString("exam_identity_mode", "manual"));
+        qrIdentityScanned = !qrIdentityRequired;
+        if (qrIdentityRequired) {
+            statusView.setText("مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید.");
+        }
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -313,6 +327,13 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int rotation = image.getImageInfo().getRotationDegrees();
             UprightLuma upright = rotateToUpright(luma, width, height, rotation);
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                long qrNow = android.os.SystemClock.elapsedRealtime();
+                if (qrNow - lastQrAnalysis >= 250) {
+                    lastQrAnalysis = qrNow;
+                    scanParticipantQrFromPreview(upright.pixels, upright.width, upright.height);
+                }
+            }
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
@@ -337,6 +358,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     transform = null;
                 }
             }
+            boolean sheetGeometryReady = transform != null && markerCount == 4
+                    && stableMarkerFrames + 1 >= REQUIRED_STABLE_MARKER_FRAMES;
+            // Keep the guide overlay in sync even while QR-first identity mode is active.
+            // Previously the QR status branch skipped setReady(true), leaving the frame amber.
+            if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(sheetGeometryReady);
+
             if (transform != null && markerCount == 4) {
                 long diagnosticNow = android.os.SystemClock.elapsedRealtime();
                 if (diagnosticNow - lastDiagnosticFrameSaved > 300) {
@@ -371,7 +398,13 @@ public final class OmrScanActivity extends ComponentActivity {
             if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
                 String message;
-                if (sheetConsumed) {
+                if (qrIdentityRequired && !qrIdentityScanned) {
+                    message = "مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید؛ پس از شناسایی، پاسخنامه را اسکن کنید.";
+                } else if (qrIdentityRequired && qrIdentityScanned && !sheetConsumed) {
+                    message = sheetGeometryReady
+                            ? "QR تأیید شد: " + participantName + " • کادر سبز شد؛ حالا عکس پاسخنامه را بگیرید."
+                            : "QR تأیید شد: " + participantName + " • پاسخنامه را کامل داخل کادر قرار دهید تا سبز شود.";
+                } else if (sheetConsumed) {
                     message = waitingForNextName
                             ? "برگهٔ قبلی کنار رفت؛ نام شرکت‌کنندهٔ بعدی را ثبت کنید."
                             : (lastSheetResultMessage.isEmpty()
@@ -784,15 +817,29 @@ public final class OmrScanActivity extends ComponentActivity {
                 String qrText = decodeParticipantQr(pixels, width, height);
                 if (qrText != null) {
                     JSONObject qr = new JSONObject(qrText);
-                    String qrName = qr.optString("participant_name", "").trim();
+                    String qrParticipantId = qr.optString("participant_id", "").trim();
                     String qrModel = qr.optString("model_id", "");
-                    if (!qrName.isEmpty() && qrModel.matches("[AB]")) {
+                    JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+                    String qrName = rosterStudent == null
+                            ? qr.optString("participant_name", "").trim()
+                            : rosterStudent.optString("name", "").trim();
+                    if (!qrName.isEmpty() && !qrName.matches("[?\\s]+")
+                            && qrModel.matches("[AB]")) {
                         participantName = qrName;
                         getIntent().putExtra("participant_name", qrName);
                         getIntent().putExtra("answer_model", qrModel);
                         getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
-                                .putString("last_qr_participant_id", qr.optString("participant_id", ""))
-                                .putString("last_qr_model_id", qrModel).apply();
+                                .putString("last_qr_participant_id", qrParticipantId)
+                                .putString("last_qr_model_id", qrModel)
+                                .putString("last_qr_participant_code", rosterStudent == null
+                                        ? qr.optString("participant_code", "")
+                                        : rosterStudent.optString("code", ""))
+                                .putString("last_qr_grade_level", rosterStudent == null
+                                        ? qr.optString("grade_level", "")
+                                        : rosterStudent.optString("grade_level", ""))
+                                .putString("last_qr_group", rosterStudent == null
+                                        ? qr.optString("group", "")
+                                        : rosterStudent.optString("group", "")).apply();
                         updateStatus("QR شناسایی شد: " + qrName + " — نسخه " + qrModel);
                     }
                 }
@@ -823,6 +870,138 @@ public final class OmrScanActivity extends ComponentActivity {
         } finally {
             if (!bitmap.isRecycled()) bitmap.recycle();
         }
+    }
+
+    /** Read the participant QR continuously from the live camera before accepting an answer sheet. */
+    private void scanParticipantQrFromPreview(byte[] luma, int width, int height) {
+        if (qrIdentityScanned || luma == null || width <= 0 || height <= 0) return;
+        try {
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    luma, width, height, 0, 0, width, height, false);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+            MultiFormatReader reader = new MultiFormatReader();
+            EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+            hints.put(DecodeHintType.CHARACTER_SET, "UTF-8");
+            hints.put(DecodeHintType.POSSIBLE_FORMATS,
+                    java.util.Collections.singletonList(BarcodeFormat.QR_CODE));
+            reader.setHints(hints);
+            Result result;
+            try {
+                result = reader.decodeWithState(bitmap);
+            } finally {
+                reader.reset();
+            }
+            if (result == null || result.getText() == null) return;
+            JSONObject qr = new JSONObject(result.getText());
+            String qrParticipantId = qr.optString("participant_id", "").trim();
+            String qrModel = qr.optString("model_id", "").trim();
+            if (qrParticipantId.isEmpty() || !qrModel.matches("[AB]")) {
+                updateStatus("QR پیدا شد، اما شناسه یا مدل پاسخنامه معتبر نیست.");
+                return;
+            }
+
+            // The printed QR's Persian name may have been encoded incorrectly in
+            // older releases. Resolve the stable participant UUID against the
+            // original roster saved on this same device; that roster is authoritative.
+            JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+            String qrName = rosterStudent == null
+                    ? qr.optString("participant_name", "").trim()
+                    : rosterStudent.optString("name", "").trim();
+            String qrParticipantCode = rosterStudent == null
+                    ? qr.optString("participant_code", "").trim()
+                    : rosterStudent.optString("code", "").trim();
+            String qrGrade = rosterStudent == null
+                    ? qr.optString("grade_level", "").trim()
+                    : rosterStudent.optString("grade_level", "").trim();
+            String qrGroup = rosterStudent == null
+                    ? qr.optString("group", "").trim()
+                    : rosterStudent.optString("group", "").trim();
+            String qrParentContact = rosterStudent == null
+                    ? qr.optString("parent_contact", "").trim()
+                    : rosterStudent.optString("parent_contact", "").trim();
+            String qrExam = qr.optString("exam_name", "").trim();
+            if (qrName.isEmpty() || qrName.matches("[?\\s]+")) {
+                updateStatus("شناسه QR خوانده شد، اما شرکت‌کننده در فهرست این گوشی پیدا نشد. فهرست شرکت‌کنندگان را بازیابی کنید.");
+                return;
+            }
+            participantName = qrName;
+            getIntent().putExtra("participant_name", qrName);
+            getIntent().putExtra("answer_model", qrModel);
+            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                    .putString("pending_scan_participant", qrName)
+                    .putString("last_qr_participant_id", qrParticipantId)
+                    .putString("last_qr_model_id", qrModel)
+                    .putString("last_qr_exam_name", qrExam)
+                    .putString("last_qr_participant_code", qrParticipantCode)
+                    .putString("last_qr_grade_level", qrGrade)
+                    .putString("last_qr_group", qrGroup)
+                    .putString("last_qr_parent_contact", qrParentContact).apply();
+            qrIdentityScanned = true;
+            showParticipantQrDetails(qrName, qrParticipantCode, qrGrade, qrGroup,
+                    qrExam, qrModel, qrParentContact);
+            updateStatus("QR تأیید شد: " + qrName + " — نسخهٔ " + qrModel
+                    + ". حالا پاسخنامه را داخل کادر قرار دهید.");
+        } catch (com.google.zxing.NotFoundException notFound) {
+            // No QR in this preview frame; keep waiting for the participant card.
+        } catch (Exception invalidQr) {
+            android.util.Log.d("AzmoonyarQR", "Ignoring unreadable participant QR preview", invalidQr);
+        }
+    }
+
+    /** Find the original participant record using the stable UUID embedded in printed QR codes. */
+    private JSONObject findRosterStudentById(String participantId) {
+        if (participantId == null || participantId.trim().isEmpty()) return null;
+        try {
+            String rosterJson = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                    .getString("students_json", "[]");
+            org.json.JSONArray students = new org.json.JSONArray(rosterJson);
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student == null) continue;
+                String savedId = student.optString("participant_id", "").trim();
+                if (participantId.equals(savedId)) return student;
+            }
+        } catch (Exception error) {
+            android.util.Log.e("AzmoonyarQR", "Cannot read local participant roster", error);
+        }
+        return null;
+    }
+
+    /** Show the identity and exam metadata read from the participant QR. */
+    private void showParticipantQrDetails(String name, String participantCode,
+            String gradeLevel, String groupName, String examName, String modelId,
+            String parentContact) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            LinearLayout details = new LinearLayout(this);
+            details.setOrientation(LinearLayout.VERTICAL);
+            details.setPadding((int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f));
+            addQrDetailRow(details, "نام و نام خانوادگی", name);
+            addQrDetailRow(details, "کد شرکت‌کننده", participantCode);
+            addQrDetailRow(details, "مقطع / پایه", gradeLevel);
+            addQrDetailRow(details, "کلاس / گروه", groupName);
+            addQrDetailRow(details, "آزمون", examName);
+            addQrDetailRow(details, "نسخه پاسخنامه", modelId);
+            addQrDetailRow(details, "شماره تماس", parentContact);
+            new AlertDialog.Builder(this)
+                    .setTitle("مشخصات شرکت‌کننده")
+                    .setView(details)
+                    .setPositiveButton("ادامه اسکن پاسخنامه", (dialog, which) -> dialog.dismiss())
+                    .setCancelable(false)
+                    .show();
+        });
+    }
+
+    private void addQrDetailRow(LinearLayout container, String label, String value) {
+        if (value == null || value.trim().isEmpty()) return;
+        TextView row = new TextView(this);
+        row.setText(label + " : " + value.trim());
+        row.setTextSize(17);
+        row.setTextColor(Color.rgb(30, 41, 59));
+        row.setGravity(Gravity.RIGHT);
+        row.setPadding((int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f));
+        container.addView(row, new LinearLayout.LayoutParams(-1, -2));
     }
 
     /** Decode the printed participant QR from a full captured bitmap. */
@@ -875,8 +1054,17 @@ public final class OmrScanActivity extends ComponentActivity {
             List<OMRSheetReader.QuestionResult> questions =
                     new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
-            for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
-            // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
+            int answeredCount = 0;
+            for (OMRSheetReader.QuestionResult q : questions) {
+                answers.add(q.classification);
+                if (q.classification.status == OMRAnswerClassifier.Status.ANSWERED) answeredCount++;
+            }
+            int minimumMarksForValidSheet = Math.max(2, (int) Math.ceil(total * 0.05));
+            if (answeredCount < minimumMarksForValidSheet) {
+                updateSheetResultStatus("پاسخنامه خالی یا فاقد پاسخ معتبر است؛ تصحیح و ثبت نمره انجام نشد. لطفاً برگه تکمیل‌شده را اسکن کنید.");
+                return;
+            }
+            // A truly blank sheet must never be recorded as a graded result.
             String activeKey = answerKey.substring(0, total);
 
             // Keep a small, anonymized calibration record for reverse-engineering OMR.
@@ -949,16 +1137,19 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
-                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
-                return;
+                // Continue to save a provisional score. Determinate answers are scored now;
+                // REVIEW answers remain in the review queue and provisionally earn zero.
             }
             JSONArray saved;
             try { saved = new JSONArray(prefs.getString("grading_results", "[]")); }
             catch (Exception ignored) { saved = new JSONArray(); }
             JSONObject record = new JSONObject();
             record.put("name", participantName.trim());
-            record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
+            record.put("participantCode", prefs.getString("last_qr_participant_code", ""));
+            record.put("gradeLevel", prefs.getString("last_qr_grade_level", ""));
+            record.put("group", prefs.getString("last_qr_group", ""));
+            record.put("examName", prefs.getString("last_qr_exam_name",
+                    prefs.getString("exam_name", "آزمون بدون نام")));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
@@ -1023,6 +1214,7 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("questionDetails", questionDetails);
             record.put("multipleMarks", score.multipleMarks);
             record.put("needsReview", score.needsReview);
+            record.put("provisional", score.needsReview > 0);
             record.put("markThreshold", 0.12);
             record.put("twoMarkGapThreshold", 0.20);
             record.put("totalQuestions", score.totalQuestions);
@@ -1031,11 +1223,12 @@ public final class OmrScanActivity extends ComponentActivity {
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
-            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
-                    + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
-                    + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
+            updateSheetResultStatus("تصحیح " + (score.needsReview > 0 ? "موقت" : "کامل") + " انجام شد: " + participantName
+                    + " • نمره فعلی " + String.format(java.util.Locale.US, "%.1f", score.percentage())
+                    + " از ۱۰۰ • صحیح: " + score.correct + " • غلط: " + score.wrong
+                    + " • نیازمند بازبینی: " + score.needsReview
                     + " • شماره سؤال‌های غلط: " + wrongList
-                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+                    + ". پاسخ‌های مشخص نمره گرفتند؛ موارد نامطمئن برای بازبینی نگه داشته شدند.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }

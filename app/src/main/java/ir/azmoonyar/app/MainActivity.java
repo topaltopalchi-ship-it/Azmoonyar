@@ -351,113 +351,16 @@ public class MainActivity extends Activity {
 
 
     private void showScanCorrectionEntry() {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(18), dp(10), dp(18), dp(4));
+        // The scan button now opens the participant QR scanner directly.
+        // QR supplies the participant identity and answer-sheet model; no voice
+        // registration or manual name-entry step is shown before scanning.
+        prefs.edit()
+                .putString("exam_identity_mode", "qr")
+                .putString("pending_scan_participant", "")
+                .apply();
 
-        TextView help = new TextView(this);
-        help.setText("نام شرکت‌کننده را وارد کنید یا با صدا بگویید، سپس دوربین زنده را باز کنید. تشخیص حباب و نمره‌دهی نهایی تا تکمیل کالیبراسیون برگه فعال نمی‌شود.");
-        help.setTextSize(15);
-        help.setTextColor(Color.rgb(45, 58, 86));
-        help.setGravity(Gravity.CENTER);
-        panel.addView(help, new LinearLayout.LayoutParams(-1, -2));
-
-        EditText participantName = new EditText(this);
-        participantName.setSingleLine(true);
-        participantName.setHint("نام و نام خانوادگی شرکت‌کننده");
-        participantName.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(-1, -2);
-        nameParams.topMargin = dp(14);
-        panel.addView(participantName, nameParams);
-
-        Button voiceEntry = new Button(this);
-        voiceEntry.setText("🎙 ثبت نام با صدا");
-        voiceEntry.setAllCaps(false);
-        voiceEntry.setTextColor(Color.WHITE);
-        voiceEntry.setTextSize(19);
-        voiceEntry.setTypeface(null, android.graphics.Typeface.BOLD);
-        voiceEntry.setGravity(Gravity.CENTER);
-        voiceEntry.setPadding(dp(18), dp(14), dp(18), dp(14));
-        android.graphics.drawable.GradientDrawable redBase = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(255, 92, 110), Color.rgb(235, 35, 65), Color.rgb(170, 0, 38)});
-        redBase.setCornerRadius(dp(42));
-        redBase.setStroke(dp(3), Color.rgb(255, 150, 160));
-        voiceEntry.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(150,255,255,255)), redBase, null));
-        voiceEntry.setElevation(dp(12));
-        voiceEntry.setStateListAnimator(null);
-        voiceEntry.setOnTouchListener((view, event) -> {
-            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
-                view.animate().translationY(dp(4)).setDuration(70).start();
-                view.setElevation(dp(4));
-            } else if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
-                    || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
-                view.animate().translationY(0).setDuration(100).start();
-                view.setElevation(dp(12));
-            }
-            return false;
-        });
-        LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, dp(66));
-        voiceParams.topMargin = dp(10);
-        panel.addView(voiceEntry, voiceParams);
-        final PersianVosk[] recognizer = new PersianVosk[1];
-        voiceEntry.setOnClickListener(v -> {
-            if (recognizer[0] != null) recognizer[0].stop();
-            recognizer[0] = new PersianVosk();
-            voiceEntry.setEnabled(false);
-            voiceEntry.setText("در حال آماده‌سازی مدل صوتی...");
-            recognizer[0].start(this, new PersianVosk.Callback() {
-                @Override public void onText(String text) {
-                    participantName.setText(text);
-                    voiceEntry.setEnabled(true);
-                    voiceEntry.setText("🎙 ثبت نام با صدا");
-                    if (recognizer[0] != null) recognizer[0].stop();
-                }
-                @Override public void onStatus(String status) {
-                    voiceEntry.setText(status.length() > 48 ? status.substring(0, 45) + "…" : status);
-                    if (status.contains("ناموفق") || status.startsWith("خطای میکروفون")
-                            || status.startsWith("ضبط بدون دریافت گفتار")) {
-                        voiceEntry.setEnabled(true);
-                    }
-                }
-            });
-        });
-
-        styledDialogBuilder()
-                .setTitle("اسکن و تصحیح پاسخنامه")
-                .setView(panel)
-                .setPositiveButton("ادامه", (dialog, which) -> {
-                    String name = participantName.getText().toString().trim();
-                    boolean qrExam = "qr".equals(prefs.getString("exam_identity_mode", "manual"));
-                    if (name.isEmpty() && !qrExam) {
-                        info("ابتدا نام شرکت‌کننده را از فهرست یا به‌صورت متنی ثبت کنید.");
-                        return;
-                    }
-                    // In QR identity mode, the printed roster QR supplies the participant
-                    // identity; do not force manual name entry before scanning.
-                    prefs.edit().putString("pending_scan_participant", name).apply();
-                    Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
-                    scanIntent.putExtra("participant_name", name);
-                    boolean hasVariants = "AB".equals(prefs.getString("exam_variant_mode", "A"));
-                    if (!qrExam && hasVariants) {
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("انتخاب نسخهٔ پاسخنامه")
-                                .setItems(new String[]{"نسخهٔ A", "نسخهٔ B"}, (choiceDialog, choice) -> {
-                                    scanIntent.putExtra("answer_model", choice == 0 ? "A" : "B");
-                                    startActivity(scanIntent);
-                                })
-                                .setNegativeButton("انصراف", null)
-                                .show();
-                    } else {
-                        scanIntent.putExtra("answer_model", "A");
-                        startActivity(scanIntent);
-                    }
-                })
-                .setNegativeButton("انصراف", (dialog, which) -> {
-                    if (recognizer[0] != null) recognizer[0].stop();
-                })
-                .show();
+        Intent scanIntent = new Intent(MainActivity.this, OmrScanActivity.class);
+        startActivity(scanIntent);
     }
 
     private void addRegistrationButtons() {
@@ -867,6 +770,10 @@ public class MainActivity extends Activity {
                 JSONObject payload = new JSONObject()
                         .put("participant_id", participantId)
                         .put("participant_name", participantName)
+                        .put("participant_code", student.optString("code", "").trim())
+                        .put("grade_level", student.optString("grade_level", "").trim())
+                        .put("group", student.optString("group", "").trim())
+                        .put("parent_contact", student.optString("parent_contact", "").trim())
                         .put("exam_name", examName())
                         .put("model_id", "A")
                         .put("sheet_set_id", "roster-" + participantId);
@@ -898,6 +805,9 @@ public class MainActivity extends Activity {
         EditText studentCode = new EditText(this); styleInput(studentCode);
         studentCode.setSingleLine(true); studentCode.setHint("کد دانشجویی / کد شرکت‌کننده (اختیاری)");
         form.addView(studentCode, new LinearLayout.LayoutParams(-1, -2));
+        EditText studentGrade = new EditText(this); styleInput(studentGrade);
+        studentGrade.setSingleLine(true); studentGrade.setHint("مقطع / پایه تحصیلی (اختیاری)");
+        form.addView(studentGrade, new LinearLayout.LayoutParams(-1, -2));
         EditText studentGroup = new EditText(this); styleInput(studentGroup);
         studentGroup.setSingleLine(true); studentGroup.setHint("کلاس / گروه / رشته (اختیاری)");
         form.addView(studentGroup, new LinearLayout.LayoutParams(-1, -2));
@@ -975,6 +885,7 @@ public class MainActivity extends Activity {
                 student.put("name", studentName);
                 student.put("participant_id", UUID.randomUUID().toString());
                 student.put("code", studentCode.getText().toString().trim());
+                student.put("grade_level", studentGrade.getText().toString().trim());
                 student.put("group", studentGroup.getText().toString().trim());
                 student.put("parent_contact", parentContact.getText().toString().trim());
                 students.put(student);
@@ -1110,6 +1021,10 @@ public class MainActivity extends Activity {
                     String qrPayload = new JSONObject()
                             .put("participant_id", sheetParticipantId)
                             .put("participant_name", sheetParticipantName)
+                            .put("participant_code", rosterStudent == null ? "" : rosterStudent.optString("code", "").trim())
+                            .put("grade_level", rosterStudent == null ? "" : rosterStudent.optString("grade_level", "").trim())
+                            .put("group", rosterStudent == null ? "" : rosterStudent.optString("group", "").trim())
+                            .put("parent_contact", rosterStudent == null ? "" : rosterStudent.optString("parent_contact", "").trim())
                             .put("exam_name", examName())
                             .put("model_id", modelId)
                             .put("sheet_set_id", sheetSetId).toString();
@@ -1231,8 +1146,11 @@ public class MainActivity extends Activity {
     }
 
     private String createQrDataUri(String payload) throws Exception {
+        java.util.EnumMap<com.google.zxing.EncodeHintType, Object> qrHints =
+                new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
+        qrHints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
         com.google.zxing.common.BitMatrix matrix = new com.google.zxing.qrcode.QRCodeWriter()
-                .encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 240, 240);
+                .encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 240, 240, qrHints);
         Bitmap bitmap = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888);
         for (int y = 0; y < 240; y++) {
             for (int x = 0; x < 240; x++) {
@@ -2697,6 +2615,14 @@ public class MainActivity extends Activity {
             final JSONObject chosenResult = result;
             share.setOnClickListener(v -> chooseReportShareMethod(chosenResult));
 
+            TextView detailHint = new TextView(this);
+            detailHint.setText("برای دیدن پاسخ‌های هر سؤال، لمس کنید");
+            detailHint.setTextSize(12);
+            detailHint.setTextColor(Color.rgb(37, 99, 150));
+            detailHint.setGravity(Gravity.RIGHT);
+            card.addView(detailHint, new LinearLayout.LayoutParams(-1, -2));
+            card.setOnClickListener(v -> showParticipantExamResultDetails(chosenResult));
+
             LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
             cardLp.setMargins(0, dp(5), 0, dp(9));
             list.addView(card, cardLp);
@@ -2710,6 +2636,41 @@ public class MainActivity extends Activity {
             .setPositiveButton("بستن", null)
             .setNeutralButton("جزئیات و آمار", (d, w) -> showReportsCenter())
             .show();
+    }
+
+    private void showParticipantExamResultDetails(JSONObject result) {
+        StringBuilder details = new StringBuilder();
+        details.append("شرکت‌کننده: ").append(result.optString("name", "بدون نام"))
+                .append("\\nکد شرکت‌کننده: ").append(result.optString("participantCode", "—"))
+                .append("\\nآزمون: ").append(result.optString("examName", "—"))
+                .append("\\nنمره فعلی: ").append(String.format(Locale.US, "%.1f", result.optDouble("score", 0)))
+                .append(" از ۱۰۰")
+                .append("\\nدرست: ").append(result.optInt("correct", 0))
+                .append(" | غلط: ").append(result.optInt("wrong", 0))
+                .append(" | سفید: ").append(result.optInt("blank", 0))
+                .append(" | بازبینی: ").append(result.optInt("needsReview", 0));
+        if (result.optBoolean("provisional", false)) {
+            details.append("\\n\\nاین نمره موقت است؛ سؤال‌های نامطمئن فعلاً نمره صفر دارند و پس از بازبینی باید به‌روزرسانی شوند.");
+        }
+        org.json.JSONArray questions = result.optJSONArray("questionDetails");
+        if (questions != null) {
+            details.append("\\n\\nجزئیات سؤال‌ها:");
+            for (int i = 0; i < questions.length(); i++) {
+                org.json.JSONObject q = questions.optJSONObject(i);
+                if (q == null) continue;
+                details.append("\\nسؤال ").append(q.optInt("question", i + 1))
+                        .append(" | کلید: ").append(q.optString("correctOption", "—"))
+                        .append(" | پاسخ: ").append(q.optString("selectedOption", "—"))
+                        .append(" | ").append(q.optBoolean("isCorrect", false) ? "صحیح" :
+                                ("REVIEW".equals(q.optString("status")) ? "نیازمند بازبینی" :
+                                ("BLANK".equals(q.optString("status")) ? "بدون پاسخ" : "غلط")));
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("کارنامه شرکت‌کننده")
+                .setMessage(details.toString())
+                .setPositiveButton("بستن", null)
+                .show();
     }
 
     private String buildGuardianReportText(JSONObject result) {
