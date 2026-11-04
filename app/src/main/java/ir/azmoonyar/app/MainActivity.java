@@ -944,7 +944,12 @@ public class MainActivity extends Activity {
                 .append("</style></head><body>");
 
             JSONArray roster = readStudents();
-            boolean participantSpecificPrint = roster.length() > 0;
+            boolean qrRequiredForExam = prefs.getBoolean("qr_required_" + examName().trim(), false);
+            if (qrRequiredForExam && roster.length() == 0) {
+                info("برای این آزمون QR اجباری است؛ ابتدا شرکت‌کنندگان را ثبت‌نام کن.");
+                return;
+            }
+            boolean participantSpecificPrint = qrRequiredForExam && roster.length() > 0;
             boolean rosterUpdated = false;
             for (int i = 0; i < roster.length(); i++) {
                 JSONObject student = roster.optJSONObject(i);
@@ -1020,9 +1025,9 @@ public class MainActivity extends Activity {
                     html.append("</section>");
                 }
 
-                // Participant sheets carry the requested JSON identity contract.
-                // Unassigned/legacy printing retains the original AZY3 QR format.
-                String qrPayload;
+                // QR is printed only when this exam requires participant identification.
+                String qrPayload = "";
+                String qrBase64 = "";
                 String assignedParticipantId = "";
                 String assignedParticipantName = "";
                 if (participant != null) {
@@ -1035,24 +1040,22 @@ public class MainActivity extends Activity {
                     identity.put("model_id", modelId);
                     identity.put("sheet_set_id", sheetSetId);
                     qrPayload = identity.toString();
-                } else {
-                    qrPayload = "AZY3|" + encodedExamName + "|" + sheetSetId + "|" + modelId + "|T1|1|1";
-                }
-                java.util.EnumMap<com.google.zxing.EncodeHintType, Object> qrHints =
-                        new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
-                qrHints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
-                com.google.zxing.common.BitMatrix qrMatrix =
-                        new com.google.zxing.qrcode.QRCodeWriter().encode(
-                                qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320, qrHints);
-                Bitmap qrBitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
-                for (int y = 0; y < 320; y++) {
-                    for (int x = 0; x < 320; x++) {
-                        qrBitmap.setPixel(x, y, qrMatrix.get(x, y) ? Color.BLACK : Color.WHITE);
+                    java.util.EnumMap<com.google.zxing.EncodeHintType, Object> qrHints =
+                            new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
+                    qrHints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
+                    com.google.zxing.common.BitMatrix qrMatrix =
+                            new com.google.zxing.qrcode.QRCodeWriter().encode(
+                                    qrPayload, com.google.zxing.BarcodeFormat.QR_CODE, 320, 320, qrHints);
+                    Bitmap qrBitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888);
+                    for (int y = 0; y < 320; y++) {
+                        for (int x = 0; x < 320; x++) {
+                            qrBitmap.setPixel(x, y, qrMatrix.get(x, y) ? Color.BLACK : Color.WHITE);
+                        }
                     }
+                    ByteArrayOutputStream qrBytes = new ByteArrayOutputStream();
+                    qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, qrBytes);
+                    qrBase64 = Base64.encodeToString(qrBytes.toByteArray(), Base64.NO_WRAP);
                 }
-                ByteArrayOutputStream qrBytes = new ByteArrayOutputStream();
-                qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, qrBytes);
-                String qrBase64 = Base64.encodeToString(qrBytes.toByteArray(), Base64.NO_WRAP);
 
                 for (int page = 1; page <= pageCount; page++) {
                     int first = (page - 1) * 100;
@@ -1061,9 +1064,12 @@ public class MainActivity extends Activity {
                         .append("<span class='mark bl'></span><span class='mark br'></span>")
                         .append("<span class='small-mark stl'></span><span class='small-mark str'></span>")
                         .append("<span class='small-mark sbl'></span><span class='small-mark sbr'></span>")
-                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>")
-                        .append("<img class='qr' alt='QR' src='data:image/png;base64,").append(qrBase64).append("'/>")
-                        .append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
+                        .append("<h1 class='head'>").append(safeExam).append(" — پاسخنامه چهارگزینه‌ای</h1>");
+                    if (!qrBase64.isEmpty()) {
+                        html.append("<img class='qr' alt='QR' src='data:image/png;base64,")
+                                .append(qrBase64).append("'/>");
+                    }
+                    html.append("<p class='sub'>قالب مادر AZY-OMR-100-v1 • برگه ").append(page).append(" از ").append(pageCount).append("</p>")
                         .append("<div class='meta'><span>آزمون: ").append(safeExam).append("</span><span>سؤال‌های ").append(first + 1).append(" تا ").append(last).append("</span></div>")
                         .append("<div class='instructions'>برای هر سؤال فقط یک حباب را کاملاً پر کنید. شماره سؤال‌ها بین برگه‌ها پیوسته است؛ از پاک‌کن تمیز استفاده کنید.</div><div class='cols'>");
                     for (int col = 0; col < 4; col++) {
@@ -1091,7 +1097,7 @@ public class MainActivity extends Activity {
                 issuedExam.put("question_count", total);
                 issuedExam.put("answer_key", answerKey.substring(0, total));
                 issuedExam.put("questions", questions);
-                issuedExam.put("qr_payload", qrPayload);
+                if (!qrPayload.isEmpty()) issuedExam.put("qr_payload", qrPayload);
                 if (participant != null) {
                     issuedExam.put("participant_id", assignedParticipantId);
                     issuedExam.put("participant_name", assignedParticipantName);
