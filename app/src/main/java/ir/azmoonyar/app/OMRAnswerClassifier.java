@@ -86,7 +86,7 @@ public final class OMRAnswerClassifier {
         // both values are in the scanner's known near-white noise band.
         if (strongest <= blankThreshold) {
             if (strongest >= 0.10 && second >= 0.08
-                    && margin > 0.0 && margin <= 0.02) {
+                    && margin > 0.0 && margin <= 0.0200001) {
                 return new Result(Status.ANSWERED, strongestIndex, margin,
                         Math.min(1.0, strongest * 2.0));
             }
@@ -114,7 +114,7 @@ public final class OMRAnswerClassifier {
         // separated marks, including a faint runner-up, require review.
         boolean deliberateNearTie = margin > 0.0 && margin <= 0.0011
                 && strongest >= 0.25;
-        if (!deliberateNearTie && (margin < minimumMargin || second >= 0.18)) {
+        if (!deliberateNearTie && margin < minimumMargin) {
             return new Result(Status.REVIEW, -1, margin, strongest);
         }
 
