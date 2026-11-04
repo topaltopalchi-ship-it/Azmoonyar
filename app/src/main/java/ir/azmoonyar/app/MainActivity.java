@@ -688,17 +688,8 @@ public class MainActivity extends Activity {
     private JSONArray readStudents() {
         try {
             JSONArray students = new JSONArray(prefs.getString("students_json", "[]"));
-            boolean removedIdentifiers = false;
-            for (int i = 0; i < students.length(); i++) {
-                JSONObject student = students.optJSONObject(i);
-                if (student != null && student.has("id")) {
-                    student.remove("id");
-                    removedIdentifiers = true;
-                }
-            }
-            if (removedIdentifiers) {
-                prefs.edit().putString("students_json", students.toString()).apply();
-            }
+            // Keep stable participant identifiers and any QR-linked metadata.
+            // These fields are required to match a scanned participant QR to the roster.
             return students;
         } catch (Exception e) {
             return new JSONArray();
