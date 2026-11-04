@@ -61,6 +61,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private ImageCapture imageCapture;
     private TextView statusView;
     private SheetGuideOverlay sheetGuideOverlay;
+    private BubbleRingOverlay bubbleRingOverlay;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
@@ -86,6 +87,56 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastDiagnosticFrameSaved;
 
     /** Draws an A4 portrait placement guide over the live camera preview. */
+
+    /** Live colored option rings mapped from the detected sheet homography. */
+    private static final class BubbleRingOverlay extends View {
+        private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private volatile float[][][] points;
+        private volatile int sourceWidth, sourceHeight;
+        private final int[] colors = {Color.rgb(255,35,35), Color.rgb(20,105,255),
+                Color.rgb(0,190,70), Color.rgb(255,190,0)};
+        BubbleRingOverlay(android.content.Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            ringPaint.setStyle(Paint.Style.STROKE);
+            ringPaint.setStrokeWidth(2.2f * getResources().getDisplayMetrics().density);
+        }
+        void update(SheetPerspectiveTransform transform, double[][][] centers,
+                    int imageWidth, int imageHeight) {
+            if (transform == null || centers == null || imageWidth <= 0 || imageHeight <= 0) {
+                points = null; postInvalidate(); return;
+            }
+            float[][][] mapped = new float[centers.length][4][4];
+            for (int q=0;q<centers.length;q++) for(int o=0;o<4;o++) {
+                double x=centers[q][o][0], y=centers[q][o][1];
+                SheetPerspectiveTransform.Point c=transform.toImage(x,y);
+                SheetPerspectiveTransform.Point l=transform.toImage(Math.max(0,x-2.10),y);
+                SheetPerspectiveTransform.Point r=transform.toImage(Math.min(OmrTemplateLayout.PAGE_WIDTH_MM,x+2.10),y);
+                SheetPerspectiveTransform.Point t=transform.toImage(x,Math.max(0,y-1.60));
+                SheetPerspectiveTransform.Point b=transform.toImage(x,Math.min(OmrTemplateLayout.PAGE_HEIGHT_MM,y+1.60));
+                mapped[q][o][0]=(float)c.x; mapped[q][o][1]=(float)c.y;
+                mapped[q][o][2]=(float)((Math.hypot(c.x-l.x,c.y-l.y)+Math.hypot(r.x-c.x,r.y-c.y))*0.5);
+                mapped[q][o][3]=(float)((Math.hypot(c.x-t.x,c.y-t.y)+Math.hypot(b.x-c.x,b.y-c.y))*0.5);
+            }
+            sourceWidth=imageWidth; sourceHeight=imageHeight; points=mapped; postInvalidate();
+        }
+        void clear() { points=null; postInvalidate(); }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float[][][] p=points;
+            if(p==null || sourceWidth<=0 || sourceHeight<=0) return;
+            float scale=Math.min(getWidth()/(float)sourceWidth,getHeight()/(float)sourceHeight);
+            float dx=(getWidth()-sourceWidth*scale)*0.5f, dy=(getHeight()-sourceHeight*scale)*0.5f;
+            for(float[][] q:p) for(int o=0;o<4;o++) {
+                float cx=dx+q[o][0]*scale, cy=dy+q[o][1]*scale;
+                ringPaint.setColor(colors[o]);
+                ringPaint.setStrokeWidth(Math.max(1.6f*getResources().getDisplayMetrics().density, scale*2.0f));
+                canvas.drawOval(cx-q[o][2]*scale,cy-q[o][3]*scale,
+                        cx+q[o][2]*scale,cy+q[o][3]*scale,ringPaint);
+            }
+        }
+    }
+
     private static final class SheetGuideOverlay extends View {
         private final Paint framePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint shadePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -180,6 +231,8 @@ public final class OmrScanActivity extends ComponentActivity {
         cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
         sheetGuideOverlay = new SheetGuideOverlay(this);
         cameraFrame.addView(sheetGuideOverlay, new FrameLayout.LayoutParams(-1, -1));
+        bubbleRingOverlay = new BubbleRingOverlay(this);
+        cameraFrame.addView(bubbleRingOverlay, new FrameLayout.LayoutParams(-1, -1));
         page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
@@ -363,6 +416,12 @@ public final class OmrScanActivity extends ComponentActivity {
             // Keep the guide overlay in sync even while QR-first identity mode is active.
             // Previously the QR status branch skipped setReady(true), leaving the frame amber.
             if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(sheetGeometryReady);
+            if (bubbleRingOverlay != null) {
+                if (transform != null && markerCount == 4) {
+                    bubbleRingOverlay.update(transform, OmrTemplateLayout.bubbleCentersForPage(
+                            OmrTemplateLayout.QUESTIONS_PER_PAGE, 0), upright.width, upright.height);
+                } else bubbleRingOverlay.clear();
+            }
 
             if (transform != null && markerCount == 4) {
                 long diagnosticNow = android.os.SystemClock.elapsedRealtime();
