@@ -466,11 +466,14 @@ public final class OmrScanActivity extends ComponentActivity {
                     queue[tail++] = seed;
                     visited[seed] = true;
                     int minX = sx, maxX = sx, minY = sy, maxY = sy, pixels = 0;
+                    long sumX = 0L, sumY = 0L;
                     boolean tooLarge = false;
                     while (head < tail) {
                         int p = queue[head++];
                         int px = p % gw, py = p / gw;
                         pixels++;
+                        sumX += px;
+                        sumY += py;
                         minX = Math.min(minX, px); maxX = Math.max(maxX, px);
                         minY = Math.min(minY, py); maxY = Math.max(maxY, py);
                         if (pixels > 6000) { tooLarge = true; break; }
@@ -519,9 +522,14 @@ public final class OmrScanActivity extends ComponentActivity {
                     if (score > bestScore) {
                         bestScore = score;
                         bestSize = estimatedMm;
+                        // Use the component's pixel centroid instead of the
+                        // axis-aligned bounding-box center. Under camera roll and
+                        // perspective, the bounding-box center can be displaced
+                        // from the center of a filled registration square and that
+                        // error propagates to every bubble coordinate.
                         bestPoint = new SheetPerspectiveTransform.Point(
-                                (minX + maxX) * 0.5 * sample,
-                                (minY + maxY) * 0.5 * sample);
+                                (sumX / (double) pixels) * sample,
+                                (sumY / (double) pixels) * sample);
                     }
                 }
             }
