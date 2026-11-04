@@ -81,11 +81,11 @@ public final class OMRAnswerClassifier {
 
         double margin = strongest - Math.max(0, second);
 
-        // A completely unmarked row stays blank. The small low-contrast
-        // exception below preserves a clearly ordered, close pair only when
-        // both values are in the scanner's known near-white noise band.
+        // A completely unmarked row stays blank. Preserve only the narrowly
+        // calibrated 0.10 near-white exception; values at 0.11 and above
+        // remain blank so ordinary paper/noise cannot become an answer.
         if (strongest <= blankThreshold) {
-            if (strongest >= 0.10 && second >= 0.08
+            if (strongest >= 0.10 && strongest < 0.11 && second >= 0.08
                     && margin > 0.0 && margin <= 0.0200001) {
                 return new Result(Status.ANSWERED, strongestIndex, margin,
                         Math.min(1.0, strongest * 2.0));
