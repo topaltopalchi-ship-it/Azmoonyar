@@ -1785,7 +1785,10 @@ public class MainActivity extends Activity {
             String model = variant.optString("model_id", "?");
             details.append("نسخه ").append(model)
                 .append(" — تعداد سؤال: ").append(variant.optInt("question_count", 0))
-                                .append("\nکلید پاسخ: ").append(variant.optString("answer_key", "ثبت نشده"))
+                .append("\nشرکت‌کننده: ").append(variant.optString("participant_name", "—"))
+                .append("\nشناسه شرکت‌کننده: ").append(variant.optString("participant_id", "—"))
+                .append("\nشناسه QR: ").append(variant.optString("qr_payload", "برای این آزمون QR چاپ نشده"))
+                .append("\nکلید پاسخ: ").append(variant.optString("answer_key", "ثبت نشده"))
                 .append("\n\n");
             JSONArray questions = variant.optJSONArray("questions");
             if (questions != null) {
