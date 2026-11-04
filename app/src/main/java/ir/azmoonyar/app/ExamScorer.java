@@ -27,9 +27,9 @@ public final class ExamScorer {
 
         public boolean isComplete() { return needsReview == 0; }
 
-        /** Returns NaN until every answer is determinate or if maximum points are zero. */
+        /** Provisional percentage: unresolved REVIEW answers count as zero until reviewed. */
         public double percentage() {
-            if (!isComplete() || maximumPoints == 0.0) return Double.NaN;
+            if (maximumPoints == 0.0) return 0.0;
             return earnedPoints * 100.0 / maximumPoints;
         }
     }
