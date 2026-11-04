@@ -12,6 +12,10 @@ public final class OmrTemplateLayout {
     public static final int QUESTIONS_PER_COLUMN = 25;
     public static final int OPTIONS_PER_QUESTION = 4;
 
+    // Must match MainActivity.printStandardAnswerSheetsSelected(): .bubble is 5.2 x 4.1 mm.
+    public static final double BUBBLE_WIDTH_MM = 5.2;
+    public static final double BUBBLE_HEIGHT_MM = 4.1;
+
     public static final double NEW_MARKER_SIZE_MM = 16.0;
     public static final double NEW_MARKER_CENTER_INSET_MM = 13.0;
     public static final double LEGACY_MARKER_CENTER_INSET_MM = 6.5;
