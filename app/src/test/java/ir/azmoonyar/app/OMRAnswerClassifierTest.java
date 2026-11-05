@@ -141,16 +141,15 @@ public class OMRAnswerClassifierTest {
         }
     }
 
-
     @Test
     public void calibratedThresholdResolvesProvidedQuestionsOneThroughSix() {
         double[][] samples = {
-                {0.40, 0.12, 0.12, 0.09}, // Q1 A
-                {0.25, 0.12, 0.14, 0.14}, // Q2 A
-                {0.13, 0.12, 0.19, 0.13}, // Q3 C
-                {0.12, 0.11, 0.17, 0.14}, // Q4 C
-                {0.13, 0.13, 0.14, 0.17}, // Q5 D
-                {0.11, 0.07, 0.27, 0.14}  // Q6 C
+                {0.40, 0.12, 0.12, 0.09},
+                {0.25, 0.12, 0.14, 0.14},
+                {0.13, 0.12, 0.19, 0.13},
+                {0.12, 0.11, 0.17, 0.14},
+                {0.13, 0.13, 0.14, 0.17},
+                {0.11, 0.07, 0.27, 0.14}
         };
         int[] expected = {0, 0, 2, 2, 3, 2};
         for (int i = 0; i < samples.length; i++) {
@@ -160,7 +159,6 @@ public class OMRAnswerClassifierTest {
         }
     }
 
-
     @Test
     public void calibratedFloorBoundaryKeepsScoresAtOrBelowNoiseThresholdBlank() {
         OMRAnswerClassifier.Result atNoiseFloor = classifier.classify(new double[]{0.15, 0.14, 0.10, 0.08});
@@ -169,5 +167,38 @@ public class OMRAnswerClassifierTest {
         OMRAnswerClassifier.Result justAboveFloor = classifier.classify(new double[]{0.16, 0.14, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, justAboveFloor.status);
         assertEquals(0, justAboveFloor.optionIndex);
+    }
+
+    @Test
+    public void whenThreeOrMoreOptionsAreAboveThresholdHighestScoreWins() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.345, 0.243, 0.180, 0.145});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+        assertEquals(0.345, result.strongestScore, 0.000001);
+    }
+
+    @Test
+    public void highestOfFourStrongOptionsWins() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.210, 0.310, 0.280, 0.250});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(1, result.optionIndex);
+    }
+
+    @Test
+    public void exactTieAmongThreeMarkedOptionsNeedsReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.31, 0.31, 0.22, 0.04});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void oneOptionAboveLowFloorWithAllOthersExactlyZeroIsAccepted() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.00, 0.00, 0.08, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(2, result.optionIndex);
     }
 }
