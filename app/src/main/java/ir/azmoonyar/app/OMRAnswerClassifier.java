@@ -8,6 +8,9 @@ package ir.azmoonyar.app;
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
+    /** Scores displayed as 0.000 are treated as white to suppress camera/rounding noise. */
+    public static final double WHITE_SCORE_EPSILON = 0.0005;
+
     /** Minimum required gap between the two darkest bubbles (10 percentage points). */
     public static final double REVIEW_MARGIN_THRESHOLD = 0.1;
 
@@ -50,6 +53,12 @@ public final class OMRAnswerClassifier {
             double score = darkness[i];
             if (!finite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
+            }
+
+            // The UI displays three decimal places. Treat values that round to
+            // 0.000 as white so sensor noise does not send an empty answer to review.
+            if (score < WHITE_SCORE_EPSILON) {
+                score = 0.0;
             }
 
             if (score > strongest) {
