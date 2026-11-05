@@ -112,7 +112,13 @@ public final class OMRAnswerClassifier {
             return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
         }
         if (markedCount >= 3) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
+            // Three or four options crossed the mark threshold: choose the
+            // strongest measured bubble. An exact tie is ambiguous and needs review.
+            double gap = strongest - second;
+            if (gap <= 0.000001) {
+                return new Result(Status.REVIEW, -1, gap, strongest);
+            }
+            return new Result(Status.ANSWERED, strongestIndex, gap, strongest);
         }
 
         double gap = strongest - second;
