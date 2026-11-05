@@ -89,6 +89,71 @@ public final class BubbleDarknessAnalyzer {
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
     }
 
+    /**
+     * Scores a printed circular bubble after perspective mapping. A physical
+     * circle may appear as an ellipse in camera pixels, so preserve both mapped
+     * radii instead of averaging them into a smaller/larger circular sample.
+     */
+    public static double scoreEllipse(byte[] luminance, int width, int height,
+            double centerX, double centerY, double radiusX, double radiusY) {
+        if (luminance == null || width <= 0 || height <= 0
+                || (long) width * height > luminance.length
+                || !finite(radiusX) || !finite(radiusY)
+                || !finite(centerX) || !finite(centerY)
+                || radiusX < 2 || radiusY < 2
+                || centerX < 0 || centerY < 0
+                || centerX >= width || centerY >= height) {
+            throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
+        }
+
+        final double innerLimit = 0.58 * 0.58;
+        final double ringInnerLimit = 1.18 * 1.18;
+        final double ringOuterLimit = 1.55 * 1.55;
+        int extentX = (int) Math.ceil(radiusX * 1.55);
+        int extentY = (int) Math.ceil(radiusY * 1.55);
+        if (centerX - extentX < 0 || centerY - extentY < 0
+                || centerX + extentX >= width || centerY + extentY >= height) {
+            throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
+        }
+
+        int minX = (int) Math.floor(centerX - extentX);
+        int maxX = (int) Math.ceil(centerX + extentX);
+        int minY = (int) Math.floor(centerY - extentY);
+        int maxY = (int) Math.ceil(centerY + extentY);
+        long innerSum = 0;
+        int innerCount = 0;
+        long paperSum = 0;
+        int paperCount = 0;
+        double radiusX2 = radiusX * radiusX;
+        double radiusY2 = radiusY * radiusY;
+
+        for (int y = minY; y <= maxY; y++) {
+            double dy = y - centerY;
+            for (int x = minX; x <= maxX; x++) {
+                double dx = x - centerX;
+                double normalizedDistance2 = dx * dx / radiusX2 + dy * dy / radiusY2;
+                int value = luminance[y * width + x] & 0xff;
+                if (normalizedDistance2 <= innerLimit) {
+                    innerSum += value;
+                    innerCount++;
+                } else if (normalizedDistance2 >= ringInnerLimit
+                        && normalizedDistance2 <= ringOuterLimit) {
+                    paperSum += value;
+                    paperCount++;
+                }
+            }
+        }
+
+        if (innerCount < 4 || paperCount < 4) {
+            throw new IllegalArgumentException("کیفیت تصویر برای سنجش حباب کافی نیست.");
+        }
+        double innerMean = innerSum / (double) innerCount;
+        double paperMean = paperSum / (double) paperCount;
+        double relativeDarkness = (paperMean - innerMean) / Math.max(48.0, paperMean);
+        if (relativeDarkness > 0.08) relativeDarkness *= 1.15;
+        return Math.max(0.0, Math.min(1.0, relativeDarkness));
+    }
+
     private static boolean finite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
     }
