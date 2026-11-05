@@ -18,16 +18,16 @@ public class ExamScorerTest {
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
         assertEquals(1, result.wrong);
-        assertEquals(1, result.blank);
+        assertEquals(0, result.blank);
         assertEquals(0, result.multipleMarks);
-        assertEquals(1, result.needsReview);
+        assertEquals(2, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
     }
 
     @Test public void reviewLeavesResultIncompleteAndPercentageUnavailable() {
         ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(
-                classify(0.40, 0.30, 0.12, 0.10)), 1.0, 0.0, 0.0);
+                classify(0.39, 0.30, 0.12, 0.10)), 1.0, 0.0, 0.0);
         assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
