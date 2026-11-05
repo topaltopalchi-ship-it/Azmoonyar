@@ -1052,7 +1052,8 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+                    new OMRSheetReader().read(luma, width, height, transform, centers,
+                            OmrTemplateLayout.BUBBLE_RADIUS_MM);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
             int answeredCount = 0;
             for (OMRSheetReader.QuestionResult q : questions) {
@@ -1268,12 +1269,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The printed bubble border-box is an ellipse (4.2 x 3.2 mm), not a circle.
-            // Derive each overlay's local width/height through the homography so
-            // the rings shrink/grow with perspective instead of drifting outside
-            // the bubbles on distant columns or near the page edges.
-            final double halfBubbleWidthMm = 2.10;
-            final double halfBubbleHeightMm = 1.60;
+            // Match the actual standard A4 print template: a 5.2 mm circular bubble.
+            // Map its physical radius through the same page homography used for centers,
+            // so the diagnostic ring follows perspective at every column and page edge.
+            final double halfBubbleWidthMm = OmrTemplateLayout.BUBBLE_RADIUS_MM;
+            final double halfBubbleHeightMm = OmrTemplateLayout.BUBBLE_RADIUS_MM;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -1291,7 +1291,7 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Use the measured 4.2 x 3.2 mm printed border-box directly.
+                    // Use the measured 5.2 mm printed circular border-box directly.
                     // The homography already accounts for scale and perspective;
                     // applying another shrink factor would misrepresent alignment.
                     paint.setColor(bubbleOverlayColors[option]);
