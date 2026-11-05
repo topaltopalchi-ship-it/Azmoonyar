@@ -5,17 +5,25 @@ import static org.junit.Assert.assertEquals;
 
 public class OMRAnswerClassifierSensitivityTest {
     @Test
-    public void faintSingleNonzeroMarkIsRecognizedWithoutFloor() {
+    public void faintSingleMarkBelowPointOneIsWhite() {
         OMRAnswerClassifier.Result result =
                 new OMRAnswerClassifier().classify(new double[]{0.001, 0.0, 0.0, 0.0});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void darkestOfTwoMarkedOptionsWinsWhenClearlyDarker() {
+    public void twoQualifyingCloseMarkedOptionsNeedReview() {
         OMRAnswerClassifier.Result result =
                 new OMRAnswerClassifier().classify(new double[]{0.62, 0.55, 0.03, 0.02});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void clearlyDarkerOptionWinsWhenSecondMarkIsBelowPointTwo() {
+        OMRAnswerClassifier.Result result =
+                new OMRAnswerClassifier().classify(new double[]{0.62, 0.19, 0.03, 0.02});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
     }
