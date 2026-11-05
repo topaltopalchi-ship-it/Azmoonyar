@@ -12,6 +12,11 @@ public final class OmrTemplateLayout {
     public static final int QUESTIONS_PER_COLUMN = 25;
     public static final int OPTIONS_PER_QUESTION = 4;
 
+    // The standard A4 OMR sheet prints each answer bubble as a 5.2 mm circle.
+    // Keep print geometry and scanner sampling tied to this single source of truth.
+    public static final double BUBBLE_DIAMETER_MM = 5.2;
+    public static final double BUBBLE_RADIUS_MM = BUBBLE_DIAMETER_MM / 2.0;
+
     public static final double NEW_MARKER_SIZE_MM = 16.0;
     public static final double NEW_MARKER_CENTER_INSET_MM = 13.0;
     public static final double LEGACY_MARKER_CENTER_INSET_MM = 6.5;
