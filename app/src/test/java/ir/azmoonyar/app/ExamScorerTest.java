@@ -16,11 +16,13 @@ public class ExamScorerTest {
                 classify(0.05, 0.06, 0.08, 0.04),
                 classify(0.7, 0.1, 0.68, 0.1)), 1.0, 0.0, 0.0);
         assertEquals(4, result.totalQuestions);
-        assertEquals(1, result.correct);
+        // The second question has only one score above 0.2, so it is not a
+        // double-mark review. The fourth question has two qualifying close marks.
+        assertEquals(2, result.correct);
         assertEquals(1, result.wrong);
-        assertEquals(0, result.blank);
+        assertEquals(1, result.blank);
         assertEquals(0, result.multipleMarks);
-        assertEquals(2, result.needsReview);
+        assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
     }
