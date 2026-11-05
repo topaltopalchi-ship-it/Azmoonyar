@@ -43,23 +43,55 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void valuesThatDisplayAsAllZerosAreBlank() {
+    public void allScoresBelowPointOneAreBlank() {
         OMRAnswerClassifier.Result result = classifier.classify(
-                new double[]{0.0001, 0.0002, 0.0003, 0.0004});
+                new double[]{0.01, 0.05, 0.099, 0.0});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void valuesAboveWhiteEpsilonStillUseTopTwoMargin() {
+    public void scoreExactlyPointOneIsNotWhite() {
         OMRAnswerClassifier.Result result = classifier.classify(
-                new double[]{0.0006, 0.0001, 0.0000, 0.0000});
+                new double[]{0.10, 0.0, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void twoCloseScoresBelowPointTwoDoNotTriggerReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.19, 0.15, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void twoCloseScoresOnlyTriggerReviewWhenBothExceedPointTwo() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.31, 0.25, 0.0, 0.0});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
     @Test
+    public void secondScoreExactlyPointTwoDoesNotTriggerDoubleMarkReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.30, 0.20, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void twoQualifyingMarksWithGapAbovePointOneSelectDarkerOption() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.45, 0.30, 0.0, 0.0});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
     public void exactTieNeedsReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.133, 0.133, 0.0, 0.0});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.333, 0.333, 0.0, 0.0});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
