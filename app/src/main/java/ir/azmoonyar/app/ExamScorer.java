@@ -30,8 +30,17 @@ public final class ExamScorer {
         /** Percentage is unavailable while any answer still requires manual review. */
         public double percentage() {
             if (needsReview > 0) return Double.NaN;
-            if (maximumPoints == 0.0) return 0.0;
-            return earnedPoints * 100.0 / maximumPoints;
+            return provisionalPercentage();
+        }
+
+        /**
+         * A finite lower-bound percentage for display/storage while review is pending.
+         * Unreviewed questions contribute zero until a human resolves them.
+         */
+        public double provisionalPercentage() {
+            if (maximumPoints <= 0.0) return 0.0;
+            double value = earnedPoints * 100.0 / maximumPoints;
+            return Double.isNaN(value) || Double.isInfinite(value) ? 0.0 : value;
         }
     }
 
