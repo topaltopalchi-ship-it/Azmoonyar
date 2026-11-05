@@ -53,6 +53,8 @@ public class MainActivity extends Activity {
     private TextView summary;
     private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
     private static final int REQUEST_QUESTION_IMAGE = 7316;
+    private static final int REQUEST_BANK_QUESTION_IMAGE = 7317;
+    private String pendingBankQuestionImageData = "";
     private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
@@ -1634,6 +1636,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (requestCode == REQUEST_QUESTION_IMAGE) { saveScannedQuestionImage(data.getData()); return; }
+        if (requestCode == REQUEST_BANK_QUESTION_IMAGE) { loadBankQuestionImage(data.getData()); return; }
         if (requestCode != REQUEST_ANSWER_KEY_IMAGE) return;
         android.net.Uri uri = data.getData();
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
@@ -2209,11 +2212,48 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void pickBankQuestionImage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try { startActivityForResult(intent, REQUEST_BANK_QUESTION_IMAGE); }
+        catch (Exception e) { info("بازکردن گالری تصویر سؤال ممکن نشد."); }
+    }
+
+    private void loadBankQuestionImage(android.net.Uri uri) {
+        try {
+            android.graphics.Bitmap bitmap;
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) throw new java.io.IOException("empty image");
+                bitmap = android.graphics.BitmapFactory.decodeStream(input);
+            }
+            if (bitmap == null) throw new java.io.IOException("invalid image");
+            int maxSide = 1600;
+            if (Math.max(bitmap.getWidth(), bitmap.getHeight()) > maxSide) {
+                float scale = maxSide / (float) Math.max(bitmap.getWidth(), bitmap.getHeight());
+                android.graphics.Bitmap scaled = android.graphics.Bitmap.createScaledBitmap(bitmap,
+                        Math.max(1, Math.round(bitmap.getWidth() * scale)),
+                        Math.max(1, Math.round(bitmap.getHeight() * scale)), true);
+                if (scaled != bitmap) bitmap.recycle();
+                bitmap = scaled;
+            }
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, bytes);
+            bitmap.recycle();
+            pendingBankQuestionImageData = "data:image/jpeg;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+            info("تصویر برای سؤال انتخاب شد؛ با زدن ذخیره همراه سؤال ثبت می‌شود.");
+        } catch (Exception e) {
+            info("خواندن تصویر سؤال ناموفق بود: " + e.getMessage());
+        }
+    }
+
     private void showAddBankQuestionDialog() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
         JSONArray existingBank = readQuestionBank();
+        pendingBankQuestionImageData = "";
         TextView numberLabel = new TextView(this);
         numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1));
         numberLabel.setTextSize(16);
@@ -2223,6 +2263,15 @@ public class MainActivity extends Activity {
         EditText question = new EditText(this); styleInput(question);
         question.setHint("متن سؤال شمارهٔ " + (existingBank.length() + 1));
         form.addView(question);
+        Button chooseQuestionImage = new Button(this);
+        chooseQuestionImage.setText("افزودن تصویر از گالری (اختیاری)");
+        styleTurquoiseDashboardButton(chooseQuestionImage);
+        chooseQuestionImage.setOnClickListener(v -> pickBankQuestionImage());
+        form.addView(chooseQuestionImage);
+        TextView imageStatus = new TextView(this);
+        imageStatus.setText("هنوز تصویری انتخاب نشده است");
+        imageStatus.setTextSize(13);
+        form.addView(imageStatus);
         EditText topic = new EditText(this); styleInput(topic);
         topic.setHint("مبحث (اختیاری؛ مثل نوار قلب یا رادیکال)");
         form.addView(topic);
@@ -2271,6 +2320,7 @@ public class MainActivity extends Activity {
                     item.put("topic", topic.getText().toString().trim());
                     item.put("options", optionArray);
                     item.put("correct_index", correctIndex);
+                    if (!pendingBankQuestionImageData.isEmpty()) item.put("image_data", pendingBankQuestionImageData);
                     bank.put(item);
                     prefs.edit().putString("question_bank_json", bank.toString()).apply();
                     info("سؤال شمارهٔ " + questionNumber + " در بانک محلی ذخیره شد.");
