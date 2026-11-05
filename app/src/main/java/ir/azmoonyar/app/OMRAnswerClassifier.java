@@ -2,7 +2,7 @@ package ir.azmoonyar.app;
 
 /**
  * Classifies four bubble-darkness scores by direct comparison.
- * If the strongest and second strongest scores differ by less than 0.1,
+ * If the strongest and second strongest scores differ by 0.1 or less,
  * the answer is sent to manual review instead of being guessed.
  */
 public final class OMRAnswerClassifier {
@@ -66,7 +66,8 @@ public final class OMRAnswerClassifier {
         }
 
         double gap = strongest - second;
-        if (gap < REVIEW_MARGIN_THRESHOLD) {
+        // Equality is intentionally included: a 0.10 gap is still ambiguous.
+        if (gap <= REVIEW_MARGIN_THRESHOLD) {
             return new Result(Status.REVIEW, -1, gap, strongest);
         }
 
