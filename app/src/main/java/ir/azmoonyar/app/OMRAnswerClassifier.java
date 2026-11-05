@@ -2,10 +2,14 @@ package ir.azmoonyar.app;
 
 /**
  * Classifies four bubble-darkness scores by direct comparison.
- * No fixed darkness threshold is applied: the darkest bubble wins.
+ * If the strongest and second strongest scores differ by less than 0.1,
+ * the answer is sent to manual review instead of being guessed.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
+
+    /** Minimum required gap between the two darkest bubbles (10 percentage points). */
+    public static final double REVIEW_MARGIN_THRESHOLD = 0.1;
 
     public static final class Result {
         public final Status status;
@@ -25,17 +29,11 @@ public final class OMRAnswerClassifier {
 
     public OMRAnswerClassifier() {}
 
-    /**
-     * Compatibility constructor for older callers. Threshold arguments are
-     * intentionally ignored; classification no longer uses fixed thresholds.
-     */
+    /** Compatibility constructor for older callers; the review margin is fixed at 0.1. */
     @Deprecated
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double twoMarkGap) {}
 
-    /**
-     * Compatibility constructor for older callers. Threshold arguments are
-     * intentionally ignored; classification no longer uses fixed thresholds.
-     */
+    /** Compatibility constructor for older callers; the review margin is fixed at 0.1. */
     @Deprecated
     public OMRAnswerClassifier(double markThreshold, double twoMarkGap) {}
 
@@ -63,14 +61,12 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        // Only four exactly-zero measurements are considered blank at this stage.
-        // Low non-zero values are still compared; ring/coordinate calibration follows separately.
         if (strongest == 0.0) {
             return new Result(Status.BLANK, -1, 0.0, 0.0);
         }
 
         double gap = strongest - second;
-        if (gap <= 0.000001) {
+        if (gap < REVIEW_MARGIN_THRESHOLD) {
             return new Result(Status.REVIEW, -1, gap, strongest);
         }
 
