@@ -43,6 +43,21 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void valuesThatDisplayAsAllZerosAreBlank() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.0001, 0.0002, 0.0003, 0.0004});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void valuesAboveWhiteEpsilonStillUseTopTwoMargin() {
+        OMRAnswerClassifier.Result result = classifier.classify(
+                new double[]{0.0006, 0.0001, 0.0000, 0.0000});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+    }
+
+    @Test
     public void exactTieNeedsReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.133, 0.133, 0.0, 0.0});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
