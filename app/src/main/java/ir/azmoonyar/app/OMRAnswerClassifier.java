@@ -65,8 +65,8 @@ public final class OMRAnswerClassifier {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
 
-            // Rule requested for Altay 4: a lone option above 5% with all
-            // other options exactly zero is accepted as the answer.
+            // A single non-zero mark with all other bubbles exactly white is
+            // accepted when it reaches the low-mark floor.
             if (score >= 0.05) {
                 boolean othersZero = true;
                 for (int j = 0; j < darkness.length; j++) {
@@ -107,8 +107,17 @@ public final class OMRAnswerClassifier {
             }
             return new Result(Status.ANSWERED, strongestIndex, strongest, strongest);
         }
+
+        // When three or four bubbles cross the mark threshold, a threshold-only
+        // rule would incorrectly call every option marked. Select the strongest
+        // measured bubble as the answer, as requested. Exact ties remain REVIEW
+        // because there is no unique strongest option to report.
         if (markedCount >= 3) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
+            double gap = strongest - second;
+            if (gap <= 0.000001) {
+                return new Result(Status.REVIEW, -1, gap, strongest);
+            }
+            return new Result(Status.ANSWERED, strongestIndex, gap, strongest);
         }
 
         double gap = strongest - second;
