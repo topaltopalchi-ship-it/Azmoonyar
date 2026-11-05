@@ -31,6 +31,17 @@ public class ExamScorerTest {
         assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
+        assertEquals(0.0, result.provisionalPercentage(), 0.001);
+    }
+
+    @Test public void provisionalPercentageIsFiniteWhenSomeAnswersAreReviewed() {
+        ExamScorer.Result result = ExamScorer.score("AB", Arrays.asList(
+                classify(0.8, 0.1, 0.1, 0.1),
+                classify(0.39, 0.30, 0.12, 0.10)), 1.0, 0.0, 0.0);
+        assertEquals(1, result.needsReview);
+        assertEquals(50.0, result.provisionalPercentage(), 0.001);
+        assertFalse(Double.isNaN(result.provisionalPercentage()));
+        assertFalse(Double.isInfinite(result.provisionalPercentage()));
     }
 
     @Test public void appliesNegativeWrongAnswerPenalty() {
