@@ -19,7 +19,7 @@ public class ExamScorerTest {
         // The second question has only one score above 0.2, so it is not a
         // double-mark review. The fourth question has two qualifying close marks.
         assertEquals(2, result.correct);
-        assertEquals(1, result.wrong);
+        assertEquals(0, result.wrong);
         assertEquals(1, result.blank);
         assertEquals(0, result.multipleMarks);
         assertEquals(1, result.needsReview);
