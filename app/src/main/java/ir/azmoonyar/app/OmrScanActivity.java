@@ -1202,7 +1202,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     reviewQuestions.put(i + 1);
                 }
             }
-            record.put("score", score.percentage());
+            record.put("score", score.isComplete() ? score.percentage() : score.provisionalPercentage());
             record.put("earnedPoints", score.earnedPoints);
             record.put("correct", score.correct);
             record.put("wrong", score.wrong);
@@ -1225,7 +1225,7 @@ public final class OmrScanActivity extends ComponentActivity {
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
             updateSheetResultStatus("تصحیح " + (score.needsReview > 0 ? "موقت" : "کامل") + " انجام شد: " + participantName
-                    + " • نمره فعلی " + String.format(java.util.Locale.US, "%.1f", score.percentage())
+                    + " • نمره فعلی " + String.format(java.util.Locale.US, "%.1f", score.isComplete() ? score.percentage() : score.provisionalPercentage())
                     + " از ۱۰۰ • صحیح: " + score.correct + " • غلط: " + score.wrong
                     + " • نیازمند بازبینی: " + score.needsReview
                     + " • شماره سؤال‌های غلط: " + wrongList
