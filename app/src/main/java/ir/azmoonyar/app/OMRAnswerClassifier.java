@@ -8,10 +8,13 @@ package ir.azmoonyar.app;
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
-    /** Scores displayed as 0.000 are treated as white to suppress camera/rounding noise. */
-    public static final double WHITE_SCORE_EPSILON = 0.0005;
+    /** Scores strictly below 0.1 are white / unmarked. */
+    public static final double WHITE_SCORE_THRESHOLD = 0.1;
 
-    /** Minimum required gap between the two darkest bubbles (10 percentage points). */
+    /** Both leading bubbles must be strictly above 0.2 to trigger double-mark review. */
+    public static final double DOUBLE_MARK_MIN_SCORE = 0.2;
+
+    /** Minimum required gap between two qualifying marked bubbles (10 percentage points). */
     public static final double REVIEW_MARGIN_THRESHOLD = 0.1;
 
     public static final class Result {
@@ -55,9 +58,8 @@ public final class OMRAnswerClassifier {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
 
-            // The UI displays three decimal places. Treat values that round to
-            // 0.000 as white so sensor noise does not send an empty answer to review.
-            if (score < WHITE_SCORE_EPSILON) {
+            // Any score strictly below 0.1 is treated as white.
+            if (score < WHITE_SCORE_THRESHOLD) {
                 score = 0.0;
             }
 
@@ -75,8 +77,11 @@ public final class OMRAnswerClassifier {
         }
 
         double gap = strongest - second;
-        // Equality is intentionally included: a 0.10 gap is still ambiguous.
-        if (gap <= REVIEW_MARGIN_THRESHOLD) {
+        // A double-mark review is allowed only if BOTH leading scores exceed 0.2.
+        // A weak secondary score must not cause review, even when the gap is small.
+        if (strongest > DOUBLE_MARK_MIN_SCORE
+                && second > DOUBLE_MARK_MIN_SCORE
+                && gap <= REVIEW_MARGIN_THRESHOLD) {
             return new Result(Status.REVIEW, -1, gap, strongest);
         }
 
