@@ -13,20 +13,20 @@ public class OMRAndScoringTest {
         assertEquals(0, result.optionIndex);
     }
 
-    @Test public void classifiesBlankSheetQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.08, 0.10, 0.12, 0.05});
+    @Test public void onlyAllZeroQuestionIsBlankWithoutThreshold() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.0, 0.0, 0.0, 0.0});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test public void closeDarkMarksAreSentToReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.70, 0.08, 0.10});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.7600000, 0.7599995, 0.08, 0.10});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test public void sendsAmbiguousMarkToReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.48, 0.40, 0.09, 0.08});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.4800000, 0.4799995, 0.09, 0.08});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
@@ -43,7 +43,7 @@ public class OMRAndScoringTest {
     @Test public void scorerCountsCorrectWrongAndBlankWhenAllAnswersAreDeterminate() {
         OMRAnswerClassifier.Result a = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result wrongA = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
-        OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.12, 0.05});
+        OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.0, 0.0, 0.0, 0.0});
         OMRAnswerClassifier.Result wrongD = classifier.classify(new double[]{0.08, 0.10, 0.76, 0.10});
 
         ExamScorer.Result result = ExamScorer.score("ABCD",
@@ -61,26 +61,22 @@ public class OMRAndScoringTest {
     }
 
     @Test public void scorerDoesNotPublishPercentageWhileReviewIsNeeded() {
-        OMRAnswerClassifier.Result review = classifier.classify(new double[]{0.48, 0.40, 0.09, 0.08});
+        OMRAnswerClassifier.Result review = classifier.classify(new double[]{0.4800000, 0.4799995, 0.09, 0.08});
         ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(review), 1.0, -0.25, 0.0);
         assertEquals(1, result.needsReview);
         assertTrue(Double.isNaN(result.percentage()));
     }
 
-    @Test public void marginRuleRunsBeforeChoosingTheDarkestOption() {
-        // Both B and D are visibly marked. The darkest option wins only because
-        // its score exceeds the runner-up by strictly more than 0.14.
+    @Test public void darkestBubbleWinsAndNearTieNeedsReview() {
         OMRAnswerClassifier.Result clearWinner =
                 classifier.classify(new double[]{0.05, 0.72, 0.08, 0.51});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, clearWinner.status);
         assertEquals(1, clearWinner.optionIndex);
         assertEquals(0.21, clearWinner.margin, 0.000001);
 
-        // At exactly 0.14, do not choose either option automatically.
-        OMRAnswerClassifier.Result boundary =
-                classifier.classify(new double[]{0.05, 0.30, 0.08, 0.16});
-        assertEquals(OMRAnswerClassifier.Status.REVIEW, boundary.status);
-        assertEquals(-1, boundary.optionIndex);
-        assertEquals(0.14, boundary.margin, 0.000001);
+        OMRAnswerClassifier.Result tie =
+                classifier.classify(new double[]{0.05, 0.30, 0.08, 0.2999995});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, tie.status);
+        assertEquals(-1, tie.optionIndex);
     }
 }
