@@ -1,6 +1,9 @@
 name: Android Build
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fix/ayselplus-compatible-omr
 permissions:
   contents: read
 jobs:
