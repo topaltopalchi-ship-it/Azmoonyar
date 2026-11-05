@@ -3305,12 +3305,126 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(-1, -2);
             cardLp.setMargins(0, dp(5), 0, dp(10));
             cards.addView(card, cardLp);
+            final String selectedExamName = entry.getKey();
+            card.setOnClickListener(v -> showQuestionDifficultyAnalysis(selectedExamName, results));
         }
         ScrollView scroll = new ScrollView(this);
         scroll.addView(cards);
-        new AlertDialog.Builder(this).setTitle("آمار دایره‌ای آزمون‌ها")
+        new AlertDialog.Builder(this).setTitle("آمار دایره‌ای آزمون‌ها — برای تحلیل سؤال لمس کن")
             .setView(scroll).setPositiveButton("بستن", null)
             .setNeutralButton("بازگشت", (d, w) -> showExamResultsMenu()).show();
+    }
+
+    /**
+     * Aggregates question-level correctness across all saved participants for an exam.
+     * REVIEW answers are excluded from the correctness denominator and shown separately.
+     * BLANK answers remain in the denominator as non-correct responses.
+     */
+    private void showQuestionDifficultyAnalysis(String examName, JSONArray allResults) {
+        final class QuestionStats {
+            int correct, wrong, blank, review;
+            double percentage() {
+                int known = correct + wrong + blank;
+                return known == 0 ? -1.0 : (100.0 * correct / known);
+            }
+        }
+        java.util.TreeMap<Integer, QuestionStats> stats = new java.util.TreeMap<>();
+        int participantCount = 0;
+        for (int i = 0; i < allResults.length(); i++) {
+            JSONObject result = allResults.optJSONObject(i);
+            if (result == null || !examName.equals(result.optString("examName", "آزمون بدون نام"))) continue;
+            JSONArray questions = result.optJSONArray("questionDetails");
+            if (questions == null) continue;
+            participantCount++;
+            for (int j = 0; j < questions.length(); j++) {
+                JSONObject q = questions.optJSONObject(j);
+                if (q == null) continue;
+                int number = q.optInt("question", j + 1);
+                QuestionStats s = stats.get(number);
+                if (s == null) { s = new QuestionStats(); stats.put(number, s); }
+                String status = q.optString("status", "");
+                if ("REVIEW".equals(status)) {
+                    s.review++;
+                } else if ("BLANK".equals(status)) {
+                    s.blank++;
+                } else if ("ANSWERED".equals(status)) {
+                    if (q.optBoolean("isCorrect", false)) s.correct++;
+                    else s.wrong++;
+                } else {
+                    // MULTIPLE_MARKS and other resolved non-answer states count as wrong.
+                    s.wrong++;
+                }
+            }
+        }
+        if (stats.isEmpty()) {
+            info("برای این آزمون جزئیات سؤال‌ها ذخیره نشده است. نتایج جدید را دوباره تصحیح کن.");
+            return;
+        }
+        java.util.ArrayList<java.util.Map.Entry<Integer, QuestionStats>> ordered =
+                new java.util.ArrayList<>(stats.entrySet());
+        java.util.Collections.sort(ordered, (a, b) -> {
+            double pa = a.getValue().percentage(), pb = b.getValue().percentage();
+            if (pa < 0 && pb < 0) return Integer.compare(a.getKey(), b.getKey());
+            if (pa < 0) return 1;
+            if (pb < 0) return -1;
+            int byDifficulty = Double.compare(pa, pb); // hardest questions first
+            return byDifficulty != 0 ? byDifficulty : Integer.compare(a.getKey(), b.getKey());
+        });
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(14), dp(10), dp(14), dp(10));
+        TextView intro = new TextView(this);
+        intro.setText("آزمون: " + examName + "\\nشرکت‌کنندگان دارای جزئیات: " + participantCount
+                + "\\nدرصد صحیح = پاسخ صحیح ÷ (صحیح + غلط + سفید). موارد نیازمند بازبینی از محاسبه درصد کنار گذاشته شده‌اند.");
+        intro.setTextSize(14);
+        intro.setTextColor(Color.rgb(71, 85, 105));
+        intro.setGravity(Gravity.RIGHT);
+        intro.setPadding(0, 0, 0, dp(10));
+        list.addView(intro);
+        for (java.util.Map.Entry<Integer, QuestionStats> entry : ordered) {
+            QuestionStats s = entry.getValue();
+            int known = s.correct + s.wrong + s.blank;
+            String pct = s.percentage() < 0 ? "—" :
+                    String.format(Locale.US, "%.1f%%", s.percentage());
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(dp(14), dp(11), dp(14), dp(11));
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(Color.WHITE);
+            bg.setCornerRadius(dp(14));
+            bg.setStroke(dp(1), Color.rgb(220, 230, 245));
+            row.setBackground(bg);
+            TextView title = new TextView(this);
+            title.setText("سؤال " + entry.getKey() + "  •  پاسخ صحیح: " + pct);
+            title.setTextSize(17);
+            title.setTypeface(null, android.graphics.Typeface.BOLD);
+            title.setTextColor(s.percentage() >= 70 ? Color.rgb(13, 148, 136) :
+                    s.percentage() >= 0 ? Color.rgb(217, 119, 6) : Color.rgb(71, 85, 105));
+            title.setGravity(Gravity.RIGHT);
+            row.addView(title);
+            TextView detail = new TextView(this);
+            detail.setText("صحیح: " + s.correct + "  |  غلط: " + s.wrong
+                    + "  |  سفید: " + s.blank + "  |  بازبینی: " + s.review
+                    + "\\nتعداد پاسخ‌های قابل محاسبه: " + known);
+            detail.setTextSize(13);
+            detail.setTextColor(Color.rgb(71, 85, 105));
+            detail.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams detailLp = new LinearLayout.LayoutParams(-1, -2);
+            detailLp.topMargin = dp(5);
+            row.addView(detail, detailLp);
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
+            rowLp.setMargins(0, 0, 0, dp(8));
+            list.addView(row, rowLp);
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        new AlertDialog.Builder(this)
+                .setTitle("درصد پاسخ صحیح هر سؤال")
+                .setView(scroll)
+                .setPositiveButton("بستن", null)
+                .setNeutralButton("بازگشت", (d, w) -> showExamAnalysis())
+                .show();
     }
 
     private class CircleScoreView extends View {
