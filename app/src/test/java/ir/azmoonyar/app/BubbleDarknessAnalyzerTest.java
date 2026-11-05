@@ -32,6 +32,25 @@ public class BubbleDarknessAnalyzerTest {
                 filledScore > blankScore + 0.35);
     }
     @Test
+    public void detectsFillInsidePerspectiveScaledEllipticalBubble() {
+        int width = 61, height = 51;
+        byte[] image = new byte[width * height];
+        java.util.Arrays.fill(image, (byte) 230);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                double nx = (x - 30.0) / 12.0;
+                double ny = (y - 25.0) / 8.0;
+                if (nx * nx + ny * ny <= 0.45 * 0.45) {
+                    image[y * width + x] = 30;
+                }
+            }
+        }
+        double score = BubbleDarknessAnalyzer.scoreEllipse(
+                image, width, height, 30, 25, 12, 8);
+        assertTrue("A filled perspective-scaled bubble should be detected", score > 0.35);
+    }
+
+    @Test
     public void rejectsNonFiniteGeometryInsteadOfReturningMisleadingScore() {
         byte[] image = new byte[41 * 41];
         java.util.Arrays.fill(image, (byte) 230);
