@@ -2266,17 +2266,22 @@ public class MainActivity extends Activity {
         }
         detail.append("\nاین مورد نمرهٔ قطعی ندارد. برای نمره‌دهی، پاسخ‌های مبهم باید با خود برگه تطبیق داده شوند.");
         new AlertDialog.Builder(this).setTitle("جزئیات برگهٔ بازبینی").setMessage(detail.toString())
-            .setPositiveButton("حذف از صف", (d, w) -> {
-                JSONArray current = readReviewQueue();
-                JSONArray kept = new JSONArray();
-                for (int i = 0; i < current.length(); i++) {
-                    if (i == index) continue;
-                    JSONObject entry = current.optJSONObject(i);
-                    if (entry != null) kept.put(entry);
-                }
-                prefs.edit().putString("grading_review_queue", kept.toString()).apply();
-                showReviewQueue();
-            })
+            .setPositiveButton("حذف از صف", (d, w) -> new AlertDialog.Builder(this)
+                .setTitle("تأیید حذف")
+                .setMessage("آیا مطمئن هستید که می‌خواهید این برگه را از صف بازبینی حذف کنید؟")
+                .setPositiveButton("بله، حذف کن", (confirm, which) -> {
+                    JSONArray current = readReviewQueue();
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < current.length(); i++) {
+                        if (i == index) continue;
+                        JSONObject entry = current.optJSONObject(i);
+                        if (entry != null) kept.put(entry);
+                    }
+                    prefs.edit().putString("grading_review_queue", kept.toString()).apply();
+                    showReviewQueue();
+                })
+                .setNegativeButton("انصراف", null)
+                .show())
             .setNegativeButton("بازگشت", (d, w) -> showReviewQueue()).show();
     }
 
