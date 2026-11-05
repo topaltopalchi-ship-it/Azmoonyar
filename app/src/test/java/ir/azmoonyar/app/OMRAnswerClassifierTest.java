@@ -22,8 +22,15 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void gapExactlyOneTenthCanBeAnswered() {
+    public void gapExactlyOneTenthNeedsReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.50, 0.40, 0.12, 0.10});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void gapAboveOneTenthSelectsDarkerBubble() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.51, 0.40, 0.12, 0.10});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
     }
