@@ -18,7 +18,7 @@ public class OMRAnswerClassifierTest {
     @Test
     public void darknessMustBeStrictlyAboveTwoTenthsToCountAsMarked() {
         OMRAnswerClassifier.Result atThreshold =
-                classifier.classify(new double[]{0.10, 0.02, 0.01, 0.00});
+                classifier.classify(new double[]{0.20, 0.02, 0.01, 0.00});
         assertEquals(OMRAnswerClassifier.Status.BLANK, atThreshold.status);
 
         OMRAnswerClassifier.Result aboveThreshold =
@@ -67,7 +67,7 @@ public class OMRAnswerClassifierTest {
     @Test
     public void nearBlankLowContrastIsNotGuessedAsAnswered() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        // Every bubble is at or below the configured 0.10 threshold.
+        // Every bubble is at or below the configured 0.20 threshold.
         // Selecting the darkest one would turn background noise into a student answer.
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
