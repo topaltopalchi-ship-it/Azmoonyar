@@ -32,6 +32,20 @@ public class ExamScorerTest {
         assertTrue(Double.isNaN(result.percentage()));
     }
 
+    @Test public void reportsDeterminateCountsEvenWhenAnotherAnswerNeedsReview() {
+        ExamScorer.Result result = ExamScorer.score("AACD", Arrays.asList(
+                classify(0.8, 0.0, 0.0, 0.0),
+                classify(0.0, 0.8, 0.0, 0.0),
+                classify(0.0, 0.0, 0.0, 0.0),
+                classify(0.2, 0.2, 0.0, 0.0)), 1.0, 0.0, 0.0);
+        assertEquals(1, result.correct);
+        assertEquals(1, result.wrong);
+        assertEquals(1, result.blank);
+        assertEquals(1, result.needsReview);
+        assertFalse(result.isComplete());
+        assertTrue(Double.isNaN(result.percentage()));
+    }
+
     @Test public void appliesNegativeWrongAnswerPenalty() {
         ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(
                 classify(0.1, 0.8, 0.1, 0.1)), 2.0, -0.5, 0.0);
