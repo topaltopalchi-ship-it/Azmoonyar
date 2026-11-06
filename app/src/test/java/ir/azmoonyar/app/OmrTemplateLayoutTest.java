@@ -6,6 +6,13 @@ import static org.junit.Assert.assertEquals;
 public class OmrTemplateLayoutTest {
     private static final double EPSILON = 0.0001;
 
+    @Test public void printedAndScannedBubbleGeometryShareOnePhysicalSize() {
+        assertEquals(5.2, OmrTemplateLayout.BUBBLE_DIAMETER_MM, EPSILON);
+        assertEquals(0.4, OmrTemplateLayout.BUBBLE_BORDER_WIDTH_MM, EPSILON);
+        assertEquals(2.6, OmrTemplateLayout.BUBBLE_RADIUS_MM, EPSILON);
+        assertEquals(2.2, OmrTemplateLayout.BUBBLE_FILL_RADIUS_MM, EPSILON);
+    }
+
     @Test public void mapsFirstQuestionToFirstColumnAndOptionsLeftToRight() {
         double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(100, 0);
         assertEquals(100, centers.length);
