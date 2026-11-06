@@ -16,8 +16,20 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void darknessMustBeStrictlyAboveOneTenthToCountAsMarked() {
+        OMRAnswerClassifier.Result atThreshold =
+                classifier.classify(new double[]{0.10, 0.02, 0.01, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, atThreshold.status);
+
+        OMRAnswerClassifier.Result aboveThreshold =
+                classifier.classify(new double[]{0.1001, 0.02, 0.01, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, aboveThreshold.status);
+        assertEquals(0, aboveThreshold.optionIndex);
+    }
+
+    @Test
     public void detectsBlankQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.11, 0.06});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.10, 0.06});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
@@ -55,7 +67,7 @@ public class OMRAnswerClassifierTest {
     @Test
     public void nearBlankLowContrastIsNotGuessedAsAnswered() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        // Every bubble is at or below the configured blank threshold (0.15).
+        // Every bubble is at or below the configured 0.10 threshold.
         // Selecting the darkest one would turn background noise into a student answer.
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
