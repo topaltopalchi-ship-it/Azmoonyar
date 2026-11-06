@@ -28,9 +28,8 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // These are conservative starting values, not a substitute for calibration
-        // against real answer sheets captured by the target phone/camera.
-        this(0.25, 0.12, 0.10);
+        // Conservative defaults; real answer-sheet calibration can refine these later.
+        this(0.25, 0.15, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -81,8 +80,10 @@ public final class OMRAnswerClassifier {
             return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
         }
 
-        // A weak mark or a near-tie is not safe to grade automatically.
-        if (best < markThreshold || margin <= 0.0) {
+        // A weak mark, a near-tie, or a close competitor above the blank floor
+        // is not safe to grade automatically.
+        if (best < markThreshold || margin <= 0.0
+                || (runnerUp > blankThreshold && margin < minimumMargin)) {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
