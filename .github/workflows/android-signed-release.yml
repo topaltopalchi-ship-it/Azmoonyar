@@ -114,3 +114,5 @@ jobs:
           retention-days: 30
 
 # Rebuild requested on the restored Altay source baseline.
+
+# Build the restored Rana 4.0.9 release branch.
