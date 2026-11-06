@@ -82,7 +82,7 @@ public final class OMRAnswerClassifier {
         }
 
         // A weak mark or a near-tie is not safe to grade automatically.
-        if (best < markThreshold || margin < minimumMargin) {
+        if (best < markThreshold || margin <= 0.0) {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
