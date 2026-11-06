@@ -23,10 +23,24 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void flagsMultipleMarkedBubbles() {
+    public void sendsTwoClearlyDarkAndCloseBubblesForReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void doesNotSendTwoBubblesForReviewWhenSecondIsNotAbovePointTwo() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.29, 0.20, 0.08, 0.04});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
+    public void doesNotSendTwoBubblesForReviewWhenDifferenceIsAtLeastPointOne() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.42, 0.31, 0.08, 0.04});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
     }
 
     @Test
