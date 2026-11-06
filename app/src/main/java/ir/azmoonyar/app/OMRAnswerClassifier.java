@@ -10,6 +10,8 @@ public final class OMRAnswerClassifier {
     public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
     public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
     public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
+    /** Nearly indistinguishable dark bubbles are ambiguous, not a confirmed double mark. */
+    public static final double NEAR_TIE_REVIEW_EPSILON = 0.001;
 
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
@@ -84,6 +86,12 @@ public final class OMRAnswerClassifier {
         // No visible mark: keep the item blank.
         if (best <= blankThreshold) {
             return new Result(Status.BLANK, -1, margin, best);
+        }
+
+        // A near-identical pair cannot be distinguished reliably, even when both are dark.
+        // Send it to manual review before applying the multiple-mark classification.
+        if (runnerUp > blankThreshold && margin <= NEAR_TIE_REVIEW_EPSILON) {
+            return new Result(Status.REVIEW, -1, margin, best);
         }
 
         // Two independently dark bubbles are a multiple response, not a guessed answer.

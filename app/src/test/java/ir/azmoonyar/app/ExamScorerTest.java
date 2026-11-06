@@ -12,12 +12,12 @@ public class ExamScorerTest {
     @Test public void closeDoubleMarksRemainUnscoredUntilReview() {
         ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(
                 classify(0.8, 0.1, 0.1, 0.1),
-                classify(0.1, 0.1, 0.8, 0.1),
+                classify(0.1, 0.8, 0.1, 0.1),
                 classify(0.05, 0.06, 0.08, 0.04),
                 classify(0.7, 0.1, 0.68, 0.1)), 1.0, 0.0, 0.0);
         assertEquals(4, result.totalQuestions);
-        // The second question has only one score above 0.2, so it is not a
-        // double-mark review. The fourth question has two qualifying close marks.
+        // The second question is a clear B response. The fourth question has two
+        // qualifying close marks and must remain unscored until manual review.
         assertEquals(2, result.correct);
         assertEquals(0, result.wrong);
         assertEquals(1, result.blank);
