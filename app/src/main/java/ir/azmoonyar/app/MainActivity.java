@@ -1880,6 +1880,8 @@ public class MainActivity extends Activity {
         panel.addView(message);
         Button pattern = new Button(this); pattern.setText("تنظیم الگوی پاسخ‌ها"); styleTurquoiseDashboardButton(pattern);
         pattern.setOnClickListener(v -> showAnswerPatternSetup(null)); panel.addView(pattern);
+        Button automaticDesign = new Button(this); automaticDesign.setText("طراحی خودکار پرسشنامه (بدون الگو)"); styleTurquoiseDashboardButton(automaticDesign);
+        automaticDesign.setOnClickListener(v -> generateRandomVariants()); panel.addView(automaticDesign);
         Button add = new Button(this); add.setText("افزودن سؤال"); styleTurquoiseDashboardButton(add);
         add.setOnClickListener(v -> {
             String answerPattern = prefs.getString("answer_pattern_key", "");
