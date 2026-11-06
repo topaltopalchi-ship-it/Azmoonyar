@@ -28,9 +28,9 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // User-defined rule: darkness strictly above 0.10 is considered a marked answer.
-        // Values at or below 0.10 remain blank; ambiguous competing marks still go to review.
-        this(0.10, 0.10, 0.10);
+        // User-defined rule: only scores strictly above 0.20 count as marked.
+        // If the two strongest qualifying marks differ by less than 0.10, request review.
+        this(0.20, 0.20, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -71,20 +71,20 @@ public final class OMRAnswerClassifier {
         double runnerUp = Math.max(0.0, second);
         double margin = best - runnerUp;
 
-        // At or below 0.10 there is no qualifying mark; strictly above 0.10 is a marked response.
+        // At or below 0.20 a bubble is ignored; strictly above 0.20 it qualifies as marked.
         if (best <= blankThreshold) {
             return new Result(Status.BLANK, -1, margin, best);
         }
 
-        // Two independently dark bubbles are a multiple response, not a guessed answer.
-        if (best >= 0.55 && runnerUp >= 0.45) {
-            return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
+        // If two bubbles qualify and their darkness differs by less than 0.10,
+        // do not guess: send the question to manual review.
+        if (runnerUp > blankThreshold && margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, best);
         }
 
-        // Competing marks with a small margin remain uncertain and require manual review.
-        // The absolute mark threshold is 0.10, as requested.
-        if (best < markThreshold || margin <= 0.0
-                || (runnerUp > blankThreshold && margin < minimumMargin)) {
+        // Scores at or below the mark threshold are ignored. A qualifying
+        // strongest bubble wins when it is at least 0.10 darker than the runner-up.
+        if (best <= markThreshold || margin <= 0.0) {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
