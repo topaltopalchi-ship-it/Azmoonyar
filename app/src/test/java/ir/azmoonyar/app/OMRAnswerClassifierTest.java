@@ -38,6 +38,20 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void twoBubblesAbovePointTwoAndGapBelowPointOneGoToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.31, 0.25, 0.08, 0.03});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
+    public void competitorAtOrBelowPointTwoDoesNotTriggerMarginReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.30, 0.20, 0.08, 0.03});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
+    }
+
+    @Test
     public void verySmallWinnerMarginGoesToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
