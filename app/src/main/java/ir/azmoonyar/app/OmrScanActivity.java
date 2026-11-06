@@ -895,12 +895,22 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
+            JSONArray questionResponses = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
                 OMRAnswerClassifier.Result answer = questions.get(i).classification;
                 boolean wrong = answer.status == OMRAnswerClassifier.Status.MULTIPLE_MARKS;
-                if (answer.status == OMRAnswerClassifier.Status.ANSWERED) {
-                    wrong = answer.optionIndex != (activeKey.charAt(i) - 'A');
-                }
+                boolean blankAnswer = answer.status == OMRAnswerClassifier.Status.BLANK;
+                boolean answered = answer.status == OMRAnswerClassifier.Status.ANSWERED;
+                boolean isCorrect = answered && answer.optionIndex == (activeKey.charAt(i) - 'A');
+                if (answered) wrong = !isCorrect;
+                JSONObject response = new JSONObject();
+                response.put("question", i + 1);
+                response.put("correctOption", String.valueOf(activeKey.charAt(i)));
+                response.put("status", blankAnswer ? "BLANK" : answered ? "ANSWERED" : "MULTIPLE_MARKS");
+                response.put("selectedOption", answered ? String.valueOf((char) ('A' + answer.optionIndex))
+                        : blankAnswer ? "" : "MULTIPLE_MARKS");
+                response.put("correct", isCorrect);
+                questionResponses.put(response);
                 if (wrong) {
                     int questionNumber = i + 1;
                     wrongQuestions.put(questionNumber);
@@ -918,6 +928,7 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("wrong", score.wrong);
             record.put("wrongQuestions", wrongQuestions);
             record.put("wrongDetails", wrongDetails);
+            record.put("questionResponses", questionResponses);
             record.put("blank", score.blank);
             record.put("multipleMarks", score.multipleMarks);
             record.put("totalQuestions", score.totalQuestions);
