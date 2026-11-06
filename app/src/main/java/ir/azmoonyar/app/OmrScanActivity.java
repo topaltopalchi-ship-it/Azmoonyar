@@ -1298,12 +1298,11 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Use the measured 5.2 mm printed circular border-box directly.
-                    // The homography already accounts for scale and perspective;
-                    // applying another shrink factor would misrepresent alignment.
+                    // Display a true circle, matching the printed circular bubble.
+                    // Use the same isotropic scale convention as OMRSheetReader.
+                    float circularRadius = (float) Math.sqrt(rx * ry);
                     paint.setColor(bubbleOverlayColors[option]);
-                    canvas.drawOval((float) p.x - rx, (float) p.y - ry,
-                            (float) p.x + rx, (float) p.y + ry, paint);
+                    canvas.drawCircle((float) p.x, (float) p.y, circularRadius, paint);
                     if (q < 10) {
                         paint.setStyle(Paint.Style.FILL);
                         paint.setTextSize(Math.max(14f, width / 60f));
