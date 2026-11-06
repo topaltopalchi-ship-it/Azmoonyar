@@ -1798,6 +1798,87 @@ public class MainActivity extends Activity {
 
 
     private void showAnswerPatternSetup(Runnable onReady) {
+        new AlertDialog.Builder(this)
+                .setTitle("انتخاب روش طراحی الگو")
+                .setItems(new String[]{"تعیین دستی الگوی ۴ سؤالی", "تعیین تعداد پاسخ‌های هر گزینه"}, (dialog, which) -> {
+                    if (which == 0) showManualFourAnswerPattern(onReady);
+                    else showCountAnswerPatternSetup(onReady);
+                }).setNegativeButton("انصراف", null).show();
+    }
+
+    private void showManualFourAnswerPattern(Runnable onReady) {
+        int total = questionCount();
+        if (total < 1 || total > 200) {
+            info("تعداد سؤال‌های آزمون باید بین ۱ تا ۲۰۰ باشد.");
+            return;
+        }
+        JSONArray bank = readQuestionBank();
+        if (bank.length() > total) {
+            info("تعداد سؤال‌های ثبت‌شده از تعداد سؤال‌های آزمون بیشتر است.");
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(6), dp(12), dp(6));
+        TextView intro = new TextView(this);
+        intro.setText("پاسخ صحیح چهار سؤال اول را انتخاب کن. این الگو تا پایان آزمون تکرار می‌شود؛ مثلاً A، C، B، D، A، C، B، D و...");
+        intro.setTextSize(14);
+        form.addView(intro);
+        RadioGroup[] groups = new RadioGroup[4];
+        String[] labels = {"اول", "دوم", "سوم", "چهارم"};
+        for (int q = 0; q < 4; q++) {
+            TextView label = new TextView(this);
+            label.setText("پاسخ سؤال " + labels[q] + ":");
+            label.setPadding(0, dp(8), 0, 0);
+            form.addView(label);
+            groups[q] = new RadioGroup(this);
+            groups[q].setOrientation(RadioGroup.HORIZONTAL);
+            for (int a = 0; a < 4; a++) {
+                RadioButton rb = new RadioButton(this);
+                styleOption(rb, a);
+                rb.setText(String.valueOf((char)('A' + a)));
+                rb.setTag(a);
+                groups[q].addView(rb);
+            }
+            form.addView(groups[q]);
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("الگوی دستی ۴ سؤالی")
+                .setView(form)
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("اعمال الگو", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int[] pattern = new int[4];
+            for (int q = 0; q < 4; q++) {
+                int checked = groups[q].getCheckedRadioButtonId();
+                RadioButton selected = checked == -1 ? null : groups[q].findViewById(checked);
+                if (selected == null) {
+                    info("پاسخ هر چهار سؤال الگو را انتخاب کن.");
+                    return;
+                }
+                pattern[q] = (Integer) selected.getTag();
+            }
+            for (int i = 0; i < bank.length(); i++) {
+                JSONObject item = bank.optJSONObject(i);
+                int actual = item == null ? -1 : item.optInt("correct_index", -1);
+                int expected = pattern[i % 4];
+                if (actual != expected) {
+                    info("الگوی انتخابی با پاسخ ثبت‌شده سؤال " + (i + 1) + " سازگار نیست. پاسخ‌های قبلی را تغییر بده یا الگوی دیگری انتخاب کن.");
+                    return;
+                }
+            }
+            StringBuilder generated = new StringBuilder(total);
+            for (int i = 0; i < total; i++) generated.append((char)('A' + pattern[i % 4]));
+            prefs.edit().putString("answer_pattern_key", generated.toString()).apply();
+            dialog.dismiss();
+            info("الگوی چهار سؤالی اعمال شد و تا پایان آزمون تکرار می‌شود.");
+            if (onReady != null) onReady.run();
+        }));
+        dialog.show();
+    }
+
+    private void showCountAnswerPatternSetup(Runnable onReady) {
         int total = questionCount();
         if (total < 1 || total > 200) { info("تعداد سؤال‌های آزمون باید بین ۱ تا ۲۰۰ باشد."); return; }
         JSONArray bank = readQuestionBank();
