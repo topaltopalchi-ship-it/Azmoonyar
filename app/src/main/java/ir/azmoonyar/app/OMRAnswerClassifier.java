@@ -1,12 +1,9 @@
 package ir.azmoonyar.app;
 
 /**
- * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
- *
- * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
- * and 1 is fully dark. Geometry detection, perspective correction, local background
- * normalization and image-quality checks must happen before calling this class.
- * Weak or ambiguous evidence is sent for review instead of guessed.
+ * Conservative classifier for four normalized bubble-darkness scores.
+ * Scores must be measured after registration, perspective correction and local
+ * paper-background normalization. Uncertain marks are sent to manual review.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
@@ -15,9 +12,7 @@ public final class OMRAnswerClassifier {
         public final Status status;
         /** Zero-based option index for ANSWERED, otherwise -1. */
         public final int optionIndex;
-        /** Difference between strongest and second-strongest bubble scores. */
         public final double margin;
-        /** Strongest normalized darkness score. */
         public final double strongestScore;
 
         private Result(Status status, int optionIndex, double margin, double strongestScore) {
@@ -33,11 +28,9 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
-        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        // These are conservative starting values, not a substitute for calibration
+        // against real answer sheets captured by the target phone/camera.
+        this(0.25, 0.12, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
@@ -54,6 +47,7 @@ public final class OMRAnswerClassifier {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
         }
+
         double[] scores = darkness.clone();
         for (double score : scores) {
             if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
@@ -61,35 +55,37 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        int strongestIndex = 0;
-        double strongest = scores[0];
-        double second = -1;
-        boolean tiedForStrongest = false;
+        int bestIndex = 0;
+        double best = scores[0];
+        double second = -1.0;
         for (int i = 1; i < scores.length; i++) {
-            if (scores[i] > strongest) {
-                second = strongest;
-                strongest = scores[i];
-                strongestIndex = i;
-                tiedForStrongest = false;
-            } else if (scores[i] == strongest) {
-                second = strongest;
-                tiedForStrongest = true;
+            if (scores[i] > best) {
+                second = best;
+                best = scores[i];
+                bestIndex = i;
             } else if (scores[i] > second) {
                 second = scores[i];
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
+        double runnerUp = Math.max(0.0, second);
+        double margin = best - runnerUp;
+
+        // No visible mark: keep the item blank.
+        if (best <= blankThreshold) {
+            return new Result(Status.BLANK, -1, margin, best);
         }
-        double margin = strongest - Math.max(0, second);
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+
+        // Two independently dark bubbles are a multiple response, not a guessed answer.
+        if (best >= 0.55 && runnerUp >= 0.45) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+
+        // A weak mark or a near-tie is not safe to grade automatically.
+        if (best < markThreshold || margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, best);
+        }
+
+        return new Result(Status.ANSWERED, bestIndex, margin, best);
     }
 }
