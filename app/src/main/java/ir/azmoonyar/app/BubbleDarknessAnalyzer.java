@@ -33,9 +33,11 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
-        int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
-        int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
+        // The supplied radius is the usable bubble interior, not the outer
+        // printed diameter. Sample all of it; keep the paper reference outside it.
+        int innerRadius = Math.max(1, (int) Math.floor(radius));
+        int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.25));
+        int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.50));
         // Do not score a partially visible bubble: clipping the reference ring at
         // an image edge can make an off-sheet bubble look confidently blank/filled.
         if (centerX - ringOuter < 0 || centerY - ringOuter < 0
@@ -106,11 +108,13 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        final double innerLimit = 0.58 * 0.58;
-        final double ringInnerLimit = 1.18 * 1.18;
-        final double ringOuterLimit = 1.55 * 1.55;
-        int extentX = (int) Math.ceil(radiusX * 1.55);
-        int extentY = (int) Math.ceil(radiusY * 1.55);
+        // radiusX/radiusY are the mapped fillable radii after removing the
+        // printed outline. The fill score covers that full interior disk/ellipse.
+        final double innerLimit = 1.0;
+        final double ringInnerLimit = 1.25 * 1.25;
+        final double ringOuterLimit = 1.50 * 1.50;
+        int extentX = (int) Math.ceil(radiusX * 1.50);
+        int extentY = (int) Math.ceil(radiusY * 1.50);
         if (centerX - extentX < 0 || centerY - extentY < 0
                 || centerX + extentX >= width || centerY + extentY >= height) {
             throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
