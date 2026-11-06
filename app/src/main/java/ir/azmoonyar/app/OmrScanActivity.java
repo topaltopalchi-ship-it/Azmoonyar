@@ -840,7 +840,8 @@ public final class OmrScanActivity extends ComponentActivity {
             ExamScorer.Result score = ExamScorer.score(
                     activeKey, answers, 1.0, 0.0, 0.0);
             if (!score.isComplete()) {
-                // Preserve the uncertain sheet for later human review, but never store a final score.
+                // Report determinate answers immediately, but keep the final grade pending
+                // until every REVIEW answer has been checked by a person.
                 JSONArray queue;
                 try { queue = new JSONArray(prefs.getString("grading_review_queue", "[]")); }
                 catch (Exception ignored) { queue = new JSONArray(); }
@@ -851,6 +852,11 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("source", "saved_camera_photo");
                 pending.put("needsReview", score.needsReview);
                 pending.put("totalQuestions", score.totalQuestions);
+                pending.put("confirmedCorrect", score.correct);
+                pending.put("confirmedWrong", score.wrong);
+                pending.put("confirmedBlank", score.blank);
+                pending.put("multipleMarks", score.multipleMarks);
+                JSONArray reviewQuestionNumbers = new JSONArray();
                 JSONArray questionStates = new JSONArray();
                 for (int i = 0; i < questions.size(); i++) {
                     OMRAnswerClassifier.Result answer = questions.get(i).classification;
@@ -860,6 +866,9 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("optionIndex", answer.optionIndex);
                     item.put("margin", answer.margin);
                     item.put("strongestScore", answer.strongestScore);
+                    if (answer.status == OMRAnswerClassifier.Status.REVIEW) {
+                        reviewQuestionNumbers.put(i + 1);
+                    }
                     JSONArray optionScores = new JSONArray();
                     for (double darkness : questions.get(i).darkness) {
                         optionScores.put(darkness);
@@ -867,11 +876,15 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("optionScores", optionScores);
                     questionStates.put(item);
                 }
+                pending.put("reviewQuestionNumbers", reviewQuestionNumbers);
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
-                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
+                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ پاسخ‌های قطعی: صحیح "
+                        + score.correct + "، غلط " + score.wrong + "، سفید " + score.blank
+                        + "؛ " + score.needsReview + " سؤال نیازمند بازبینی است (شماره: "
+                        + reviewQuestionNumbers.toString().replace("[", "").replace("]", "")
+                        + "). این آمار موقت است و نمرهٔ نهایی پس از بازبینی اعلام می‌شود. برگه در صف بازبینی ذخیره شد.");
                 return;
             }
             JSONArray saved;
@@ -882,12 +895,22 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
+            JSONArray questionResponses = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
                 OMRAnswerClassifier.Result answer = questions.get(i).classification;
                 boolean wrong = answer.status == OMRAnswerClassifier.Status.MULTIPLE_MARKS;
-                if (answer.status == OMRAnswerClassifier.Status.ANSWERED) {
-                    wrong = answer.optionIndex != (activeKey.charAt(i) - 'A');
-                }
+                boolean blankAnswer = answer.status == OMRAnswerClassifier.Status.BLANK;
+                boolean answered = answer.status == OMRAnswerClassifier.Status.ANSWERED;
+                boolean isCorrect = answered && answer.optionIndex == (activeKey.charAt(i) - 'A');
+                if (answered) wrong = !isCorrect;
+                JSONObject response = new JSONObject();
+                response.put("question", i + 1);
+                response.put("correctOption", String.valueOf(activeKey.charAt(i)));
+                response.put("status", blankAnswer ? "BLANK" : answered ? "ANSWERED" : "MULTIPLE_MARKS");
+                response.put("selectedOption", answered ? String.valueOf((char) ('A' + answer.optionIndex))
+                        : blankAnswer ? "" : "MULTIPLE_MARKS");
+                response.put("correct", isCorrect);
+                questionResponses.put(response);
                 if (wrong) {
                     int questionNumber = i + 1;
                     wrongQuestions.put(questionNumber);
@@ -905,6 +928,7 @@ public final class OmrScanActivity extends ComponentActivity {
             record.put("wrong", score.wrong);
             record.put("wrongQuestions", wrongQuestions);
             record.put("wrongDetails", wrongDetails);
+            record.put("questionResponses", questionResponses);
             record.put("blank", score.blank);
             record.put("multipleMarks", score.multipleMarks);
             record.put("totalQuestions", score.totalQuestions);
@@ -916,6 +940,7 @@ public final class OmrScanActivity extends ComponentActivity {
             updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
                     + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
                     + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
+                    + " • سفید: " + score.blank
                     + " • شماره سؤال‌های غلط: " + wrongList
                     + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
         } catch (Exception e) {

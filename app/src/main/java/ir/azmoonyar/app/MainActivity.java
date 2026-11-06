@@ -51,6 +51,8 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private TextView summary;
     private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private static final int REQUEST_BACKUP_EXPORT = 7316;
+    private static final int REQUEST_BACKUP_IMPORT = 7317;
     private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
@@ -312,6 +314,16 @@ public class MainActivity extends Activity {
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
+        Button backupButton = new Button(this);
+        backupButton.setText("پشتیبان‌گیری و بازیابی اطلاعات");
+        stylePinkOvalButton(backupButton);
+        backupButton.setTextSize(15);
+        backupButton.setMinHeight(dp(58));
+        LinearLayout.LayoutParams backupParams = new LinearLayout.LayoutParams(-1, -2);
+        backupParams.topMargin = dp(4);
+        backupParams.bottomMargin = dp(4);
+        root.addView(backupButton, backupParams);
+        backupButton.setOnClickListener(v -> showBackupCenter());
         Button scanCorrection = new Button(this);
         scanCorrection.setText("اسکن و تصحیح");
         stylePinkOvalButton(scanCorrection);
@@ -347,6 +359,30 @@ public class MainActivity extends Activity {
     }
 
 
+
+    private void showBackupCenter() {
+        new AlertDialog.Builder(this)
+                .setTitle("پشتیبان‌گیری و بازیابی")
+                .setMessage("از اطلاعات آزمون‌ها، شرکت‌کنندگان، نتایج تصحیح، صف بازبینی و گزارش‌های محلی یک فایل پشتیبان می‌سازد. عکس‌های پاسخ‌نامه نیز در فایل قرار می‌گیرند؛ مدل گفتار فارسی دوباره قابل دریافت است و داخل پشتیبان نیست.")
+                .setPositiveButton("ساخت نسخه پشتیبان", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_TITLE, "Azmoonyar-Aysel2Plus-Backup.zip");
+                    try { startActivityForResult(intent, REQUEST_BACKUP_EXPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن محل ذخیره‌سازی ممکن نشد."); }
+                })
+                .setNegativeButton("بازیابی از فایل", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivityForResult(intent, REQUEST_BACKUP_IMPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن انتخاب‌گر فایل ممکن نشد."); }
+                })
+                .setNeutralButton("انصراف", null)
+                .show();
+    }
 
     private void showScanCorrectionEntry() {
         LinearLayout panel = new LinearLayout(this);
@@ -1405,6 +1441,26 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQUEST_BACKUP_EXPORT) {
+            showStyledInfo(LocalBackupManager.exportBackup(this, data.getData()));
+            return;
+        }
+        if (requestCode == REQUEST_BACKUP_IMPORT) {
+            android.net.Uri backupUri = data.getData();
+            String inspection = LocalBackupManager.inspectBackup(this, backupUri);
+            if (!inspection.contains("نسخه پشتیبان معتبر است.")) {
+                showStyledInfo(inspection);
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("تأیید بازیابی اطلاعات")
+                    .setMessage(inspection + "\n\nبا تأیید شما، داده‌های فعلی این دستگاه با اطلاعات فایل جایگزین می‌شوند. قبل از جایگزینی، از داده‌های فعلی نسخه موقت محافظتی ساخته می‌شود. ادامه می‌دهید؟")
+                    .setPositiveButton("تأیید و بازیابی", (dialog, which) ->
+                            showStyledInfo(LocalBackupManager.restoreBackup(this, backupUri)))
+                    .setNegativeButton("انصراف", null)
+                    .show();
+            return;
+        }
         if (requestCode == 7315) {
             try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
                 if (output == null) throw new java.io.IOException("output stream unavailable");
@@ -2340,13 +2396,14 @@ public class MainActivity extends Activity {
 
     private void showExamResultsMenu() {
         showTurquoiseMenu("نتایج آزمون",
-            new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی"},
+            new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی", "آمار تک‌تک سؤال‌ها"},
             which -> {
                 if (which == 0) showRecentExamResults();
                 else if (which == 1) showPreviousExamResults();
                 else if (which == 2) showParticipantAnalysis();
                 else if (which == 3) showExamAnalysis();
-                else showReviewQueue();
+                else if (which == 4) showReviewQueue();
+                else showQuestionAnalysis();
             }, "بازگشت", this::showReportsCenter);
     }
 
@@ -2403,7 +2460,8 @@ public class MainActivity extends Activity {
             if (item == null) item = new JSONObject();
             labels[i] = (i + 1) + ". " + item.optString("name", "بدون نام")
                 + " — " + item.optString("examName", "آزمون بدون نام")
-                + " — سؤال مبهم: " + item.optInt("needsReview", 0);
+                + " — مبهم: " + item.optInt("needsReview", 0)
+                + " | سفید: " + item.optInt("confirmedBlank", 0);
         }
         new AlertDialog.Builder(this).setTitle("برگه‌های نیازمند بازبینی")
             .setItems(labels, (d, which) -> showReviewQueueItem(which))
@@ -2418,6 +2476,9 @@ public class MainActivity extends Activity {
         StringBuilder detail = new StringBuilder();
         detail.append("شرکت‌کننده: ").append(item.optString("name", "بدون نام"))
             .append("\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
+            .append("\nپاسخ‌های قطعی — صحیح: ").append(item.optInt("confirmedCorrect", 0))
+            .append(" | غلط: ").append(item.optInt("confirmedWrong", 0))
+            .append(" | سفید: ").append(item.optInt("confirmedBlank", 0))
             .append("\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
             .append("\n\nوضعیت خواندن سؤال‌ها:\n");
         JSONArray questions = item.optJSONArray("questions");
@@ -2716,6 +2777,52 @@ public class MainActivity extends Activity {
                 canvas.drawText(labels[i], getWidth() - dp(28), y, paint);
             }
         }
+    }
+
+    private void showQuestionAnalysis() {
+        JSONArray results = readGradingResults();
+        java.util.TreeMap<Integer, int[]> stats = new java.util.TreeMap<>();
+        int usableSheets = 0;
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            JSONArray responses = result.optJSONArray("questionResponses");
+            if (responses == null || responses.length() == 0) continue;
+            usableSheets++;
+            for (int q = 0; q < responses.length(); q++) {
+                JSONObject response = responses.optJSONObject(q);
+                if (response == null) continue;
+                int number = response.optInt("question", q + 1);
+                int[] counts = stats.get(number);
+                if (counts == null) { counts = new int[3]; stats.put(number, counts); }
+                String status = response.optString("status", "");
+                if ("BLANK".equals(status)) counts[2]++;
+                else if ("ANSWERED".equals(status)) {
+                    if (response.optBoolean("correct", false)) counts[0]++;
+                    else counts[1]++;
+                } else if ("MULTIPLE_MARKS".equals(status)) counts[1]++;
+            }
+        }
+        if (usableSheets == 0) {
+            info("هنوز نتیجهٔ نهایی دارای جزئیات پاسخ تک‌تک سؤال‌ها ثبت نشده است. این آمار از برگه‌های جدیدی که پس از این به‌روزرسانی تصحیح شوند جمع‌آوری می‌شود؛ نتایج قدیمی بدون جزئیات سؤال تغییر نمی‌کنند.");
+            return;
+        }
+        StringBuilder out = new StringBuilder();
+        out.append("تعداد برگه‌های نهایی قابل تحلیل: ").append(usableSheets).append("\n")
+                .append("آمار فقط از پاسخ‌های نهایی و قطعی محاسبه شده است؛ برگه‌های در صف بازبینی وارد محاسبه نمی‌شوند.\n\n");
+        for (java.util.Map.Entry<Integer, int[]> entry : stats.entrySet()) {
+            int[] c = entry.getValue();
+            int total = c[0] + c[1] + c[2];
+            if (total == 0) continue;
+            double correctRate = 100.0 * c[0] / total;
+            out.append("سؤال ").append(entry.getKey())
+                    .append("\nصحیح: ").append(c[0])
+                    .append(" | غلط: ").append(c[1])
+                    .append(" | سفید: ").append(c[2])
+                    .append("\nدرصد پاسخ صحیح: ").append(String.format(Locale.US, "%.1f", correctRate)).append("%")
+                    .append("\n--------------------\n");
+        }
+        showAnalysisText("آمار تک‌تک سؤال‌ها", out.toString());
     }
 
     private void showExamAnalysis() {

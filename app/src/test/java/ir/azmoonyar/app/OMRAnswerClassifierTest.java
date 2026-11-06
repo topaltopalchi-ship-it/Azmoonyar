@@ -16,33 +16,45 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void darknessMustBeStrictlyAboveTwoTenthsToCountAsMarked() {
+        OMRAnswerClassifier.Result atThreshold =
+                classifier.classify(new double[]{0.20, 0.02, 0.01, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.BLANK, atThreshold.status);
+
+        OMRAnswerClassifier.Result aboveThreshold =
+                classifier.classify(new double[]{0.2001, 0.02, 0.01, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, aboveThreshold.status);
+        assertEquals(0, aboveThreshold.optionIndex);
+    }
+
+    @Test
     public void detectsBlankQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.11, 0.06});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.10, 0.06});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void flagsMultipleMarkedBubbles() {
+    public void twoQualifyingMarkedBubblesGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void selectsSlightlyDarkerBubbleAndDoublesOnlyItsScore() {
+    public void twoQualifyingMarksWithLessThanOneTenthDifferenceGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.251, 0.250, 0.12, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
-        org.junit.Assert.assertEquals(0.502, result.strongestScore, 0.000001);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+        org.junit.Assert.assertEquals(0.251, result.strongestScore, 0.000001);
     }
 
     @Test
-    public void selectsWinnerEvenWhenDifferenceIsVerySmall() {
+    public void twoQualifyingMarksWithSmallDifferenceGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(0, result.optionIndex);
-        org.junit.Assert.assertEquals(1.0, result.strongestScore, 0.000001);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+        org.junit.Assert.assertEquals(0.500, result.strongestScore, 0.000001);
     }
 
     @Test
@@ -53,16 +65,18 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void selectsNonzeroDarkestBubbleEvenAtLowContrast() {
+    public void nearBlankLowContrastIsNotGuessedAsAnswered() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(2, result.optionIndex);
-        org.junit.Assert.assertEquals(0.20, result.strongestScore, 0.000001);
+        // Every bubble is at or below the configured 0.20 threshold.
+        // Selecting the darkest one would turn background noise into a student answer.
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
+        org.junit.Assert.assertEquals(0.10, result.strongestScore, 0.000001);
     }
 
     @Test
-    public void exactTieIsSentForReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.20, 0.20, 0.10, 0.05});
+    public void exactTieAboveThresholdIsSentForReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.21, 0.21, 0.10, 0.05});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
