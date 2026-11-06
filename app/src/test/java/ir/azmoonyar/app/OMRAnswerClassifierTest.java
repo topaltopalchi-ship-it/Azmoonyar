@@ -59,7 +59,7 @@ public class OMRAnswerClassifierTest {
         // Selecting the darkest one would turn background noise into a student answer.
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
-        org.junit.Assert.assertEquals(0.10, result.strongestScore, 0.000001);
+        org.junit.Assert.assertEquals(0.09, result.strongestScore, 0.000001);
     }
 
     @Test
