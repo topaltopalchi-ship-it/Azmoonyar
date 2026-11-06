@@ -17,7 +17,7 @@ public class OMRAnswerClassifierTest {
 
     @Test
     public void detectsBlankQuestion() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.11, 0.06});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.04, 0.09, 0.08, 0.06});
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
     }
@@ -54,8 +54,8 @@ public class OMRAnswerClassifierTest {
 
     @Test
     public void nearBlankLowContrastIsNotGuessedAsAnswered() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        // Every bubble is at or below the configured blank threshold (0.15).
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.09, 0.08});
+        // Every bubble is at or below the configured blank threshold (0.09).
         // Selecting the darkest one would turn background noise into a student answer.
         assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
         assertEquals(-1, result.optionIndex);
@@ -63,8 +63,15 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
+    public void scoreAtPointOneIsNotBlankAndGoesToReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.10, 0.00, 0.00, 0.00});
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test
     public void exactTieIsSentForReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.20, 0.20, 0.10, 0.05});
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.20, 0.20, 0.09, 0.05});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
