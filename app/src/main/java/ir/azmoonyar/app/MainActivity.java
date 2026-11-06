@@ -1001,7 +1001,7 @@ public class MainActivity extends Activity {
                 .append(".answer-page .col{border:0.25mm solid #555;border-radius:0;padding:1mm 1mm;min-width:0;direction:ltr}")
                 .append(".answer-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;direction:ltr}")
                 .append(".answer-page th{font-size:8.5px;height:7mm;border:0;border-bottom:0.3mm solid #333;padding:0;direction:ltr}")
-                .append(".answer-page tbody tr{height:8.3mm}.answer-page td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border:0.25mm solid #999;font-size:8.5px;direction:ltr}.answer-page .bubble{display:inline-block;width:4.2mm;height:4.2mm;border:0.35mm solid #D9D9D9;border-radius:50%;box-sizing:border-box;vertical-align:middle}")
+                .append(".answer-page tbody tr{height:8.3mm}.answer-page td{height:8.3mm;min-height:8.3mm;text-align:center;padding:0;border:0.25mm solid #999;font-size:8.5px;direction:ltr}.answer-page .bubble{display:inline-block;width:").append(OmrTemplateLayout.BUBBLE_DIAMETER_MM).append("mm;height:").append(OmrTemplateLayout.BUBBLE_DIAMETER_MM).append("mm;border:").append(OmrTemplateLayout.BUBBLE_BORDER_WIDTH_MM).append("mm solid #111;border-radius:50%;box-sizing:border-box;vertical-align:middle}")
                 .append(".answer-page td.num{width:7mm;font-weight:bold;text-align:center;white-space:nowrap}")
                 .append(".answer-page td.opt{width:auto;padding:0 0.5mm}")
 
@@ -1346,7 +1346,7 @@ public class MainActivity extends Activity {
                 .append("td.opt{width:auto}")
                 .append(".bubble{display:inline-block;width:").append(OmrTemplateLayout.BUBBLE_DIAMETER_MM)
                 .append("mm;height:").append(OmrTemplateLayout.BUBBLE_DIAMETER_MM)
-                .append("mm;border:0.4mm solid #111;border-radius:50%;vertical-align:middle}")
+                .append("mm;border:").append(OmrTemplateLayout.BUBBLE_BORDER_WIDTH_MM).append("mm solid #111;border-radius:50%;vertical-align:middle}")
                 .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
                 .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
