@@ -1508,8 +1508,14 @@ public class MainActivity extends Activity {
         message.setTextSize(15);
         message.setPadding(0, 0, 0, dp(12));
         panel.addView(message);
+        Button pattern = new Button(this); pattern.setText("تنظیم الگوی پاسخ‌ها"); styleTurquoiseDashboardButton(pattern);
+        pattern.setOnClickListener(v -> showAnswerPatternSetup(null)); panel.addView(pattern);
         Button add = new Button(this); add.setText("افزودن سؤال"); styleTurquoiseDashboardButton(add);
-        add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
+        add.setOnClickListener(v -> {
+            String answerPattern = prefs.getString("answer_pattern_key", "");
+            if (answerPattern.length() != questionCount()) showAnswerPatternSetup(() -> showAddBankQuestionDialog());
+            else showAddBankQuestionDialog();
+        }); panel.addView(add);
         Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); styleTurquoiseDashboardButton(clearBank);
         clearBank.setOnClickListener(v -> confirmClearQuestionBank()); panel.addView(clearBank);
         Button saved = new Button(this); saved.setText("سؤالات ذخیره‌شده"); styleTurquoiseDashboardButton(saved);
@@ -1790,13 +1796,85 @@ public class MainActivity extends Activity {
         web.loadDataWithBaseURL("https://azmoonyar.local/", htmlContent, "text/html", "UTF-8", null);
     }
 
+
+    private void showAnswerPatternSetup(Runnable onReady) {
+        int total = questionCount();
+        if (total < 1 || total > 200) { info("تعداد سؤال‌های آزمون باید بین ۱ تا ۲۰۰ باشد."); return; }
+        JSONArray bank = readQuestionBank();
+        if (bank.length() > total) { info("تعداد سؤال‌های ثبت‌شده از تعداد سؤال‌های آزمون بیشتر است."); return; }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(6), dp(12), dp(6));
+        TextView intro = new TextView(this);
+        intro.setText("برای آزمون " + total + " سؤالی مشخص کن چند پاسخ صحیح از هر گزینه باشد. مجموع چهار عدد باید دقیقاً " + total + " شود. ترتیب پاسخ‌ها ترکیبی ساخته می‌شود.");
+        intro.setTextSize(14);
+        form.addView(intro);
+        EditText[] counts = new EditText[4];
+        int[] existingCounts = new int[4];
+        String[] labels = {"A", "B", "C", "D"};
+        for (int i = 0; i < bank.length(); i++) {
+            JSONObject item = bank.optJSONObject(i);
+            int answer = item == null ? -1 : item.optInt("correct_index", -1);
+            if (answer < 0 || answer > 3) { info("پاسخ صحیح سؤال " + (i + 1) + " را ابتدا تکمیل کن."); return; }
+            existingCounts[answer]++;
+        }
+        int base = total / 4, remainder = total % 4;
+        for (int i = 0; i < 4; i++) {
+            TextView label = new TextView(this);
+            label.setText("تعداد پاسخ صحیح گزینه " + labels[i] + " (حداقل " + existingCounts[i] + ")");
+            form.addView(label);
+            counts[i] = new EditText(this);
+            styleInput(counts[i]);
+            counts[i].setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            counts[i].setSingleLine(true);
+            counts[i].setText(String.valueOf(base + (i < remainder ? 1 : 0)));
+            form.addView(counts[i]);
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("طراحی الگوی پاسخ‌نامه")
+                .setView(form).setNegativeButton("انصراف", null).setPositiveButton("ساخت الگو", null).create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int[] requested = new int[4];
+            int sum = 0;
+            for (int i = 0; i < 4; i++) {
+                try { requested[i] = Integer.parseInt(counts[i].getText().toString().trim()); }
+                catch (Exception e) { info("برای هر گزینه یک عدد معتبر وارد کن."); return; }
+                if (requested[i] < existingCounts[i] || requested[i] < 0) {
+                    info("تعداد گزینه " + labels[i] + " نمی‌تواند از پاسخ‌های ثبت‌شدهٔ آن کمتر باشد."); return;
+                }
+                sum += requested[i];
+            }
+            if (sum != total) { info("مجموع تعداد چهار گزینه باید دقیقاً " + total + " باشد."); return; }
+            try {
+                java.util.ArrayList<Character> remaining = new java.util.ArrayList<>();
+                for (int i = 0; i < bank.length(); i++)
+                    remaining.add((char)('A' + bank.optJSONObject(i).optInt("correct_index", -1)));
+                for (int i = 0; i < 4; i++)
+                    for (int n = existingCounts[i]; n < requested[i]; n++) remaining.add((char)('A' + i));
+                java.util.Collections.shuffle(remaining, new java.util.Random());
+                StringBuilder pattern = new StringBuilder();
+                for (Character answer : remaining) pattern.append(answer.charValue());
+                prefs.edit().putString("answer_pattern_key", pattern.toString()).apply();
+                dialog.dismiss();
+                info("الگوی پاسخ ساخته شد؛ پاسخ سؤال‌های بعدی طبق الگو تعیین می‌شود.");
+                if (onReady != null) onReady.run();
+            } catch (Exception e) { info("ساخت الگوی پاسخ‌نامه ناموفق بود."); }
+        }));
+        dialog.show();
+    }
+
     private void showAddBankQuestionDialog() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
         JSONArray existingBank = readQuestionBank();
         TextView numberLabel = new TextView(this);
-        numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1));
+        int nextQuestionIndex = existingBank.length();
+        String savedPattern = prefs.getString("answer_pattern_key", "");
+        int suggestedAnswer = savedPattern.length() == questionCount() && nextQuestionIndex < savedPattern.length()
+                ? savedPattern.charAt(nextQuestionIndex) - 'A' : -1;
+        numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1)
+                + (suggestedAnswer >= 0 && suggestedAnswer <= 3
+                    ? " — پاسخ صحیح طبق الگو: " + (char)('A' + suggestedAnswer) : ""));
         numberLabel.setTextSize(16);
         numberLabel.setTypeface(null, android.graphics.Typeface.BOLD);
         numberLabel.setPadding(0, 0, 0, dp(8));
@@ -1827,11 +1905,30 @@ public class MainActivity extends Activity {
             correctGroup.addView(rb);
         }
         form.addView(correctGroup);
+        if (suggestedAnswer >= 0 && suggestedAnswer <= 3) {
+            ((RadioButton) correctGroup.getChildAt(suggestedAnswer)).setChecked(true);
+            for (int i = 0; i < correctGroup.getChildCount(); i++) correctGroup.getChildAt(i).setEnabled(false);
+            TextView lockedHint = new TextView(this);
+            lockedHint.setText("برای حفظ الگوی پاسخ‌نامه، گزینهٔ صحیح این سؤال به‌صورت خودکار تعیین شده است.");
+            lockedHint.setTextSize(12);
+            form.addView(lockedHint);
+        }
         new AlertDialog.Builder(this).setTitle("افزودن به بانک سؤال").setView(form)
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ذخیره", (d,w) -> {
                 String qText = question.getText().toString().trim();
                 if (qText.isEmpty()) { info("متن سؤال را وارد کن."); return; }
+                String currentPattern = prefs.getString("answer_pattern_key", "");
+                if (currentPattern.length() == questionCount() && existingBank.length() < currentPattern.length()) {
+                    int expected = currentPattern.charAt(existingBank.length()) - 'A';
+                    int selectedId = correctGroup.getCheckedRadioButtonId();
+                    RadioButton selectedAnswer = selectedId == -1 ? null : correctGroup.findViewById(selectedId);
+                    if (selectedAnswer == null || !selectedAnswer.isChecked()
+                            || (Integer) selectedAnswer.getTag() != expected) {
+                        info("پاسخ صحیح این سؤال باید مطابق الگو گزینه " + (char)('A' + expected) + " باشد.");
+                        return;
+                    }
+                }
                 JSONArray optionArray = new JSONArray();
                 for (EditText option : options) {
                     String value = option.getText().toString().trim();
