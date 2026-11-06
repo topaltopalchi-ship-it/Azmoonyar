@@ -48,16 +48,16 @@ public class OMRSheetReaderTest {
                 centers[0][0][0], centers[0][0][1]);
         int cx = (int) Math.round(selected.x);
         int cy = (int) Math.round(selected.y);
-        for (int y = cy - 4; y <= cy + 4; y++) {
-            for (int x = cx - 4; x <= cx + 4; x++) {
-                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= 16) {
+        for (int y = cy - 8; y <= cy + 8; y++) {
+            for (int x = cx - 8; x <= cx + 8; x++) {
+                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= 64) {
                     image[y * width + x] = 25;
                 }
             }
         }
 
         List<OMRSheetReader.QuestionResult> result = new OMRSheetReader().read(
-                image, width, height, transform, centers, 1.35);
+                image, width, height, transform, centers, OmrTemplateLayout.BUBBLE_RADIUS_MM);
         assertEquals(100, result.size());
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.get(0).classification.status);
         assertEquals(0, result.get(0).classification.optionIndex);
