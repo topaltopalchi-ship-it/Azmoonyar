@@ -10,6 +10,7 @@ public final class OMRAnswerClassifier {
     public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
     public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
     public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
+    public static final double REVIEW_COMPETITOR_MIN_SCORE = 0.20;
     /** Nearly indistinguishable dark bubbles are ambiguous, not a confirmed double mark. */
     public static final double NEAR_TIE_REVIEW_EPSILON = 0.001;
 
@@ -99,10 +100,10 @@ public final class OMRAnswerClassifier {
             return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
         }
 
-        // A weak mark, a near-tie, or a close competitor above the blank floor
-        // is not safe to grade automatically.
+        // Send to review only when the two strongest bubbles both exceed 0.20
+        // and their score difference is below 0.10.
         if (best < markThreshold || margin <= 0.0
-                || (runnerUp > blankThreshold && margin < minimumMargin)) {
+                || (runnerUp > REVIEW_COMPETITOR_MIN_SCORE && margin < minimumMargin)) {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
