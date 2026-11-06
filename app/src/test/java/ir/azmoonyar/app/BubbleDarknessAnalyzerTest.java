@@ -31,6 +31,7 @@ public class BubbleDarknessAnalyzerTest {
         assertTrue("A filled bubble should score darker than an empty bubble",
                 filledScore > blankScore + 0.35);
     }
+
     @Test
     public void detectsFillInsidePerspectiveScaledEllipticalBubble() {
         int width = 61, height = 51;
@@ -47,7 +48,10 @@ public class BubbleDarknessAnalyzerTest {
         }
         double score = BubbleDarknessAnalyzer.scoreEllipse(
                 image, width, height, 30, 25, 12, 8);
-        assertTrue("A filled perspective-scaled bubble should be detected", score > 0.35);
+        // The enlarged 90%-radius sample includes more unmarked pixels around
+        // this deliberately partial (45%-radius) fill. It must still exceed
+        // the production classifier's 0.25 mark threshold.
+        assertTrue("A filled perspective-scaled bubble should be detected", score > 0.25);
     }
 
     @Test
