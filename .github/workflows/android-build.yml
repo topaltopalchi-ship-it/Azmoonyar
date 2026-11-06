@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/ayselplus-compatible-omr
+      - restore/azmoonyar-4.0.8
 permissions:
   contents: read
 jobs:
