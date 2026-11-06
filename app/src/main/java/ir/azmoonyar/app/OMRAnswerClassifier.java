@@ -28,13 +28,14 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Conservative defaults; real answer-sheet calibration can refine these later.
-        this(0.25, 0.15, 0.10);
+        // User-defined rule: darkness strictly above 0.10 is considered a marked answer.
+        // Values at or below 0.10 remain blank; ambiguous competing marks still go to review.
+        this(0.10, 0.10, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
+                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
@@ -70,7 +71,7 @@ public final class OMRAnswerClassifier {
         double runnerUp = Math.max(0.0, second);
         double margin = best - runnerUp;
 
-        // No visible mark: keep the item blank.
+        // At or below 0.10 there is no qualifying mark; strictly above 0.10 is a marked response.
         if (best <= blankThreshold) {
             return new Result(Status.BLANK, -1, margin, best);
         }
@@ -80,8 +81,8 @@ public final class OMRAnswerClassifier {
             return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
         }
 
-        // A weak mark, a near-tie, or a close competitor above the blank floor
-        // is not safe to grade automatically.
+        // Competing marks with a small margin remain uncertain and require manual review.
+        // The absolute mark threshold is 0.10, as requested.
         if (best < markThreshold || margin <= 0.0
                 || (runnerUp > blankThreshold && margin < minimumMargin)) {
             return new Result(Status.REVIEW, -1, margin, best);
