@@ -1119,9 +1119,15 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("source", "saved_camera_photo");
                 pending.put("needsReview", score.needsReview);
                 pending.put("totalQuestions", score.totalQuestions);
+                pending.put("confirmedCorrect", score.correct);
+                pending.put("confirmedWrong", score.wrong);
+                pending.put("confirmedBlank", score.blank);
+                pending.put("multipleMarks", score.multipleMarks);
+                JSONArray reviewQuestionNumbers = new JSONArray();
                 JSONArray questionStates = new JSONArray();
                 for (int i = 0; i < questions.size(); i++) {
                     OMRAnswerClassifier.Result answer = questions.get(i).classification;
+                    if (answer.status == OMRAnswerClassifier.Status.REVIEW) reviewQuestionNumbers.put(i + 1);
                     JSONObject item = new JSONObject();
                     item.put("question", i + 1);
                     item.put("status", answer.status.name());
@@ -1135,6 +1141,7 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("optionScores", optionScores);
                     questionStates.put(item);
                 }
+                pending.put("reviewQuestionNumbers", reviewQuestionNumbers);
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();

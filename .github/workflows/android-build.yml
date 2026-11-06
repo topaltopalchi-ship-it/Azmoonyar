@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/ayselplus-compatible-omr
+      - reintegrate/aysel-plus-preserved
 permissions:
   contents: read
 jobs:
@@ -34,6 +35,8 @@ jobs:
           test -s "$KEYSTORE"
           keytool -list -keystore "$KEYSTORE" -storepass "$AZMOONYAR_KEYSTORE_PASSWORD" -alias "$AZMOONYAR_KEY_ALIAS" >/dev/null
           echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+      - name: Run unit tests
+        run: gradle testDebugUnitTest
       - name: Compile debug and release variants
         run: gradle assembleDebug assembleRelease
       - name: Upload debug APK (testing only)

@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private TextView summary;
     private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private static final int REQUEST_BACKUP_EXPORT = 7318;
+    private static final int REQUEST_BACKUP_IMPORT = 7319;
     private static final int REQUEST_QUESTION_IMAGE = 7316;
     private static final int REQUEST_BANK_QUESTION_IMAGE = 7317;
     private String pendingBankQuestionImageData = "";
@@ -316,6 +318,16 @@ public class MainActivity extends Activity {
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
+        Button backupButton = new Button(this);
+        backupButton.setText("پشتیبان‌گیری و بازیابی اطلاعات");
+        stylePinkOvalButton(backupButton);
+        backupButton.setTextSize(15);
+        backupButton.setMinHeight(dp(58));
+        LinearLayout.LayoutParams backupParams = new LinearLayout.LayoutParams(-1, -2);
+        backupParams.topMargin = dp(4);
+        backupParams.bottomMargin = dp(4);
+        root.addView(backupButton, backupParams);
+        backupButton.setOnClickListener(v -> showBackupCenter());
         Button scanCorrection = new Button(this);
         scanCorrection.setText("اسکن و تصحیح");
         stylePinkOvalButton(scanCorrection);
@@ -351,6 +363,30 @@ public class MainActivity extends Activity {
     }
 
 
+
+    private void showBackupCenter() {
+        new AlertDialog.Builder(this)
+                .setTitle("پشتیبان‌گیری و بازیابی")
+                .setMessage("از اطلاعات آزمون‌ها، شرکت‌کنندگان، نتایج تصحیح، صف بازبینی و گزارش‌های محلی یک فایل پشتیبان می‌سازد. عکس‌های پاسخ‌نامه نیز در فایل قرار می‌گیرند؛ مدل گفتار فارسی دوباره قابل دریافت است و داخل پشتیبان نیست.")
+                .setPositiveButton("ساخت نسخه پشتیبان", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_TITLE, "Azmoonyar-AyselPlus-Backup.zip");
+                    try { startActivityForResult(intent, REQUEST_BACKUP_EXPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن محل ذخیره‌سازی ممکن نشد."); }
+                })
+                .setNegativeButton("بازیابی از فایل", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivityForResult(intent, REQUEST_BACKUP_IMPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن انتخاب‌گر فایل ممکن نشد."); }
+                })
+                .setNeutralButton("انصراف", null)
+                .show();
+    }
 
     private void showScanCorrectionEntry() {
         // The scan button now opens the participant QR scanner directly.
@@ -1627,6 +1663,27 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQUEST_BACKUP_EXPORT) {
+            showStyledInfo(LocalBackupManager.exportBackup(this, data.getData()));
+            return;
+        }
+        if (requestCode == REQUEST_BACKUP_IMPORT) {
+            android.net.Uri backupUri = data.getData();
+            String inspection = LocalBackupManager.inspectBackup(this, backupUri);
+            if (!inspection.contains("نسخه پشتیبان معتبر است.")) {
+                showStyledInfo(inspection);
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("تأیید بازیابی اطلاعات")
+                    .setMessage(inspection + "\n\nبا تأیید شما، داده‌های فعلی این دستگاه با اطلاعات فایل جایگزین می‌شوند. قبل از جایگزینی، اطلاعات فعلی تا حد امکان برای بازگشت حفظ می‌شوند. ادامه می‌دهید؟")
+                    .setPositiveButton("تأیید و بازیابی", (dialog, which) ->
+                            showStyledInfo(LocalBackupManager.restoreBackup(this, backupUri)))
+                    .setNegativeButton("انصراف", null)
+                    .show();
+            return;
+        }
+
         if (requestCode == 7315) {
             try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
                 if (output == null) throw new java.io.IOException("output stream unavailable");
@@ -1811,8 +1868,14 @@ public class MainActivity extends Activity {
         message.setTextSize(15);
         message.setPadding(0, 0, 0, dp(12));
         panel.addView(message);
+        Button pattern = new Button(this); pattern.setText("تنظیم الگوی پاسخ‌ها"); styleTurquoiseDashboardButton(pattern);
+        pattern.setOnClickListener(v -> showAnswerPatternSetup(null)); panel.addView(pattern);
         Button add = new Button(this); add.setText("افزودن سؤال"); styleTurquoiseDashboardButton(add);
-        add.setOnClickListener(v -> showAddBankQuestionDialog()); panel.addView(add);
+        add.setOnClickListener(v -> {
+            String answerPattern = prefs.getString("answer_pattern_key", "");
+            if (answerPattern.length() != questionCount()) showAnswerPatternSetup(() -> showAddBankQuestionDialog());
+            else showAddBankQuestionDialog();
+        }); panel.addView(add);
         Button scanQuestion = new Button(this); scanQuestion.setText("افزودن سؤال از طریق اسکنر"); styleTurquoiseDashboardButton(scanQuestion);
         scanQuestion.setOnClickListener(v -> pickQuestionImage()); panel.addView(scanQuestion);
         Button clearBank = new Button(this); clearBank.setText("پاک کردن بانک سؤال / فرم واحد"); styleTurquoiseDashboardButton(clearBank);
@@ -2248,14 +2311,166 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void showAnswerPatternSetup(Runnable onReady) {
+        new AlertDialog.Builder(this)
+                .setTitle("انتخاب روش طراحی الگو")
+                .setItems(new String[]{"تعیین دستی الگوی ۴ سؤالی", "تعیین تعداد پاسخ‌های هر گزینه"}, (dialog, which) -> {
+                    if (which == 0) showManualFourAnswerPattern(onReady);
+                    else showCountAnswerPatternSetup(onReady);
+                }).setNegativeButton("انصراف", null).show();
+    }
+
+    private void showManualFourAnswerPattern(Runnable onReady) {
+        int total = questionCount();
+        if (total < 1 || total > 200) {
+            info("تعداد سؤال‌های آزمون باید بین ۱ تا ۲۰۰ باشد.");
+            return;
+        }
+        JSONArray bank = readQuestionBank();
+        if (bank.length() > total) {
+            info("تعداد سؤال‌های ثبت‌شده از تعداد سؤال‌های آزمون بیشتر است.");
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(6), dp(12), dp(6));
+        TextView intro = new TextView(this);
+        intro.setText("پاسخ صحیح چهار سؤال اول را انتخاب کن. این الگو تا پایان آزمون تکرار می‌شود؛ مثلاً A، C، B، D، A، C، B، D و...");
+        intro.setTextSize(14);
+        form.addView(intro);
+        RadioGroup[] groups = new RadioGroup[4];
+        String[] labels = {"اول", "دوم", "سوم", "چهارم"};
+        for (int q = 0; q < 4; q++) {
+            TextView label = new TextView(this);
+            label.setText("پاسخ سؤال " + labels[q] + ":");
+            label.setPadding(0, dp(8), 0, 0);
+            form.addView(label);
+            groups[q] = new RadioGroup(this);
+            groups[q].setOrientation(RadioGroup.HORIZONTAL);
+            for (int a = 0; a < 4; a++) {
+                RadioButton rb = new RadioButton(this);
+                styleOption(rb, a);
+                rb.setText(String.valueOf((char)('A' + a)));
+                rb.setTag(a);
+                groups[q].addView(rb);
+            }
+            form.addView(groups[q]);
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("الگوی دستی ۴ سؤالی")
+                .setView(form)
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("اعمال الگو", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int[] pattern = new int[4];
+            for (int q = 0; q < 4; q++) {
+                int checked = groups[q].getCheckedRadioButtonId();
+                RadioButton selected = checked == -1 ? null : groups[q].findViewById(checked);
+                if (selected == null) {
+                    info("پاسخ هر چهار سؤال الگو را انتخاب کن.");
+                    return;
+                }
+                pattern[q] = (Integer) selected.getTag();
+            }
+            for (int i = 0; i < bank.length(); i++) {
+                JSONObject item = bank.optJSONObject(i);
+                int actual = item == null ? -1 : item.optInt("correct_index", -1);
+                int expected = pattern[i % 4];
+                if (actual != expected) {
+                    info("الگوی انتخابی با پاسخ ثبت‌شده سؤال " + (i + 1) + " سازگار نیست. پاسخ‌های قبلی را تغییر بده یا الگوی دیگری انتخاب کن.");
+                    return;
+                }
+            }
+            StringBuilder generated = new StringBuilder(total);
+            for (int i = 0; i < total; i++) generated.append((char)('A' + pattern[i % 4]));
+            prefs.edit().putString("answer_pattern_key", generated.toString()).apply();
+            dialog.dismiss();
+            info("الگوی چهار سؤالی اعمال شد و تا پایان آزمون تکرار می‌شود.");
+            if (onReady != null) onReady.run();
+        }));
+        dialog.show();
+    }
+
+    private void showCountAnswerPatternSetup(Runnable onReady) {
+        int total = questionCount();
+        if (total < 1 || total > 200) { info("تعداد سؤال‌های آزمون باید بین ۱ تا ۲۰۰ باشد."); return; }
+        JSONArray bank = readQuestionBank();
+        if (bank.length() > total) { info("تعداد سؤال‌های ثبت‌شده از تعداد سؤال‌های آزمون بیشتر است."); return; }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(6), dp(12), dp(6));
+        TextView intro = new TextView(this);
+        intro.setText("برای آزمون " + total + " سؤالی مشخص کن چند پاسخ صحیح از هر گزینه باشد. مجموع چهار عدد باید دقیقاً " + total + " شود. ترتیب پاسخ‌ها ترکیبی ساخته می‌شود.");
+        intro.setTextSize(14);
+        form.addView(intro);
+        EditText[] counts = new EditText[4];
+        int[] existingCounts = new int[4];
+        String[] labels = {"A", "B", "C", "D"};
+        for (int i = 0; i < bank.length(); i++) {
+            JSONObject item = bank.optJSONObject(i);
+            int answer = item == null ? -1 : item.optInt("correct_index", -1);
+            if (answer < 0 || answer > 3) { info("پاسخ صحیح سؤال " + (i + 1) + " را ابتدا تکمیل کن."); return; }
+            existingCounts[answer]++;
+        }
+        int base = total / 4, remainder = total % 4;
+        for (int i = 0; i < 4; i++) {
+            TextView label = new TextView(this);
+            label.setText("تعداد پاسخ صحیح گزینه " + labels[i] + " (حداقل " + existingCounts[i] + ")");
+            form.addView(label);
+            counts[i] = new EditText(this);
+            styleInput(counts[i]);
+            counts[i].setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            counts[i].setSingleLine(true);
+            counts[i].setText(String.valueOf(base + (i < remainder ? 1 : 0)));
+            form.addView(counts[i]);
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("طراحی الگوی پاسخ‌نامه")
+                .setView(form).setNegativeButton("انصراف", null).setPositiveButton("ساخت الگو", null).create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int[] requested = new int[4];
+            int sum = 0;
+            for (int i = 0; i < 4; i++) {
+                try { requested[i] = Integer.parseInt(counts[i].getText().toString().trim()); }
+                catch (Exception e) { info("برای هر گزینه یک عدد معتبر وارد کن."); return; }
+                if (requested[i] < existingCounts[i] || requested[i] < 0) {
+                    info("تعداد گزینه " + labels[i] + " نمی‌تواند از پاسخ‌های ثبت‌شدهٔ آن کمتر باشد."); return;
+                }
+                sum += requested[i];
+            }
+            if (sum != total) { info("مجموع تعداد چهار گزینه باید دقیقاً " + total + " باشد."); return; }
+            try {
+                java.util.ArrayList<Character> remaining = new java.util.ArrayList<>();
+                for (int i = 0; i < bank.length(); i++)
+                    remaining.add((char)('A' + bank.optJSONObject(i).optInt("correct_index", -1)));
+                for (int i = 0; i < 4; i++)
+                    for (int n = existingCounts[i]; n < requested[i]; n++) remaining.add((char)('A' + i));
+                java.util.Collections.shuffle(remaining, new java.util.Random());
+                StringBuilder pattern = new StringBuilder();
+                for (Character answer : remaining) pattern.append(answer.charValue());
+                prefs.edit().putString("answer_pattern_key", pattern.toString()).apply();
+                dialog.dismiss();
+                info("الگوی پاسخ ساخته شد؛ پاسخ سؤال‌های بعدی طبق الگو تعیین می‌شود.");
+                if (onReady != null) onReady.run();
+            } catch (Exception e) { info("ساخت الگوی پاسخ‌نامه ناموفق بود."); }
+        }));
+        dialog.show();
+    }
+
     private void showAddBankQuestionDialog() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(10), dp(4), dp(10), dp(4));
         JSONArray existingBank = readQuestionBank();
         pendingBankQuestionImageData = "";
+        int nextQuestionIndex = existingBank.length();
+        String savedPattern = prefs.getString("answer_pattern_key", "");
+        int suggestedAnswer = savedPattern.length() == questionCount() && nextQuestionIndex < savedPattern.length()
+                ? savedPattern.charAt(nextQuestionIndex) - 'A' : -1;
         TextView numberLabel = new TextView(this);
-        numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1));
+        numberLabel.setText("شمارهٔ سؤال بعدی: " + (existingBank.length() + 1)
+                + (suggestedAnswer >= 0 && suggestedAnswer <= 3
+                    ? " — پاسخ صحیح طبق الگو: " + (char)('A' + suggestedAnswer) : ""));
         numberLabel.setTextSize(16);
         numberLabel.setTypeface(null, android.graphics.Typeface.BOLD);
         numberLabel.setPadding(0, 0, 0, dp(8));
@@ -2295,11 +2510,30 @@ public class MainActivity extends Activity {
             correctGroup.addView(rb);
         }
         form.addView(correctGroup);
+        if (suggestedAnswer >= 0 && suggestedAnswer <= 3) {
+            ((RadioButton) correctGroup.getChildAt(suggestedAnswer)).setChecked(true);
+            for (int i = 0; i < correctGroup.getChildCount(); i++) correctGroup.getChildAt(i).setEnabled(false);
+            TextView lockedHint = new TextView(this);
+            lockedHint.setText("برای حفظ الگوی پاسخ‌نامه، گزینهٔ صحیح این سؤال به‌صورت خودکار تعیین شده است.");
+            lockedHint.setTextSize(12);
+            form.addView(lockedHint);
+        }
         new AlertDialog.Builder(this).setTitle("افزودن به بانک سؤال").setView(form)
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ذخیره", (d,w) -> {
                 String qText = question.getText().toString().trim();
                 if (qText.isEmpty()) { info("متن سؤال را وارد کن."); return; }
+                String currentPattern = prefs.getString("answer_pattern_key", "");
+                if (currentPattern.length() == questionCount() && existingBank.length() < currentPattern.length()) {
+                    int expected = currentPattern.charAt(existingBank.length()) - 'A';
+                    int selectedId = correctGroup.getCheckedRadioButtonId();
+                    RadioButton selectedAnswer = selectedId == -1 ? null : correctGroup.findViewById(selectedId);
+                    if (selectedAnswer == null || !selectedAnswer.isChecked()
+                            || (Integer) selectedAnswer.getTag() != expected) {
+                        info("پاسخ صحیح این سؤال باید مطابق الگو گزینه " + (char)('A' + expected) + " باشد.");
+                        return;
+                    }
+                }
                 JSONArray optionArray = new JSONArray();
                 for (EditText option : options) {
                     String value = option.getText().toString().trim();
@@ -2863,6 +3097,9 @@ public class MainActivity extends Activity {
         StringBuilder detail = new StringBuilder();
         detail.append("شرکت‌کننده: ").append(item.optString("name", "بدون نام"))
             .append("\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
+            .append("\nپاسخ‌های قطعی — صحیح: ").append(item.optInt("confirmedCorrect", 0))
+            .append(" | غلط: ").append(item.optInt("confirmedWrong", 0))
+            .append(" | سفید: ").append(item.optInt("confirmedBlank", 0))
             .append("\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
             .append("\n\nوضعیت خواندن سؤال‌ها:\n");
         JSONArray questions = item.optJSONArray("questions");
@@ -2889,17 +3126,22 @@ public class MainActivity extends Activity {
         }
         detail.append("\nاین مورد نمرهٔ قطعی ندارد. برای نمره‌دهی، پاسخ‌های مبهم باید با خود برگه تطبیق داده شوند.");
         new AlertDialog.Builder(this).setTitle("جزئیات برگهٔ بازبینی").setMessage(detail.toString())
-            .setPositiveButton("حذف از صف", (d, w) -> {
-                JSONArray current = readReviewQueue();
-                JSONArray kept = new JSONArray();
-                for (int i = 0; i < current.length(); i++) {
-                    if (i == index) continue;
-                    JSONObject entry = current.optJSONObject(i);
-                    if (entry != null) kept.put(entry);
-                }
-                prefs.edit().putString("grading_review_queue", kept.toString()).apply();
-                showReviewQueue();
-            })
+            .setPositiveButton("حذف از صف", (d, w) -> new AlertDialog.Builder(this)
+                .setTitle("تأیید حذف")
+                .setMessage("آیا مطمئن هستید که می‌خواهید این برگه را از صف بازبینی حذف کنید؟")
+                .setPositiveButton("بله، حذف کن", (confirm, which) -> {
+                    JSONArray current = readReviewQueue();
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < current.length(); i++) {
+                        if (i == index) continue;
+                        JSONObject entry = current.optJSONObject(i);
+                        if (entry != null) kept.put(entry);
+                    }
+                    prefs.edit().putString("grading_review_queue", kept.toString()).apply();
+                    showReviewQueue();
+                })
+                .setNegativeButton("انصراف", null)
+                .show())
             .setNegativeButton("بازگشت", (d, w) -> showReviewQueue()).show();
     }
 
