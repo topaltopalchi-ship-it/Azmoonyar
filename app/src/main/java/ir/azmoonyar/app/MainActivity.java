@@ -2459,7 +2459,8 @@ public class MainActivity extends Activity {
             if (item == null) item = new JSONObject();
             labels[i] = (i + 1) + ". " + item.optString("name", "بدون نام")
                 + " — " + item.optString("examName", "آزمون بدون نام")
-                + " — سؤال مبهم: " + item.optInt("needsReview", 0);
+                + " — مبهم: " + item.optInt("needsReview", 0)
+                + " | سفید: " + item.optInt("confirmedBlank", 0);
         }
         new AlertDialog.Builder(this).setTitle("برگه‌های نیازمند بازبینی")
             .setItems(labels, (d, which) -> showReviewQueueItem(which))
@@ -2474,6 +2475,9 @@ public class MainActivity extends Activity {
         StringBuilder detail = new StringBuilder();
         detail.append("شرکت‌کننده: ").append(item.optString("name", "بدون نام"))
             .append("\nآزمون: ").append(item.optString("examName", "آزمون بدون نام"))
+            .append("\nپاسخ‌های قطعی — صحیح: ").append(item.optInt("confirmedCorrect", 0))
+            .append(" | غلط: ").append(item.optInt("confirmedWrong", 0))
+            .append(" | سفید: ").append(item.optInt("confirmedBlank", 0))
             .append("\nسؤال‌های نیازمند بازبینی: ").append(item.optInt("needsReview", 0))
             .append("\n\nوضعیت خواندن سؤال‌ها:\n");
         JSONArray questions = item.optJSONArray("questions");
