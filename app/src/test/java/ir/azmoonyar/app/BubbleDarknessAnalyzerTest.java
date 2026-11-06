@@ -40,7 +40,7 @@ public class BubbleDarknessAnalyzerTest {
             for (int x = 0; x < width; x++) {
                 double nx = (x - 30.0) / 12.0;
                 double ny = (y - 25.0) / 8.0;
-                if (nx * nx + ny * ny <= 0.45 * 0.45) {
+                if (nx * nx + ny * ny <= 0.82 * 0.82) {
                     image[y * width + x] = 30;
                 }
             }
@@ -48,6 +48,24 @@ public class BubbleDarknessAnalyzerTest {
         double score = BubbleDarknessAnalyzer.scoreEllipse(
                 image, width, height, 30, 25, 12, 8);
         assertTrue("A filled perspective-scaled bubble should be detected", score > 0.35);
+    }
+
+    @Test
+    public void printedOutlineOutsideFillRadiusDoesNotCountAsASelectedBubble() {
+        int width = 61, height = 61;
+        byte[] image = new byte[width * height];
+        java.util.Arrays.fill(image, (byte) 230);
+        // Simulate only the printed outline at radius 10 px. The supplied 9 px
+        // sample radius is the usable interior and must not include that outline.
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                double distance = Math.hypot(x - 30.0, y - 30.0);
+                if (distance >= 9.5 && distance <= 10.5) image[y * width + x] = 20;
+            }
+        }
+        double score = BubbleDarknessAnalyzer.scoreEllipse(
+                image, width, height, 30, 30, 9, 9);
+        assertTrue("The printed circle outline alone must remain blank", score < 0.10);
     }
 
     @Test
