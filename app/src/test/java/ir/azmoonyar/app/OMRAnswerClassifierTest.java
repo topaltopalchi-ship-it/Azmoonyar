@@ -53,11 +53,13 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void selectsNonzeroDarkestBubbleEvenAtLowContrast() {
+    public void nearBlankLowContrastIsNotGuessedAsAnswered() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.02, 0.00, 0.10, 0.08});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
-        assertEquals(2, result.optionIndex);
-        org.junit.Assert.assertEquals(0.20, result.strongestScore, 0.000001);
+        // Every bubble is at or below the configured blank threshold (0.12).
+        // Selecting the darkest one would turn background noise into a student answer.
+        assertEquals(OMRAnswerClassifier.Status.BLANK, result.status);
+        assertEquals(-1, result.optionIndex);
+        org.junit.Assert.assertEquals(0.10, result.strongestScore, 0.000001);
     }
 
     @Test
