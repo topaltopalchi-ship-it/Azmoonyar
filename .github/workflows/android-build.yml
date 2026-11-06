@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/ayselplus-compatible-omr
+      - fix/ayselplus-omr-threshold-radius
       - reintegrate/aysel-plus-preserved
 permissions:
   contents: read
