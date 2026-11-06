@@ -114,4 +114,4 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-# Rebuild requested: Aysel Plus from altay-4.
+# Exact source snapshot: successful signed build from 2026-11-06 17:32 Berlin time.
