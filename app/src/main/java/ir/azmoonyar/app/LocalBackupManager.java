@@ -87,7 +87,9 @@ public final class LocalBackupManager {
         File oldPhotos = new File(context.getCacheDir(), "azmoonyar-previous-photos");
         File livePhotos = new File(context.getFilesDir(), PHOTO_DIR);
         deleteTree(stagedPhotos);
-        deleteTree(oldPhotos);
+        if (oldPhotos.exists()) {
+            return "یک نسخه موقت از عکس‌های قبلی برای بازیابی ایمن باقی مانده است؛ ابتدا وضعیت آن باید بررسی شود.";
+        }
         JSONObject manifest = null;
         boolean hasPhotos = false;
         try (InputStream raw = context.getContentResolver().openInputStream(source);
