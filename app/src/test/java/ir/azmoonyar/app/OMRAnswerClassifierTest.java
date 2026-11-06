@@ -16,13 +16,13 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void darknessMustBeStrictlyAboveOneTenthToCountAsMarked() {
+    public void darknessMustBeStrictlyAboveTwoTenthsToCountAsMarked() {
         OMRAnswerClassifier.Result atThreshold =
                 classifier.classify(new double[]{0.10, 0.02, 0.01, 0.00});
         assertEquals(OMRAnswerClassifier.Status.BLANK, atThreshold.status);
 
         OMRAnswerClassifier.Result aboveThreshold =
-                classifier.classify(new double[]{0.1001, 0.02, 0.01, 0.00});
+                classifier.classify(new double[]{0.2001, 0.02, 0.01, 0.00});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, aboveThreshold.status);
         assertEquals(0, aboveThreshold.optionIndex);
     }
@@ -35,14 +35,14 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void flagsMultipleMarkedBubbles() {
+    public void twoQualifyingMarkedBubblesGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.71, 0.15, 0.68, 0.09});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
     @Test
-    public void nearThresholdCloseMarksGoToReview() {
+    public void twoQualifyingMarksWithLessThanOneTenthDifferenceGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.251, 0.250, 0.12, 0.10});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
@@ -50,7 +50,7 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void verySmallWinnerMarginGoesToReview() {
+    public void twoQualifyingMarksWithSmallDifferenceGoToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.500, 0.499, 0.10, 0.08});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
@@ -75,8 +75,8 @@ public class OMRAnswerClassifierTest {
     }
 
     @Test
-    public void exactTieIsSentForReview() {
-        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.20, 0.20, 0.10, 0.05});
+    public void exactTieAboveThresholdIsSentForReview() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.21, 0.21, 0.10, 0.05});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
     }
 
