@@ -1,24 +1,19 @@
 package ir.azmoonyar.app;
 
 /**
- * Conservative classifier for four normalized bubble-darkness scores.
- * Scores must be measured after registration, perspective correction and local
- * paper-background normalization. Uncertain marks are sent to manual review.
+ * Classifies four normalized bubble-darkness scores.
+ * Scores at or below 0.10 are treated as zero (unmarked).
+ * Two remaining scores trigger manual review only when their difference is < 0.10.
  */
 public final class OMRAnswerClassifier {
-    public static final double WHITE_SCORE_THRESHOLD = 0.09;
-    public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
-    public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
+    public static final double WHITE_SCORE_THRESHOLD = 0.10;
+    public static final double ANSWER_SCORE_THRESHOLD = 0.10;
     public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
-    public static final double REVIEW_COMPETITOR_MIN_SCORE = 0.20;
-    /** Nearly indistinguishable dark bubbles are ambiguous, not a confirmed double mark. */
-    public static final double NEAR_TIE_REVIEW_EPSILON = 0.001;
 
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
     public static final class Result {
         public final Status status;
-        /** Zero-based option index for ANSWERED, otherwise -1. */
         public final int optionIndex;
         public final double margin;
         public final double strongestScore;
@@ -36,13 +31,12 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Conservative defaults; real answer-sheet calibration can refine these later.
-        this(0.25, WHITE_SCORE_THRESHOLD, REVIEW_MARGIN_THRESHOLD);
+        this(ANSWER_SCORE_THRESHOLD, WHITE_SCORE_THRESHOLD, REVIEW_MARGIN_THRESHOLD);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
+                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
@@ -50,10 +44,10 @@ public final class OMRAnswerClassifier {
         this.minimumMargin = minimumMargin;
     }
 
-    /** Compatibility constructor for older callers that supplied a mark threshold and review gap. */
+    /** Compatibility constructor for older callers. */
     @Deprecated
-    public OMRAnswerClassifier(double markThreshold, double twoMarkGap) {
-        this(markThreshold, Math.min(WHITE_SCORE_THRESHOLD, Math.max(0.0, markThreshold - 0.01)), twoMarkGap);
+    public OMRAnswerClassifier(double markThreshold, double reviewGap) {
+        this(markThreshold, Math.min(WHITE_SCORE_THRESHOLD, markThreshold), reviewGap);
     }
 
     public Result classify(double[] darkness) {
@@ -62,16 +56,19 @@ public final class OMRAnswerClassifier {
         }
 
         double[] scores = darkness.clone();
-        for (double score : scores) {
+        for (int i = 0; i < scores.length; i++) {
+            double score = scores[i];
             if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
+            // Treat all values <= 0.10 as zero/no mark before ranking.
+            if (score <= blankThreshold) scores[i] = 0.0;
         }
 
-        int bestIndex = 0;
-        double best = scores[0];
-        double second = -1.0;
-        for (int i = 1; i < scores.length; i++) {
+        int bestIndex = -1;
+        double best = 0.0;
+        double second = 0.0;
+        for (int i = 0; i < scores.length; i++) {
             if (scores[i] > best) {
                 second = best;
                 best = scores[i];
@@ -81,32 +78,17 @@ public final class OMRAnswerClassifier {
             }
         }
 
-        double runnerUp = Math.max(0.0, second);
-        double margin = best - runnerUp;
-
-        // No visible mark: keep the item blank.
-        if (best <= blankThreshold) {
+        double margin = best - second;
+        if (best <= markThreshold) {
             return new Result(Status.BLANK, -1, margin, best);
         }
 
-        // A near-identical pair cannot be distinguished reliably, even when both are dark.
-        // Send it to manual review before applying the multiple-mark classification.
-        if (runnerUp > blankThreshold && margin <= NEAR_TIE_REVIEW_EPSILON) {
+        // Review only if BOTH leading bubbles exceed 0.10 and their gap is < 0.10.
+        if (second > markThreshold && margin < minimumMargin) {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
-        // Two independently dark bubbles are a multiple response, not a guessed answer.
-        if (best >= DOUBLE_MARK_PRIMARY_THRESHOLD && runnerUp >= DOUBLE_MARK_MIN_SCORE) {
-            return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
-        }
-
-        // Send to review only when the two strongest bubbles both exceed 0.20
-        // and their score difference is below 0.10.
-        if (best < markThreshold || margin <= 0.0
-                || (runnerUp > REVIEW_COMPETITOR_MIN_SCORE && margin < minimumMargin)) {
-            return new Result(Status.REVIEW, -1, margin, best);
-        }
-
+        // Otherwise the darkest qualifying bubble is the selected answer.
         return new Result(Status.ANSWERED, bestIndex, margin, best);
     }
 }
