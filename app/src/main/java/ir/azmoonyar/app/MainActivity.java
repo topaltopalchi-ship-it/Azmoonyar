@@ -51,6 +51,8 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private TextView summary;
     private static final int REQUEST_ANSWER_KEY_IMAGE = 7314;
+    private static final int REQUEST_BACKUP_EXPORT = 7316;
+    private static final int REQUEST_BACKUP_IMPORT = 7317;
     private String pendingKeyTarget = "main";
 
     private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
@@ -312,6 +314,16 @@ public class MainActivity extends Activity {
         addButtonGrid(
                 new String[]{"آنالیز و آمار", "تنظیمات تصاویر"},
                 new View.OnClickListener[]{v -> showReportsCenter(), v -> showImageRetentionDialog()});
+        Button backupButton = new Button(this);
+        backupButton.setText("پشتیبان‌گیری و بازیابی اطلاعات");
+        stylePinkOvalButton(backupButton);
+        backupButton.setTextSize(15);
+        backupButton.setMinHeight(dp(58));
+        LinearLayout.LayoutParams backupParams = new LinearLayout.LayoutParams(-1, -2);
+        backupParams.topMargin = dp(4);
+        backupParams.bottomMargin = dp(4);
+        root.addView(backupButton, backupParams);
+        backupButton.setOnClickListener(v -> showBackupCenter());
         Button scanCorrection = new Button(this);
         scanCorrection.setText("اسکن و تصحیح");
         stylePinkOvalButton(scanCorrection);
@@ -347,6 +359,30 @@ public class MainActivity extends Activity {
     }
 
 
+
+    private void showBackupCenter() {
+        new AlertDialog.Builder(this)
+                .setTitle("پشتیبان‌گیری و بازیابی")
+                .setMessage("از اطلاعات آزمون‌ها، شرکت‌کنندگان، نتایج تصحیح، صف بازبینی و گزارش‌های محلی یک فایل پشتیبان می‌سازد. عکس‌های پاسخ‌نامه نیز در فایل قرار می‌گیرند؛ مدل گفتار فارسی دوباره قابل دریافت است و داخل پشتیبان نیست.")
+                .setPositiveButton("ساخت نسخه پشتیبان", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_TITLE, "Azmoonyar-Aysel2Plus-Backup.zip");
+                    try { startActivityForResult(intent, REQUEST_BACKUP_EXPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن محل ذخیره‌سازی ممکن نشد."); }
+                })
+                .setNegativeButton("بازیابی از فایل", (dialog, which) -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivityForResult(intent, REQUEST_BACKUP_IMPORT); }
+                    catch (Exception e) { showStyledInfo("بازکردن انتخاب‌گر فایل ممکن نشد."); }
+                })
+                .setNeutralButton("انصراف", null)
+                .show();
+    }
 
     private void showScanCorrectionEntry() {
         LinearLayout panel = new LinearLayout(this);
@@ -1405,6 +1441,26 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQUEST_BACKUP_EXPORT) {
+            showStyledInfo(LocalBackupManager.exportBackup(this, data.getData()));
+            return;
+        }
+        if (requestCode == REQUEST_BACKUP_IMPORT) {
+            android.net.Uri backupUri = data.getData();
+            String inspection = LocalBackupManager.inspectBackup(this, backupUri);
+            if (!inspection.contains("نسخه پشتیبان معتبر است.")) {
+                showStyledInfo(inspection);
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("تأیید بازیابی اطلاعات")
+                    .setMessage(inspection + "\n\nبا تأیید شما، داده‌های فعلی این دستگاه با اطلاعات فایل جایگزین می‌شوند. قبل از جایگزینی، از داده‌های فعلی نسخه موقت محافظتی ساخته می‌شود. ادامه می‌دهید؟")
+                    .setPositiveButton("تأیید و بازیابی", (dialog, which) ->
+                            showStyledInfo(LocalBackupManager.restoreBackup(this, backupUri)))
+                    .setNegativeButton("انصراف", null)
+                    .show();
+            return;
+        }
         if (requestCode == 7315) {
             try (java.io.OutputStream output = getContentResolver().openOutputStream(data.getData())) {
                 if (output == null) throw new java.io.IOException("output stream unavailable");
