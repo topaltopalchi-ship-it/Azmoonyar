@@ -2396,13 +2396,14 @@ public class MainActivity extends Activity {
 
     private void showExamResultsMenu() {
         showTurquoiseMenu("نتایج آزمون",
-            new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی"},
+            new String[]{"نتایج آزمون اخیر", "نتایج قبلی", "آنالیز شرکت‌کننده", "آنالیز هر آزمون", "صف برگه‌های نیازمند بازبینی", "آمار تک‌تک سؤال‌ها"},
             which -> {
                 if (which == 0) showRecentExamResults();
                 else if (which == 1) showPreviousExamResults();
                 else if (which == 2) showParticipantAnalysis();
                 else if (which == 3) showExamAnalysis();
-                else showReviewQueue();
+                else if (which == 4) showReviewQueue();
+                else showQuestionAnalysis();
             }, "بازگشت", this::showReportsCenter);
     }
 
@@ -2776,6 +2777,52 @@ public class MainActivity extends Activity {
                 canvas.drawText(labels[i], getWidth() - dp(28), y, paint);
             }
         }
+    }
+
+    private void showQuestionAnalysis() {
+        JSONArray results = readGradingResults();
+        java.util.TreeMap<Integer, int[]> stats = new java.util.TreeMap<>();
+        int usableSheets = 0;
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject result = results.optJSONObject(i);
+            if (result == null) continue;
+            JSONArray responses = result.optJSONArray("questionResponses");
+            if (responses == null || responses.length() == 0) continue;
+            usableSheets++;
+            for (int q = 0; q < responses.length(); q++) {
+                JSONObject response = responses.optJSONObject(q);
+                if (response == null) continue;
+                int number = response.optInt("question", q + 1);
+                int[] counts = stats.get(number);
+                if (counts == null) { counts = new int[3]; stats.put(number, counts); }
+                String status = response.optString("status", "");
+                if ("BLANK".equals(status)) counts[2]++;
+                else if ("ANSWERED".equals(status)) {
+                    if (response.optBoolean("correct", false)) counts[0]++;
+                    else counts[1]++;
+                } else if ("MULTIPLE_MARKS".equals(status)) counts[1]++;
+            }
+        }
+        if (usableSheets == 0) {
+            info("هنوز نتیجهٔ نهایی دارای جزئیات پاسخ تک‌تک سؤال‌ها ثبت نشده است. این آمار از برگه‌های جدیدی که پس از این به‌روزرسانی تصحیح شوند جمع‌آوری می‌شود؛ نتایج قدیمی بدون جزئیات سؤال تغییر نمی‌کنند.");
+            return;
+        }
+        StringBuilder out = new StringBuilder();
+        out.append("تعداد برگه‌های نهایی قابل تحلیل: ").append(usableSheets).append("\n")
+                .append("آمار فقط از پاسخ‌های نهایی و قطعی محاسبه شده است؛ برگه‌های در صف بازبینی وارد محاسبه نمی‌شوند.\n\n");
+        for (java.util.Map.Entry<Integer, int[]> entry : stats.entrySet()) {
+            int[] c = entry.getValue();
+            int total = c[0] + c[1] + c[2];
+            if (total == 0) continue;
+            double correctRate = 100.0 * c[0] / total;
+            out.append("سؤال ").append(entry.getKey())
+                    .append("\nصحیح: ").append(c[0])
+                    .append(" | غلط: ").append(c[1])
+                    .append(" | سفید: ").append(c[2])
+                    .append("\nدرصد پاسخ صحیح: ").append(String.format(Locale.US, "%.1f", correctRate)).append("%")
+                    .append("\n--------------------\n");
+        }
+        showAnalysisText("آمار تک‌تک سؤال‌ها", out.toString());
     }
 
     private void showExamAnalysis() {
