@@ -86,8 +86,15 @@ public final class OMRAnswerClassifier {
             return new Result(Status.BLANK, -1, 0, 0);
         }
         double margin = strongest - Math.max(0, second);
+        // Send a possible double-mark to manual review only when BOTH leading
+        // bubbles are genuinely dark (> 0.20) and their darkness gap is < 0.10.
+        // Keep the comparisons strict: exactly 0.20 or exactly 0.10 does not
+        // satisfy this double-mark review rule.
+        if (strongest > 0.20 && second > 0.20 && margin < 0.10) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
+        }
         if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, Math.min(1.0, strongest * 2.0));
+            return new Result(Status.REVIEW, -1, 0, strongest);
         }
         double boostedStrongest = Math.min(1.0, strongest * 2.0);
         return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
