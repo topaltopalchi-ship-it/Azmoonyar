@@ -64,10 +64,16 @@ public final class OMRSheetReader {
                 }
                 double x = centers[option][0], y = centers[option][1];
                 SheetPerspectiveTransform.Point center = transform.toImage(x, y);
+                // bubbleRadiusMm is the printed outer radius. Sample the complete
+                // usable interior disk, stopping at the inner edge of the printed border.
+                double sampleRadiusMm = bubbleRadiusMm - OmrTemplateLayout.BUBBLE_BORDER_WIDTH_MM;
+                if (sampleRadiusMm <= 0.0) {
+                    throw new IllegalArgumentException("شعاع قابل نمونه‌گیری حباب معتبر نیست.");
+                }
                 SheetPerspectiveTransform.Point edgeX = transform.toImage(
-                        Math.min(transform.getPageWidth(), x + bubbleRadiusMm), y);
+                        Math.min(transform.getPageWidth(), x + sampleRadiusMm), y);
                 SheetPerspectiveTransform.Point edgeY = transform.toImage(
-                        x, Math.min(transform.getPageHeight(), y + bubbleRadiusMm));
+                        x, Math.min(transform.getPageHeight(), y + sampleRadiusMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
                 scores[option] = BubbleDarknessAnalyzer.scoreEllipse(luminance,
