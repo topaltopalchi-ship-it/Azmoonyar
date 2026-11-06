@@ -76,8 +76,12 @@ public final class OMRSheetReader {
                         x, Math.min(transform.getPageHeight(), y + sampleRadiusMm));
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
-                scores[option] = BubbleDarknessAnalyzer.scoreEllipse(luminance,
-                        imageWidth, imageHeight, center.x, center.y, radiusX, radiusY);
+                // Keep the printed bubble, diagnostic guide and measurement circular.
+                // Perspective can produce slightly different horizontal/vertical scales;
+                // use one isotropic radius so the scanner never samples an ellipse.
+                double circularSampleRadius = Math.sqrt(radiusX * radiusY);
+                scores[option] = BubbleDarknessAnalyzer.score(luminance,
+                        imageWidth, imageHeight, center.x, center.y, circularSampleRadius);
             }
             results.add(new QuestionResult(q, scores, classifier.classify(scores)));
         }
