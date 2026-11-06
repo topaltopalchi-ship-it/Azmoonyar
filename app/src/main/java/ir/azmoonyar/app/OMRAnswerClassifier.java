@@ -7,8 +7,8 @@ package ir.azmoonyar.app;
  */
 public final class OMRAnswerClassifier {
     public static final double WHITE_SCORE_THRESHOLD = 0.15;
-    public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.55;
-    public static final double DOUBLE_MARK_MIN_SCORE = 0.45;
+    public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
+    public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
     public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
 
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
