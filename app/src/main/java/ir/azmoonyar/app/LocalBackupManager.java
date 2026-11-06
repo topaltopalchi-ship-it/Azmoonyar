@@ -27,6 +27,8 @@ public final class LocalBackupManager {
     private static final String MANIFEST = "azmoonyar-backup.json";
     private static final int FORMAT_VERSION = 1;
     private static final int MAX_MANIFEST_BYTES = 16 * 1024 * 1024;
+    private static final int MAX_ARCHIVE_ENTRIES = 10000;
+    private static final long MAX_PHOTO_BYTES = 512L * 1024L * 1024L;
 
     private LocalBackupManager() {}
 
@@ -92,17 +94,21 @@ public final class LocalBackupManager {
         }
         JSONObject manifest = null;
         boolean hasPhotos = false;
+        int archiveEntries = 0;
+        long extractedPhotoBytes = 0L;
         try (InputStream raw = context.getContentResolver().openInputStream(source);
              ZipInputStream zip = new ZipInputStream(new BufferedInputStream(raw))) {
             if (raw == null) throw new java.io.IOException("input stream unavailable");
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
+                if (++archiveEntries > MAX_ARCHIVE_ENTRIES) throw new java.io.IOException("too many archive entries");
                 String name = entry.getName();
                 if (MANIFEST.equals(name)) {
+                    if (manifest != null) throw new java.io.IOException("duplicate backup manifest");
                     manifest = new JSONObject(readLimited(zip, MAX_MANIFEST_BYTES));
                 } else if (name.startsWith(PHOTO_DIR + "/") && !entry.isDirectory()) {
                     String relative = name.substring((PHOTO_DIR + "/").length());
-                    if (relative.isEmpty() || relative.contains("..") || relative.startsWith("/")) {
+                    if (relative.isEmpty() || relative.contains("..") || relative.startsWith("/") || relative.contains("\\\\")) {
                         throw new java.io.IOException("invalid photo path");
                     }
                     File out = new File(stagedPhotos, relative);
@@ -111,7 +117,13 @@ public final class LocalBackupManager {
                     File parent = out.getParentFile();
                     if (parent != null && !parent.mkdirs() && !parent.isDirectory()) throw new java.io.IOException("cannot create photo folder");
                     try (FileOutputStream fileOut = new FileOutputStream(out)) {
-                        copy(zip, fileOut);
+                        byte[] buffer = new byte[32768];
+                        int count;
+                        while ((count = zip.read(buffer)) != -1) {
+                            extractedPhotoBytes += count;
+                            if (extractedPhotoBytes > MAX_PHOTO_BYTES) throw new java.io.IOException("photo data exceeds the 512 MB safety limit");
+                            fileOut.write(buffer, 0, count);
+                        }
                     }
                     hasPhotos = true;
                 }
