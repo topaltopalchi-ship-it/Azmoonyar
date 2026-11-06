@@ -6,7 +6,7 @@ package ir.azmoonyar.app;
  * paper-background normalization. Uncertain marks are sent to manual review.
  */
 public final class OMRAnswerClassifier {
-    public static final double WHITE_SCORE_THRESHOLD = 0.15;
+    public static final double WHITE_SCORE_THRESHOLD = 0.09;
     public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
     public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
     public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
