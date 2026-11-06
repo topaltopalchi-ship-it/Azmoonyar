@@ -305,6 +305,16 @@ public class MainActivity extends Activity {
         root.addView(summary,summaryParams);
         refreshSummary();
 
+        // Keep answer-pattern setup directly discoverable on the main dashboard.
+        Button answerPatternShortcut = new Button(this);
+        answerPatternShortcut.setText("تنظیم الگوی پاسخ‌ها");
+        styleTurquoiseDashboardButton(answerPatternShortcut);
+        answerPatternShortcut.setOnClickListener(v -> showAnswerPatternSetup(null));
+        LinearLayout.LayoutParams answerPatternParams = new LinearLayout.LayoutParams(-1, -2);
+        answerPatternParams.topMargin = dp(4);
+        answerPatternParams.bottomMargin = dp(4);
+        root.addView(answerPatternShortcut, answerPatternParams);
+
         // Participant registration shortcuts are intentionally hidden from the dashboard.
         // Name entry remains available in the scan-and-correct flow.
 
