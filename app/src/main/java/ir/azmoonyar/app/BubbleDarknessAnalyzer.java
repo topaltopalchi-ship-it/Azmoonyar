@@ -33,7 +33,10 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
+        // Sample 90% of the mapped bubble radius: for a 5.2 mm printed bubble,
+        // this leaves a 0.26 mm margin from the 2.6 mm edge radius.
+        // The larger inner disk uses about 2.4x as many pixels as the old 58% disk.
+        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.90));
         int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
         int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
         // Do not score a partially visible bubble: clipping the reference ring at
@@ -106,7 +109,9 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        final double innerLimit = 0.58 * 0.58;
+        // Keep the sample disk 0.26 mm inside the 2.6 mm printed bubble radius.
+        // 90% of the physical radius covers about 81% of the bubble area.
+        final double innerLimit = 0.90 * 0.90;
         final double ringInnerLimit = 1.18 * 1.18;
         final double ringOuterLimit = 1.55 * 1.55;
         int extentX = (int) Math.ceil(radiusX * 1.55);
