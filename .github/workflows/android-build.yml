@@ -1,6 +1,9 @@
 name: Android Build
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/aysel-2-plus-safe-development
 permissions:
   contents: read
 jobs:
