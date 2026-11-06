@@ -55,6 +55,7 @@ public final class OmrScanActivity extends ComponentActivity {
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
+    private volatile boolean preflightRunning;
     private String participantName = "";
     private int stableMarkerFrames, missingMarkerFrames;
     private volatile boolean sheetConsumed, waitingForNextName;
@@ -207,6 +208,14 @@ public final class OmrScanActivity extends ComponentActivity {
             showBubbleCoordinateOverlay(luma, width, height, transform, centers, markers, markerSize);
         });
         page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
+
+        Button lightPreflightButton = new Button(this);
+        lightPreflightButton.setText("آماده‌سازی نور اسکن (برگه مرجع)");
+        lightPreflightButton.setTextSize(15);
+        lightPreflightButton.setAllCaps(false);
+        lightPreflightButton.setOnClickListener(v -> captureLightPreflightPhoto());
+        page.addView(lightPreflightButton, new LinearLayout.LayoutParams(-1, -2));
+
 
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
@@ -702,6 +711,151 @@ public final class OmrScanActivity extends ComponentActivity {
                         sheetConsumed = false;
                     }
                 });
+    }
+
+
+    /**
+     * A read-only lighting preflight. It captures a reference sheet through the
+     * same CameraX still-photo path as normal scanning, then uses the existing
+     * geometry and OMR reader without saving scores or calibration samples.
+     */
+    private void captureLightPreflightPhoto() {
+        if (preflightRunning) {
+            updateStatus("بررسی نور در حال انجام است؛ لطفاً صبر کنید.");
+            return;
+        }
+        if (imageCapture == null || finished) {
+            updateStatus("دوربین برای بررسی نور آماده نیست.");
+            return;
+        }
+        java.io.File photoDir = new java.io.File(getFilesDir(), "answer_sheet_photos");
+        if (!photoDir.exists() && !photoDir.mkdirs()) {
+            updateStatus("پوشهٔ ذخیرهٔ عکس ساخته نشد.");
+            return;
+        }
+        java.io.File photoFile = new java.io.File(photoDir,
+                "light_preflight_" + System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions options =
+                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+        preflightRunning = true;
+        updateStatus("برگهٔ مرجع را با کلید کامل زیر همان نور اسکن معمولی عکس می‌گیریم…");
+        imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults result) {
+                        try {
+                            processLightPreflightPhoto(photoFile);
+                        } catch (Exception error) {
+                            updateStatus("بررسی نور کامل نشد؛ چهار نشانهٔ گوشه، وضوح عکس و نور یکنواخت را بررسی کنید.");
+                        } finally {
+                            if (photoFile.exists()) photoFile.delete();
+                            preflightRunning = false;
+                        }
+                    }
+                    @Override public void onError(@NonNull ImageCaptureException error) {
+                        if (photoFile.exists()) photoFile.delete();
+                        preflightRunning = false;
+                        updateStatus("عکس مرجع ثبت نشد؛ دوباره تلاش کنید.");
+                    }
+                });
+    }
+
+    private void processLightPreflightPhoto(java.io.File photoFile) throws Exception {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            throw new java.io.IOException("Saved image is unreadable");
+        }
+        int sample = 1;
+        while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 2400) sample *= 2;
+        android.graphics.BitmapFactory.Options decode = new android.graphics.BitmapFactory.Options();
+        decode.inSampleSize = sample;
+        decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(photoFile.getAbsolutePath(), decode);
+        if (bitmap == null) throw new java.io.IOException("Saved image decode failed");
+        try {
+            android.media.ExifInterface exif = new android.media.ExifInterface(photoFile.getAbsolutePath());
+            int orientation = exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL);
+            int degrees = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                    : orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            if (degrees != 0) {
+                android.graphics.Matrix matrix = new android.graphics.Matrix();
+                matrix.postRotate(degrees);
+                Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(),
+                        bitmap.getHeight(), matrix, true);
+                if (rotated != bitmap) { bitmap.recycle(); bitmap = rotated; }
+            }
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            byte[] luma = new byte[pixels.length];
+            for (int i = 0; i < pixels.length; i++) {
+                int c = pixels[i];
+                luma[i] = (byte) ((Color.red(c) * 299 + Color.green(c) * 587
+                        + Color.blue(c) * 114) / 1000);
+            }
+            MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
+            if (detection.count != 4) {
+                updateStatus("نور/کادر نامناسب: هر چهار نشانهٔ گوشه باید واضح و کامل دیده شوند.");
+                return;
+            }
+            double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
+            double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
+            double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
+            SheetPerspectiveTransform transform = SheetPerspectiveTransform.fromControlPoints(
+                    new SheetPerspectiveTransform.Point[]{
+                            new SheetPerspectiveTransform.Point(inset, inset),
+                            new SheetPerspectiveTransform.Point(right, inset),
+                            new SheetPerspectiveTransform.Point(right, bottom),
+                            new SheetPerspectiveTransform.Point(inset, bottom)
+                    }, detection.points, OmrTemplateLayout.PAGE_WIDTH_MM,
+                    OmrTemplateLayout.PAGE_HEIGHT_MM);
+
+            SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
+            int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
+            String answerKey = prefs.getString("answer_key", "");
+            if (!isValidAnswerKey(answerKey, total)) {
+                answerKey = prefs.getString("answer_key_model_A", "");
+                if (!isValidAnswerKey(answerKey, total)) {
+                    answerKey = buildAnswerKeyFromQuestionBank(
+                            prefs.getString("question_bank_json", "[]"), total);
+                }
+            }
+            if (!isValidAnswerKey(answerKey, total)) {
+                updateStatus("کلید پاسخ کامل پیدا نشد؛ ابتدا کلید مرجع آزمون را ذخیره کنید.");
+                return;
+            }
+
+            double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
+            List<OMRSheetReader.QuestionResult> questions =
+                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+            int correct = 0, wrong = 0, blank = 0, uncertain = 0;
+            for (int i = 0; i < total && i < questions.size(); i++) {
+                OMRAnswerClassifier.Result result = questions.get(i).classification;
+                if (result.status == OMRAnswerClassifier.Status.ANSWERED) {
+                    if (result.optionIndex == answerKey.charAt(i) - 'A') correct++;
+                    else wrong++;
+                } else if (result.status == OMRAnswerClassifier.Status.BLANK) {
+                    blank++;
+                } else {
+                    uncertain++;
+                }
+            }
+            if (questions.size() < total) {
+                updateStatus("برگهٔ مرجع کامل خوانده نشد؛ کادر و تعداد سؤال‌ها را بررسی کنید.");
+            } else if (correct == total) {
+                updateStatus("نور مناسب است: هر " + total
+                        + " پاسخ مرجع درست تشخیص داده شد. اسکن برگه‌های دیگر را با همین نور و فاصله انجام دهید.");
+            } else {
+                updateStatus("نور/عکس برای شروع اسکن تأیید نشد: درست " + correct
+                        + "، نادرست " + wrong + "، سفید " + blank + "، نامطمئن " + uncertain
+                        + ". نور را یکنواخت کنید و دوباره برگهٔ مرجع را بگیرید.");
+            }
+        } finally {
+            if (!bitmap.isRecycled()) bitmap.recycle();
+        }
     }
 
     private void processSavedPhotoFile(java.io.File photoFile) throws Exception {
