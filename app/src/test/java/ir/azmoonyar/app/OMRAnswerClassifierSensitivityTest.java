@@ -13,10 +13,11 @@ public class OMRAnswerClassifierSensitivityTest {
     }
 
     @Test
-    public void veryWeakMarkIsNotSilentlyTreatedAsAnswered() {
+    public void darknessAboveOneTenthCountsAsAnswered() {
         OMRAnswerClassifier.Result result =
                 new OMRAnswerClassifier().classify(new double[]{0.18, 0.04, 0.02, 0.03});
-        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
     }
 
     @Test
