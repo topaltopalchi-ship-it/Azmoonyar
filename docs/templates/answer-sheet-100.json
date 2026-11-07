@@ -1,0 +1,97 @@
+{
+  "templateId": "AY-OMR-100-V1",
+  "displayName": "پاسخنامه ۱۰۰ سؤالی آزمون‌یار",
+  "version": 1,
+  "page": {
+    "widthMm": 210,
+    "heightMm": 297,
+    "orientation": "portrait",
+    "viewBox": {
+      "width": 794,
+      "height": 1123
+    }
+  },
+  "options": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "questionCount": 100,
+  "layout": {
+    "columns": 4,
+    "questionsPerColumn": 25,
+    "firstQuestionByColumn": [
+      1,
+      26,
+      51,
+      76
+    ],
+    "grid": {
+      "x": 50,
+      "y": 216,
+      "width": 694,
+      "height": 790
+    },
+    "columnStartX": [
+      62,
+      233.5,
+      405,
+      576.5
+    ],
+    "firstBubbleCenterY": 263,
+    "rowStep": 28.3,
+    "bubbleCentersOffsetX": [
+      49,
+      78.3,
+      107.6,
+      136.9
+    ],
+    "bubbleRadius": 7.2,
+    "registrationMarks": [
+      {
+        "x": 22,
+        "y": 22,
+        "size": 18
+      },
+      {
+        "x": 754,
+        "y": 22,
+        "size": 18
+      },
+      {
+        "x": 22,
+        "y": 1083,
+        "size": 18
+      },
+      {
+        "x": 754,
+        "y": 1083,
+        "size": 18
+      },
+      {
+        "x": 12,
+        "y": 548,
+        "size": 14
+      },
+      {
+        "x": 768,
+        "y": 548,
+        "size": 14
+      }
+    ]
+  },
+  "scanning": {
+    "mustDetectRegistrationMarks": true,
+    "normalizePerspective": true,
+    "allowRotation": true,
+    "blankOrMultipleMarkPolicy": "manual_review",
+    "requireIdentityQrGeneratedPerExam": true,
+    "coordinateNote": "مختصات بر اساس viewBox ثابت 794×1123 هستند. ابتدا صفحه باید با نشانه‌های ثبت پیدا و به این فضای مختصات تبدیل شود؛ سپس حباب‌ها تحلیل شوند."
+  },
+  "limitations": [
+    "QR باید برای هر آزمون/شرکت‌کننده/نسخه در خود اپ تولید شود؛ شناسه قالب جایگزین QR یکتا نیست.",
+    "این فایل مشخصات قالب است و به‌تنهایی موتور OMR را پیاده‌سازی نمی‌کند.",
+    "پیش از نمره‌دهی واقعی، چاپ A4 و تشخیص حباب‌ها باید روی گوشی‌های واقعی آزموده شوند."
+  ]
+}
