@@ -1,97 +1,111 @@
 package ir.azmoonyar.app;
 
+/**
+ * Conservative classifier for four normalized bubble-darkness scores.
+ * Scores must be measured after registration, perspective correction and local
+ * paper-background normalization. Uncertain marks are sent to manual review.
+ */
 public final class OMRAnswerClassifier {
-    public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
-    public enum LightMode { DAY, NIGHT }
+    public static final double WHITE_SCORE_THRESHOLD = 0.15;
+    public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = 0.705;
+    public static final double DOUBLE_MARK_MIN_SCORE = 0.65;
+    public static final double REVIEW_MARGIN_THRESHOLD = 0.10;
+    /** Nearly indistinguishable dark bubbles are ambiguous, not a confirmed double mark. */
+    public static final double NEAR_TIE_REVIEW_EPSILON = 0.001;
 
-    /** Absolute white-bubble cutoff: scores <= 0.10 are always blank. */
-    public static final double WHITE_BUBBLE_CUTOFF = 0.10;
+    public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
 
     public static final class Result {
         public final Status status;
+        /** Zero-based option index for ANSWERED, otherwise -1. */
         public final int optionIndex;
         public final double margin;
         public final double strongestScore;
+
         private Result(Status status, int optionIndex, double margin, double strongestScore) {
-            this.status = status; this.optionIndex = optionIndex;
-            this.margin = margin; this.strongestScore = strongestScore;
+            this.status = status;
+            this.optionIndex = optionIndex;
+            this.margin = margin;
+            this.strongestScore = strongestScore;
         }
     }
 
-    private final double markThreshold, blankThreshold, minimumMargin;
-    private final LightMode lightMode;
+    private final double markThreshold;
+    private final double blankThreshold;
+    private final double minimumMargin;
 
-    public OMRAnswerClassifier() { this(0.20, 0.20, 0.10, LightMode.DAY); }
-    public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
-        this(markThreshold, blankThreshold, minimumMargin, LightMode.DAY);
+    public OMRAnswerClassifier() {
+        // Conservative defaults; real answer-sheet calibration can refine these later.
+        this(0.25, WHITE_SCORE_THRESHOLD, REVIEW_MARGIN_THRESHOLD);
     }
-    private OMRAnswerClassifier(double markThreshold, double blankThreshold,
-                                double minimumMargin, LightMode lightMode) {
+
+    public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1
-                || lightMode == null) {
+                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
-        this.markThreshold = markThreshold; this.blankThreshold = blankThreshold;
-        this.minimumMargin = minimumMargin; this.lightMode = lightMode;
+        this.markThreshold = markThreshold;
+        this.blankThreshold = blankThreshold;
+        this.minimumMargin = minimumMargin;
     }
 
-    /**
-     * Chooses mode from the arithmetic mean of all four-option darkness scores
-     * across the entire sheet. Mean > 0.20 => DAY; mean > 0.10 => NIGHT.
-     * At or below 0.10 defaults to NIGHT (low-light-safe threshold).
-     */
-    public static OMRAnswerClassifier forSheetScores(double[][] allQuestionScores) {
-        if (allQuestionScores == null || allQuestionScores.length == 0) {
-            throw new IllegalArgumentException("امتیازهای پاسخنامه برای انتخاب حالت نور لازم است.");
-        }
-        double sum = 0.0;
-        long total = 0;
-        for (double[] question : allQuestionScores) {
-            if (question == null || question.length != 4) {
-                throw new IllegalArgumentException("هر سؤال باید چهار امتیاز حباب داشته باشد.");
-            }
-            for (double score : question) {
-                if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
-                    throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
-                }
-                sum += score;
-                total++;
-            }
-        }
-        double average = sum / total;
-        if (average > 0.20) return new OMRAnswerClassifier(0.20, 0.20, 0.10, LightMode.DAY);
-        return new OMRAnswerClassifier(0.10, 0.10, 0.10, LightMode.NIGHT);
+    /** Compatibility constructor for older callers that supplied a mark threshold and review gap. */
+    @Deprecated
+    public OMRAnswerClassifier(double markThreshold, double twoMarkGap) {
+        this(markThreshold, Math.min(WHITE_SCORE_THRESHOLD, Math.max(0.0, markThreshold - 0.01)), twoMarkGap);
     }
-
-    public LightMode getLightMode() { return lightMode; }
-    public double getMarkThreshold() { return markThreshold; }
-    public double getBlankThreshold() { return blankThreshold; }
-    public double getMinimumMargin() { return minimumMargin; }
 
     public Result classify(double[] darkness) {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
         }
-        int strongestIndex = -1, markedCount = 0;
-        double strongest = -1.0, second = -1.0;
-        for (int i = 0; i < darkness.length; i++) {
-            double score = darkness[i];
+
+        double[] scores = darkness.clone();
+        for (double score : scores) {
             if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
-            if (score > markThreshold) markedCount++;
-            if (score > strongest) { second = strongest; strongest = score; strongestIndex = i; }
-            else if (score > second) second = score;
         }
-        // Enforce the absolute white rule in both lighting modes.
-        if (strongest <= WHITE_BUBBLE_CUTOFF || markedCount == 0 || strongest <= blankThreshold) {
-            return new Result(Status.BLANK, -1, 0.0, Math.max(0.0, strongest));
+
+        int bestIndex = 0;
+        double best = scores[0];
+        double second = -1.0;
+        for (int i = 1; i < scores.length; i++) {
+            if (scores[i] > best) {
+                second = best;
+                best = scores[i];
+                bestIndex = i;
+            } else if (scores[i] > second) {
+                second = scores[i];
+            }
         }
-        double margin = strongest - Math.max(0.0, second);
-        if (markedCount >= 3 || (markedCount == 2 && margin < minimumMargin)) {
-            return new Result(Status.REVIEW, -1, margin, strongest);
+
+        double runnerUp = Math.max(0.0, second);
+        double margin = best - runnerUp;
+
+        // No visible mark: keep the item blank.
+        if (best <= blankThreshold) {
+            return new Result(Status.BLANK, -1, margin, best);
         }
-        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
+
+        // A near-identical pair cannot be distinguished reliably, even when both are dark.
+        // Send it to manual review before applying the multiple-mark classification.
+        if (runnerUp > blankThreshold && margin <= NEAR_TIE_REVIEW_EPSILON) {
+            return new Result(Status.REVIEW, -1, margin, best);
+        }
+
+        // Two independently dark bubbles are a multiple response, not a guessed answer.
+        if (best >= DOUBLE_MARK_PRIMARY_THRESHOLD && runnerUp >= DOUBLE_MARK_MIN_SCORE) {
+            return new Result(Status.MULTIPLE_MARKS, -1, margin, best);
+        }
+
+        // A weak mark, a near-tie, or a close competitor above the blank floor
+        // is not safe to grade automatically.
+        if (best < markThreshold || margin <= 0.0
+                || (runnerUp > blankThreshold && margin < minimumMargin)) {
+            return new Result(Status.REVIEW, -1, margin, best);
+        }
+
+        return new Result(Status.ANSWERED, bestIndex, margin, best);
     }
 }
