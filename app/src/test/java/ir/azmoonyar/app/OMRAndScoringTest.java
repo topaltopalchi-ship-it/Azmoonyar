@@ -31,9 +31,9 @@ public class OMRAndScoringTest {
         assertEquals(-1, result.optionIndex);
     }
 
-    @Test public void threeMarkedOptionsAreMultipleMarks() {
+    @Test public void threeMarkedOptionsRequireReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
+        assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
@@ -46,21 +46,22 @@ public class OMRAndScoringTest {
         }
     }
 
-    @Test public void scorerCountsCorrectWrongBlankAndMultipleMarks() {
+    @Test public void scorerCountsCorrectWrongBlankAndReview() {
         OMRAnswerClassifier.Result a = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result wrongA = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.14, 0.05});
-        OMRAnswerClassifier.Result multiple = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
-        ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(a, wrongA, blank, multiple), 1.0, -0.25, 0.0);
+        OMRAnswerClassifier.Result review = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
+        ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(a, wrongA, blank, review), 1.0, -0.25, 0.0);
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
-        assertEquals(2, result.wrong);
+        assertEquals(1, result.wrong);
         assertEquals(1, result.blank);
-        assertEquals(1, result.multipleMarks);
-        assertEquals(0, result.needsReview);
-        assertEquals(0.5, result.earnedPoints, 0.0001);
+        assertEquals(0, result.multipleMarks);
+        assertEquals(1, result.needsReview);
+        assertEquals(0.75, result.earnedPoints, 0.0001);
         assertEquals(4.0, result.maximumPoints, 0.0001);
-        assertEquals(12.5, result.percentage(), 0.0001);
+        assertTrue(Double.isNaN(result.percentage()));
+        assertEquals(18.75, result.provisionalPercentage(), 0.0001);
     }
 
     @Test public void scorerDoesNotPublishPercentageWhileReviewIsNeeded() {
