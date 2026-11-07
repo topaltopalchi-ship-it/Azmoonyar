@@ -33,7 +33,10 @@ public final class BubbleDarknessAnalyzer {
             throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
         }
 
-        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.58));
+        // Sample 90% of the mapped bubble radius: for a 5.2 mm printed bubble,
+        // this leaves a 0.26 mm margin from the 2.6 mm edge radius.
+        // The larger inner disk uses about 2.4x as many pixels as the old 58% disk.
+        int innerRadius = Math.max(1, (int) Math.floor(radius * 0.90));
         int ringInner = Math.max(innerRadius + 1, (int) Math.ceil(radius * 1.18));
         int ringOuter = Math.max(ringInner + 1, (int) Math.ceil(radius * 1.55));
         // Do not score a partially visible bubble: clipping the reference ring at
@@ -86,6 +89,73 @@ public final class BubbleDarknessAnalyzer {
         if (relativeDarkness > 0.08) {
             relativeDarkness *= 1.15;
         }
+        return Math.max(0.0, Math.min(1.0, relativeDarkness));
+    }
+
+    /**
+     * Scores a printed circular bubble after perspective mapping. A physical
+     * circle may appear as an ellipse in camera pixels, so preserve both mapped
+     * radii instead of averaging them into a smaller/larger circular sample.
+     */
+    public static double scoreEllipse(byte[] luminance, int width, int height,
+            double centerX, double centerY, double radiusX, double radiusY) {
+        if (luminance == null || width <= 0 || height <= 0
+                || (long) width * height > luminance.length
+                || !finite(radiusX) || !finite(radiusY)
+                || !finite(centerX) || !finite(centerY)
+                || radiusX < 2 || radiusY < 2
+                || centerX < 0 || centerY < 0
+                || centerX >= width || centerY >= height) {
+            throw new IllegalArgumentException("ناحیهٔ حباب برای سنجش معتبر نیست.");
+        }
+
+        // Keep the sample disk 0.26 mm inside the 2.6 mm printed bubble radius.
+        // 90% of the physical radius covers about 81% of the bubble area.
+        final double innerLimit = 0.90 * 0.90;
+        final double ringInnerLimit = 1.18 * 1.18;
+        final double ringOuterLimit = 1.55 * 1.55;
+        int extentX = (int) Math.ceil(radiusX * 1.55);
+        int extentY = (int) Math.ceil(radiusY * 1.55);
+        if (centerX - extentX < 0 || centerY - extentY < 0
+                || centerX + extentX >= width || centerY + extentY >= height) {
+            throw new IllegalArgumentException("حباب یا حلقهٔ مرجع آن کامل داخل تصویر نیست.");
+        }
+
+        int minX = (int) Math.floor(centerX - extentX);
+        int maxX = (int) Math.ceil(centerX + extentX);
+        int minY = (int) Math.floor(centerY - extentY);
+        int maxY = (int) Math.ceil(centerY + extentY);
+        long innerSum = 0;
+        int innerCount = 0;
+        long paperSum = 0;
+        int paperCount = 0;
+        double radiusX2 = radiusX * radiusX;
+        double radiusY2 = radiusY * radiusY;
+
+        for (int y = minY; y <= maxY; y++) {
+            double dy = y - centerY;
+            for (int x = minX; x <= maxX; x++) {
+                double dx = x - centerX;
+                double normalizedDistance2 = dx * dx / radiusX2 + dy * dy / radiusY2;
+                int value = luminance[y * width + x] & 0xff;
+                if (normalizedDistance2 <= innerLimit) {
+                    innerSum += value;
+                    innerCount++;
+                } else if (normalizedDistance2 >= ringInnerLimit
+                        && normalizedDistance2 <= ringOuterLimit) {
+                    paperSum += value;
+                    paperCount++;
+                }
+            }
+        }
+
+        if (innerCount < 4 || paperCount < 4) {
+            throw new IllegalArgumentException("کیفیت تصویر برای سنجش حباب کافی نیست.");
+        }
+        double innerMean = innerSum / (double) innerCount;
+        double paperMean = paperSum / (double) paperCount;
+        double relativeDarkness = (paperMean - innerMean) / Math.max(48.0, paperMean);
+        if (relativeDarkness > 0.08) relativeDarkness *= 1.15;
         return Math.max(0.0, Math.min(1.0, relativeDarkness));
     }
 
