@@ -47,6 +47,18 @@ public class OMRAnswerClassifierTest {
         assertEquals(OMRAnswerClassifier.Status.ANSWERED,c.classify(new double[]{0.18,0.05,0.03,0.01}).status);
         assertEquals(OMRAnswerClassifier.Status.BLANK,c.classify(new double[]{0.10,0.09,0.03,0.01}).status);
     }
+    @Test public void scoresAtOrBelowPointOneAreAlwaysBlankInBothModes() {
+        assertEquals(OMRAnswerClassifier.Status.BLANK,
+                day.classify(new double[]{0.10,0.09,0.03,0.01}).status);
+        assertEquals(OMRAnswerClassifier.Status.BLANK,
+                day.classify(new double[]{0.07,0.04,0.01,0.00}).status);
+        OMRAnswerClassifier night=OMRAnswerClassifier.forSheetScores(
+                new double[][]{{0.19,0.18,0.15,0.14}});
+        assertEquals(OMRAnswerClassifier.Status.BLANK,
+                night.classify(new double[]{0.10,0.09,0.03,0.01}).status);
+        assertEquals(OMRAnswerClassifier.Status.BLANK,
+                night.classify(new double[]{0.07,0.04,0.01,0.00}).status);
+    }
     @Test public void nightDoubleMarkGapUnderPointOneReview() {
         OMRAnswerClassifier c=OMRAnswerClassifier.forSheetScores(new double[][]{{0.19,0.18,0.15,0.14}});
         assertEquals(OMRAnswerClassifier.Status.REVIEW,c.classify(new double[]{0.19,0.15,0.03,0.01}).status);
