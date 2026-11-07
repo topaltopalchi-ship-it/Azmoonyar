@@ -34,10 +34,9 @@ public class OMRAnswerClassifierTest {
         assertEquals(0, r.optionIndex);
     }
 
-    @Test public void exactPointOneGapChoosesDarker() {
-        OMRAnswerClassifier.Result r = classifier.classify(new double[]{0.42, 0.32, 0.08, 0.04});
-        assertEquals(OMRAnswerClassifier.Status.ANSWERED, r.status);
-        assertEquals(0, r.optionIndex);
+    @Test public void exactPointOneGapGoesToReview() {
+        assertEquals(OMRAnswerClassifier.Status.REVIEW,
+                classifier.classify(new double[]{0.42, 0.32, 0.08, 0.04}).status);
     }
 
     @Test public void secondBubbleAtOrBelowPointTwoDoesNotCountAsSecondMark() {
