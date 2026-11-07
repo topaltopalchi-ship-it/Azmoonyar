@@ -992,7 +992,7 @@ public class MainActivity extends Activity {
                 .append("table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}")
                 .append("th,td{border:0.25mm solid #555;text-align:center;height:7mm;padding:0}")
                 .append(".num{font-weight:bold;width:19%}.bubble{display:inline-block;width:3.6mm;height:3.6mm;border:0.35mm solid #111;border-radius:50%}")
-                .append(".mark{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}.tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
+                .append(".mark{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}.tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}.small-mark{position:absolute;width:3mm;height:3mm;background:#000;border-radius:50%;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append(".answer-page{padding:0}.answer-page .head{position:absolute;top:10mm;left:12mm;right:12mm;height:8mm;text-align:center;font-size:17px;margin:0}")
                 .append(".answer-page .sub{position:absolute;top:19mm;left:12mm;right:12mm;height:5mm;text-align:center;font-size:9px;margin:0}")
                 .append(".answer-page .meta{position:absolute;top:25mm;left:12mm;right:12mm;height:6mm;font-size:10px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:8mm;white-space:nowrap}")
@@ -1348,7 +1348,7 @@ public class MainActivity extends Activity {
                 .append("mm;height:").append(OmrTemplateLayout.BUBBLE_DIAMETER_MM)
                 .append("mm;border:0.4mm solid #111;border-radius:50%;vertical-align:middle}")
                 .append("/* Solid vector registration markers; keep the existing page and bubble layout unchanged. */")
-                .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;display:block;z-index:2;pointer-events:none}")
+                .append(".marks{position:absolute;width:16mm;height:16mm;background:#000;border:0;border-radius:50%;display:block;z-index:2;pointer-events:none}")
                 .append(".tl{left:5mm;top:5mm}.tr{right:5mm;top:5mm}.bl{left:5mm;bottom:5mm}.br{right:5mm;bottom:5mm}")
                 .append(".small-mark{position:absolute;width:3mm;height:3mm;background:#000;z-index:2;pointer-events:none}.stl{left:23mm;top:5mm}.str{right:23mm;top:5mm}.sbl{left:23mm;bottom:5mm}.sbr{right:23mm;bottom:5mm}")
                 .append("</style></head><body>");
