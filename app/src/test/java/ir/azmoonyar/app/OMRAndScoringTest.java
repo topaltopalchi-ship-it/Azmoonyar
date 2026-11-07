@@ -19,15 +19,21 @@ public class OMRAndScoringTest {
         assertEquals(-1, result.optionIndex);
     }
 
-    @Test public void refusesMultipleDarkMarks() {
+    @Test public void selectsStrongerOfTwoMarksWhenGapExceedsOneTenth() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.61, 0.08, 0.10});
-        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
-        assertEquals(-1, result.optionIndex);
+        assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
+        assertEquals(0, result.optionIndex);
     }
 
     @Test public void sendsAmbiguousMarkToReview() {
         OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.48, 0.40, 0.09, 0.08});
         assertEquals(OMRAnswerClassifier.Status.REVIEW, result.status);
+        assertEquals(-1, result.optionIndex);
+    }
+
+    @Test public void threeMarkedOptionsAreMultipleMarks() {
+        OMRAnswerClassifier.Result result = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
+        assertEquals(OMRAnswerClassifier.Status.MULTIPLE_MARKS, result.status);
         assertEquals(-1, result.optionIndex);
     }
 
@@ -44,11 +50,8 @@ public class OMRAndScoringTest {
         OMRAnswerClassifier.Result a = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result wrongA = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.14, 0.05});
-        OMRAnswerClassifier.Result multiple = classifier.classify(new double[]{0.76, 0.61, 0.08, 0.10});
-
-        ExamScorer.Result result = ExamScorer.score("ABCD",
-                Arrays.asList(a, wrongA, blank, multiple), 1.0, -0.25, 0.0);
-
+        OMRAnswerClassifier.Result multiple = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
+        ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(a, wrongA, blank, multiple), 1.0, -0.25, 0.0);
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
         assertEquals(2, result.wrong);

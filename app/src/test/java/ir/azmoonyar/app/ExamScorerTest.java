@@ -14,7 +14,7 @@ public class ExamScorerTest {
                 classify(0.8, 0.1, 0.1, 0.1),
                 classify(0.1, 0.1, 0.8, 0.1),
                 classify(0.05, 0.06, 0.08, 0.04),
-                classify(0.7, 0.1, 0.68, 0.1)), 1.0, 0.0, 0.0);
+                classify(0.70, 0.68, 0.55, 0.1)), 1.0, 0.0, 0.0);
         assertEquals(4, result.totalQuestions);
         assertEquals(1, result.correct);
         assertEquals(2, result.wrong);
@@ -26,7 +26,7 @@ public class ExamScorerTest {
 
     @Test public void reviewLeavesResultIncompleteAndPercentageUnavailable() {
         ExamScorer.Result result = ExamScorer.score("A", Arrays.asList(
-                classify(0.40, 0.18, 0.12, 0.10)), 1.0, 0.0, 0.0);
+                classify(0.40, 0.35, 0.12, 0.10)), 1.0, 0.0, 0.0);
         assertEquals(1, result.needsReview);
         assertFalse(result.isComplete());
         assertTrue(Double.isNaN(result.percentage()));
@@ -40,16 +40,14 @@ public class ExamScorerTest {
 
     @Test public void rejectsIncompleteKey() {
         try {
-            ExamScorer.score("-", Arrays.asList(classify(0.8, 0.1, 0.1, 0.1)),
-                    1.0, 0.0, 0.0);
+            ExamScorer.score("-", Arrays.asList(classify(0.8, 0.1, 0.1, 0.1)), 1.0, 0.0, 0.0);
             fail("Expected incomplete answer key to be rejected");
         } catch (IllegalArgumentException expected) { }
     }
 
     @Test public void rejectsMismatchedQuestionCounts() {
         try {
-            ExamScorer.score("AB", Arrays.asList(classify(0.8, 0.1, 0.1, 0.1)),
-                    1.0, 0.0, 0.0);
+            ExamScorer.score("AB", Arrays.asList(classify(0.8, 0.1, 0.1, 0.1)), 1.0, 0.0, 0.0);
             fail("Expected mismatched question counts to be rejected");
         } catch (IllegalArgumentException expected) { }
     }
