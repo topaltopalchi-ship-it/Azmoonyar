@@ -239,6 +239,23 @@ public final class OmrScanActivity extends ComponentActivity {
         });
         page.addView(coordinateButton, new LinearLayout.LayoutParams(-1, -2));
 
+        Button lightingButton = new Button(this);
+        lightingButton.setText("آزمایش ۴ روش تشخیص تیرگی");
+        lightingButton.setTextSize(15);
+        lightingButton.setAllCaps(false);
+        lightingButton.setOnClickListener(v -> {
+            byte[] luma = diagnosticLuma;
+            int width = diagnosticWidth, height = diagnosticHeight;
+            SheetPerspectiveTransform transform = diagnosticTransform;
+            double[][][] centers = diagnosticCenters;
+            if (luma == null || transform == null || centers == null || centers.length == 0) {
+                updateStatus("ابتدا پاسخنامه را کامل داخل کادر دوربین نگه دارید تا مختصات حباب‌ها شناسایی شوند.");
+                return;
+            }
+            showLightingComparison(luma, width, height, transform, centers);
+        });
+        page.addView(lightingButton, new LinearLayout.LayoutParams(-1, -2));
+
         TextView guidance = new TextView(this);
         guidance.setText("پاسخنامه را کامل داخل کادر سبز قرار دهید؛ سپس دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.");
         guidance.setTextColor(Color.rgb(51, 65, 85));
@@ -1239,6 +1256,63 @@ public final class OmrScanActivity extends ComponentActivity {
                     + ". پاسخ‌های مشخص نمره گرفتند؛ موارد نامطمئن برای بازبینی نگه داشته شدند.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
+        }
+    }
+
+
+    /** Compare four experimental darkness algorithms on the live diagnostic frame. */
+    private void showLightingComparison(byte[] luma, int width, int height,
+            SheetPerspectiveTransform transform, double[][][] centers) {
+        try {
+            StringBuilder report = new StringBuilder();
+            report.append("نتایج آزمایشی روی تصویر فعلی (").append(centers.length)
+                    .append(" سؤال)\\n\\n");
+            for (int method = 0; method < 4; method++) {
+                int answered = 0, blank = 0, review = 0;
+                double[] firstScores = null;
+                for (int q = 0; q < centers.length; q++) {
+                    double[][] imageCenters = new double[4][2];
+                    double rx = 0, ry = 0;
+                    for (int option = 0; option < 4; option++) {
+                        double x = centers[q][option][0], y = centers[q][option][1];
+                        SheetPerspectiveTransform.Point c = transform.toImage(x, y);
+                        SheetPerspectiveTransform.Point ex = transform.toImage(
+                                Math.min(transform.getPageWidth(), x + OmrTemplateLayout.BUBBLE_RADIUS_MM), y);
+                        SheetPerspectiveTransform.Point ey = transform.toImage(
+                                x, Math.min(transform.getPageHeight(), y + OmrTemplateLayout.BUBBLE_RADIUS_MM));
+                        imageCenters[option][0] = c.x;
+                        imageCenters[option][1] = c.y;
+                        rx += Math.hypot(ex.x-c.x, ex.y-c.y);
+                        ry += Math.hypot(ey.x-c.x, ey.y-c.y);
+                    }
+                    double[][] scores = OMRLightingMethods.compare(luma, width, height,
+                            imageCenters, rx/4.0, ry/4.0);
+                    double[] optionScores = scores[method];
+                    if (q == 0) firstScores = optionScores;
+                    OMRAnswerClassifier.Result result = new OMRAnswerClassifier().classify(optionScores);
+                    if (result.status == OMRAnswerClassifier.Status.ANSWERED) answered++;
+                    else if (result.status == OMRAnswerClassifier.Status.BLANK) blank++;
+                    else review++;
+                }
+                report.append(OMRLightingMethods.NAMES[method]).append("\\n")
+                        .append("پاسخ‌دار: ").append(answered)
+                        .append(" | خالی: ").append(blank)
+                        .append(" | نیازمند بررسی: ").append(review).append("\\n");
+                if (firstScores != null) {
+                    report.append("سؤال ۱ (A تا D): ");
+                    for (int i = 0; i < 4; i++) {
+                        if (i > 0) report.append("، ");
+                        report.append(String.format(java.util.Locale.US, "%.3f", firstScores[i]));
+                    }
+                    report.append("\\n\\n");
+                }
+            }
+            report.append("این نتایج فقط آزمایشی‌اند و در نمره‌دهی اصلی دخالت ندارند.");
+            new AlertDialog.Builder(this).setTitle("مقایسه روش‌های تشخیص تیرگی")
+                    .setMessage(report.toString()).setPositiveButton("بستن", null).show();
+        } catch (Exception error) {
+            updateStatus("اجرای آزمایش روش‌های تیرگی ناموفق بود: "
+                    + (error.getMessage() == null ? "خطای نامشخص" : error.getMessage()));
         }
     }
 
