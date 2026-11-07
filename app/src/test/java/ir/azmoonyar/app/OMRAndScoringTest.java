@@ -49,7 +49,7 @@ public class OMRAndScoringTest {
     @Test public void scorerCountsCorrectWrongBlankAndReview() {
         OMRAnswerClassifier.Result a = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
         OMRAnswerClassifier.Result wrongA = classifier.classify(new double[]{0.82, 0.08, 0.12, 0.10});
-        OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.14, 0.05});
+        OMRAnswerClassifier.Result blank = classifier.classify(new double[]{0.08, 0.10, 0.09, 0.05});
         OMRAnswerClassifier.Result review = classifier.classify(new double[]{0.76, 0.61, 0.25, 0.10});
         ExamScorer.Result result = ExamScorer.score("ABCD", Arrays.asList(a, wrongA, blank, review), 1.0, -0.25, 0.0);
         assertEquals(4, result.totalQuestions);
