@@ -1302,8 +1302,10 @@ public final class OmrScanActivity extends ComponentActivity {
                     // The homography already accounts for scale and perspective;
                     // applying another shrink factor would misrepresent alignment.
                     paint.setColor(bubbleOverlayColors[option]);
-                    canvas.drawOval((float) p.x - rx, (float) p.y - ry,
-                            (float) p.x + rx, (float) p.y + ry, paint);
+                    // Render a true circular coordinate ring as requested.
+                    // Average the perspective-scaled horizontal and vertical radii.
+                    float radius = (rx + ry) * 0.5f;
+                    canvas.drawCircle((float) p.x, (float) p.y, radius, paint);
                     if (q < 10) {
                         paint.setStyle(Paint.Style.FILL);
                         paint.setTextSize(Math.max(14f, width / 60f));
