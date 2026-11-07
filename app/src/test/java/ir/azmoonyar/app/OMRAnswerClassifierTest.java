@@ -23,20 +23,20 @@ public class OMRAnswerClassifierTest {
                 classifier.classify(new double[]{0.10, 0.09, 0.08, 0.01}).status);
     }
 
-    @Test public void twoMarksWithGapLessThanPointOneGoToReview() {
+    @Test public void twoMarksWithGapLessThanPointTwelveGoToReview() {
         assertEquals(OMRAnswerClassifier.Status.REVIEW,
-                classifier.classify(new double[]{0.71, 0.69, 0.08, 0.04}).status);
+                classifier.classify(new double[]{0.71, 0.60, 0.08, 0.04}).status);
     }
 
-    @Test public void twoMarksWithGapGreaterThanPointOneChooseDarker() {
-        OMRAnswerClassifier.Result r = classifier.classify(new double[]{0.42, 0.31, 0.08, 0.04});
+    @Test public void twoMarksWithGapGreaterThanPointTwelveChooseDarker() {
+        OMRAnswerClassifier.Result r = classifier.classify(new double[]{0.42, 0.29, 0.08, 0.04});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, r.status);
         assertEquals(0, r.optionIndex);
     }
 
-    @Test public void exactPointOneGapGoesToReview() {
+    @Test public void exactPointTwelveGapGoesToReview() {
         assertEquals(OMRAnswerClassifier.Status.REVIEW,
-                classifier.classify(new double[]{0.42, 0.32, 0.08, 0.04}).status);
+                classifier.classify(new double[]{0.42, 0.30, 0.08, 0.04}).status);
     }
 
     @Test public void secondBubbleAtOrBelowPointOneDoesNotCountAsSecondMark() {
@@ -54,7 +54,7 @@ public class OMRAnswerClassifierTest {
         OMRAnswerClassifier c = OMRAnswerClassifier.forSheetScores(new double[][]{{0.09, 0.08, 0.07, 0.06}});
         assertEquals(0.10, c.getMarkThreshold(), 0.000001);
         assertEquals(0.10, c.getBlankThreshold(), 0.000001);
-        assertEquals(0.10, c.getMinimumMargin(), 0.000001);
+        assertEquals(0.12, c.getMinimumMargin(), 0.000001);
         assertEquals(OMRAnswerClassifier.Status.BLANK,
                 c.classify(new double[]{0.09, 0.08, 0.07, 0.06}).status);
     }

@@ -3,8 +3,8 @@ package ir.azmoonyar.app;
 public final class OMRAnswerClassifier {
     /** Scores must be strictly above 0.10 to count as a marked bubble. */
     public static final double MARK_THRESHOLD = 0.10;
-    /** Two marked bubbles with a gap <= 0.10 require manual review. */
-    public static final double REVIEW_GAP_THRESHOLD = 0.10;
+    /** Two marked bubbles with a gap <= 0.12 require manual review. */
+    public static final double REVIEW_GAP_THRESHOLD = 0.12;
     public static final double WHITE_SCORE_THRESHOLD = MARK_THRESHOLD;
     public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = MARK_THRESHOLD;
     public static final double DOUBLE_MARK_MIN_SCORE = MARK_THRESHOLD;

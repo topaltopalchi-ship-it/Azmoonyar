@@ -19,8 +19,8 @@ public class OMRAnswerClassifierSensitivityTest {
     }
 
     @Test
-    public void strongerOfTwoMarksWinsWhenGapIsGreaterThanOneTenth() {
-        OMRAnswerClassifier.Result result = new OMRAnswerClassifier().classify(new double[]{0.62, 0.51, 0.03, 0.02});
+    public void strongerOfTwoMarksWinsWhenGapIsGreaterThanTwelveHundredths() {
+        OMRAnswerClassifier.Result result = new OMRAnswerClassifier().classify(new double[]{0.62, 0.49, 0.03, 0.02});
         assertEquals(OMRAnswerClassifier.Status.ANSWERED, result.status);
         assertEquals(0, result.optionIndex);
     }
