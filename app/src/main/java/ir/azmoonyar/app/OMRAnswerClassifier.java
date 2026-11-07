@@ -19,11 +19,9 @@ public final class OMRAnswerClassifier {
     private final LightMode lightMode;
 
     public OMRAnswerClassifier() { this(0.20, 0.20, 0.10, LightMode.DAY); }
-
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         this(markThreshold, blankThreshold, minimumMargin, LightMode.DAY);
     }
-
     private OMRAnswerClassifier(double markThreshold, double blankThreshold,
                                 double minimumMargin, LightMode lightMode) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
@@ -35,12 +33,17 @@ public final class OMRAnswerClassifier {
         this.minimumMargin = minimumMargin; this.lightMode = lightMode;
     }
 
-    /** Selects one light mode for the entire sheet using a majority of measured bubble scores. */
+    /**
+     * Chooses mode from the arithmetic mean of all four-option darkness scores
+     * across the entire sheet. Mean > 0.20 => DAY; mean > 0.10 => NIGHT.
+     * At or below 0.10 defaults to NIGHT (low-light-safe threshold).
+     */
     public static OMRAnswerClassifier forSheetScores(double[][] allQuestionScores) {
         if (allQuestionScores == null || allQuestionScores.length == 0) {
             throw new IllegalArgumentException("امتیازهای پاسخنامه برای انتخاب حالت نور لازم است.");
         }
-        long total = 0, abovePointOne = 0, abovePointTwo = 0;
+        double sum = 0.0;
+        long total = 0;
         for (double[] question : allQuestionScores) {
             if (question == null || question.length != 4) {
                 throw new IllegalArgumentException("هر سؤال باید چهار امتیاز حباب داشته باشد.");
@@ -49,14 +52,13 @@ public final class OMRAnswerClassifier {
                 if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
                     throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
                 }
+                sum += score;
                 total++;
-                if (score > 0.10) abovePointOne++;
-                if (score > 0.20) abovePointTwo++;
             }
         }
-        if (abovePointTwo * 2 > total) return new OMRAnswerClassifier(0.20, 0.20, 0.10, LightMode.DAY);
-        if (abovePointOne * 2 > total) return new OMRAnswerClassifier(0.10, 0.10, 0.10, LightMode.NIGHT);
-        return new OMRAnswerClassifier(0.20, 0.20, 0.10, LightMode.DAY);
+        double average = sum / total;
+        if (average > 0.20) return new OMRAnswerClassifier(0.20, 0.20, 0.10, LightMode.DAY);
+        return new OMRAnswerClassifier(0.10, 0.10, 0.10, LightMode.NIGHT);
     }
 
     public LightMode getLightMode() { return lightMode; }
