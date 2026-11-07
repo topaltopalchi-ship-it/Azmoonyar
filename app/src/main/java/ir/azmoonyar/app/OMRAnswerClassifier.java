@@ -84,7 +84,8 @@ public final class OMRAnswerClassifier {
             if (score > strongest) { second = strongest; strongest = score; strongestIndex = i; }
             else if (score > second) second = score;
         }
-        // Enforce the absolute white rule in both lighting modes.\n        if (strongest <= WHITE_BUBBLE_CUTOFF || markedCount == 0 || strongest <= blankThreshold) {
+        // Enforce the absolute white rule in both lighting modes.
+        if (strongest <= WHITE_BUBBLE_CUTOFF || markedCount == 0 || strongest <= blankThreshold) {
             return new Result(Status.BLANK, -1, 0.0, Math.max(0.0, strongest));
         }
         double margin = strongest - Math.max(0.0, second);
