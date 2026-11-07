@@ -4,17 +4,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Samples four bubbles per question after a caller has validated the sheet
- * registration marks and supplied bubble centers in the printed template's
- * coordinate system. No default coordinates are guessed here.
- */
+/** Samples bubble centers and auto-selects day/night mode from sheet-wide scores. */
 public final class OMRSheetReader {
     public static final class QuestionResult {
         public final int questionIndex;
         public final double[] darkness;
         public final OMRAnswerClassifier.Result classification;
-
         private QuestionResult(int questionIndex, double[] darkness,
                                OMRAnswerClassifier.Result classification) {
             this.questionIndex = questionIndex;
@@ -24,21 +19,12 @@ public final class OMRSheetReader {
     }
 
     private final OMRAnswerClassifier classifier;
-
-    public OMRSheetReader() {
-        this(new OMRAnswerClassifier());
-    }
-
+    public OMRSheetReader() { this.classifier = null; }
     public OMRSheetReader(OMRAnswerClassifier classifier) {
         if (classifier == null) throw new IllegalArgumentException("طبقه‌بند پاسخ لازم است.");
         this.classifier = classifier;
     }
 
-    /**
-     * @param bubbleCentersMm each question contains exactly four [x,y] centers
-     *                        in the canonical printed page coordinate system
-     * @param bubbleRadiusMm printed bubble radius in the same coordinate units
-     */
     public List<QuestionResult> read(byte[] luminance, int imageWidth, int imageHeight,
             SheetPerspectiveTransform transform, double[][][] bubbleCentersMm,
             double bubbleRadiusMm) {
@@ -51,13 +37,12 @@ public final class OMRSheetReader {
             throw new IllegalArgumentException("تصویر یا مشخصات قالب پاسخنامه معتبر نیست.");
         }
 
-        List<QuestionResult> results = new ArrayList<>();
+        double[][] allScores = new double[bubbleCentersMm.length][4];
         for (int q = 0; q < bubbleCentersMm.length; q++) {
             double[][] centers = bubbleCentersMm[q];
             if (centers == null || centers.length != 4) {
                 throw new IllegalArgumentException("هر سؤال باید چهار مختصات حباب داشته باشد.");
             }
-            double[] scores = new double[4];
             for (int option = 0; option < 4; option++) {
                 if (centers[option] == null || centers[option].length != 2) {
                     throw new IllegalArgumentException("مختصات حباب باید شامل x و y باشد.");
@@ -71,10 +56,16 @@ public final class OMRSheetReader {
                 double radiusX = Math.hypot(edgeX.x - center.x, edgeX.y - center.y);
                 double radiusY = Math.hypot(edgeY.x - center.x, edgeY.y - center.y);
                 double radiusPixels = (radiusX + radiusY) * 0.5;
-                scores[option] = BubbleDarknessAnalyzer.score(luminance,
+                allScores[q][option] = BubbleDarknessAnalyzer.score(luminance,
                         imageWidth, imageHeight, center.x, center.y, radiusPixels);
             }
-            results.add(new QuestionResult(q, scores, classifier.classify(scores)));
+        }
+
+        OMRAnswerClassifier active = classifier != null
+                ? classifier : OMRAnswerClassifier.forSheetScores(allScores);
+        List<QuestionResult> results = new ArrayList<>();
+        for (int q = 0; q < allScores.length; q++) {
+            results.add(new QuestionResult(q, allScores[q], active.classify(allScores[q])));
         }
         return Collections.unmodifiableList(results);
     }
