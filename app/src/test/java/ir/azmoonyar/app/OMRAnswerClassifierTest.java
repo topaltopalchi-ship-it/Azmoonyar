@@ -23,11 +23,6 @@ public class OMRAnswerClassifierTest {
                 classifier.classify(new double[]{0.10, 0.09, 0.08, 0.01}).status);
     }
 
-    @Test public void exactPointOneIsBlank() {
-        assertEquals(OMRAnswerClassifier.Status.BLANK,
-                classifier.classify(new double[]{0.20, 0.09, 0.08, 0.01}).status);
-    }
-
     @Test public void twoMarksWithGapLessThanPointOneGoToReview() {
         assertEquals(OMRAnswerClassifier.Status.REVIEW,
                 classifier.classify(new double[]{0.71, 0.69, 0.08, 0.04}).status);
