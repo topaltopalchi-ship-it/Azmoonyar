@@ -124,9 +124,9 @@ public final class OMRAnswerClassifier {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
-        // With two marks above 0.20: gap < 0.10 => review; gap >= 0.10 => darker one wins.
+        // With two marks above 0.20: gap <= 0.10 => review; gap > 0.10 => darker one wins.
         if (markedCount == 2) {
-            if (margin < REVIEW_GAP_THRESHOLD) {
+            if (margin <= REVIEW_GAP_THRESHOLD) {
                 return new Result(Status.REVIEW, -1, margin, best);
             }
             return new Result(Status.ANSWERED, bestIndex, margin, best);
