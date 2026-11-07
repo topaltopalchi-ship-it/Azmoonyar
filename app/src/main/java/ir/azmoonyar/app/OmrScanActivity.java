@@ -40,6 +40,15 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
+import java.util.EnumMap;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.Result;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.PlanarYUVLuminanceSource;
 
 /**
  * Live-camera alignment cue only. Corner-window detection is intentionally not
@@ -51,12 +60,18 @@ public final class OmrScanActivity extends ComponentActivity {
     private PreviewView previewView;
     private ImageCapture imageCapture;
     private TextView statusView;
+    private SheetGuideOverlay sheetGuideOverlay;
     private ExecutorService cameraExecutor;
     private volatile long lastStatusUpdate;
     private volatile long lastFrameAnalysis;
     private volatile boolean finished;
     private String participantName = "";
-    private int stableMarkerFrames, missingMarkerFrames;
+    private boolean qrIdentityRequired;
+    private volatile boolean qrIdentityScanned;
+    private volatile long lastQrAnalysis;
+    private volatile int stableMarkerFrames;
+    private int missingMarkerFrames;
+    private static final int REQUIRED_STABLE_MARKER_FRAMES = 6;
     private volatile boolean sheetConsumed, waitingForNextName;
     private volatile String lastSheetResultMessage = "";
     private PersianVosk voiceRecognizer;
@@ -78,14 +93,22 @@ public final class OmrScanActivity extends ComponentActivity {
         SheetGuideOverlay(android.content.Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            framePaint.setColor(Color.rgb(70, 230, 150));
+            framePaint.setColor(Color.rgb(255, 170, 40));
             framePaint.setStyle(Paint.Style.STROKE);
             framePaint.setStrokeWidth(4f * getResources().getDisplayMetrics().density);
             framePaint.setStrokeCap(Paint.Cap.ROUND);
             framePaint.setStrokeJoin(Paint.Join.ROUND);
-            shadePaint.setColor(Color.argb(210, 70, 230, 150));
+            shadePaint.setColor(Color.argb(210, 255, 170, 40));
             shadePaint.setStyle(Paint.Style.STROKE);
             shadePaint.setStrokeWidth(2f * getResources().getDisplayMetrics().density);
+        }
+
+        void setReady(boolean ready) {
+            int color = ready ? Color.rgb(40, 220, 105) : Color.rgb(255, 170, 40);
+            framePaint.setColor(color);
+            shadePaint.setColor(Color.argb(210,
+                    Color.red(color), Color.green(color), Color.blue(color)));
+            postInvalidate();
         }
 
         @Override protected void onDraw(Canvas canvas) {
@@ -155,8 +178,8 @@ public final class OmrScanActivity extends ComponentActivity {
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FIT_CENTER);
         cameraFrame.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
-        SheetGuideOverlay sheetGuide = new SheetGuideOverlay(this);
-        cameraFrame.addView(sheetGuide, new FrameLayout.LayoutParams(-1, -1));
+        sheetGuideOverlay = new SheetGuideOverlay(this);
+        cameraFrame.addView(sheetGuideOverlay, new FrameLayout.LayoutParams(-1, -1));
         page.addView(cameraFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         statusView = new TextView(this);
@@ -172,12 +195,20 @@ public final class OmrScanActivity extends ComponentActivity {
         captureButton.setTextSize(18);
         captureButton.setAllCaps(false);
         captureButton.setOnClickListener(v -> {
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                updateStatus("ابتدا QR شرکت‌کننده را مقابل دوربین بگیرید.");
+                return;
+            }
             if (sheetConsumed) {
                 updateStatus("در حال پردازش همین برگه هستیم؛ لطفاً صبر کنید.");
                 return;
             }
             if (imageCapture == null) {
                 updateStatus("دوربین هنوز آماده نیست؛ چند لحظه صبر کنید.");
+                return;
+            }
+            if (stableMarkerFrames < REQUIRED_STABLE_MARKER_FRAMES) {
+                updateStatus("چهار مربع گوشه هنوز پایدار نیستند؛ گوشی و برگه را ثابت نگه دارید تا پیام آمادگی ظاهر شود.");
                 return;
             }
             sheetConsumed = true;
@@ -222,6 +253,12 @@ public final class OmrScanActivity extends ComponentActivity {
 
         participantName = getIntent().getStringExtra("participant_name");
         if (participantName == null) participantName = "";
+        qrIdentityRequired = "qr".equals(getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                .getString("exam_identity_mode", "manual"));
+        qrIdentityScanned = !qrIdentityRequired;
+        if (qrIdentityRequired) {
+            statusView.setText("مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید.");
+        }
         cameraExecutor = Executors.newSingleThreadExecutor();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -290,6 +327,13 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             int rotation = image.getImageInfo().getRotationDegrees();
             UprightLuma upright = rotateToUpright(luma, width, height, rotation);
+            if (qrIdentityRequired && !qrIdentityScanned) {
+                long qrNow = android.os.SystemClock.elapsedRealtime();
+                if (qrNow - lastQrAnalysis >= 250) {
+                    lastQrAnalysis = qrNow;
+                    scanParticipantQrFromPreview(upright.pixels, upright.width, upright.height);
+                }
+            }
             MarkerDetection detection = detectDarkCornerMarkers(
                     upright.pixels, upright.width, upright.height);
             int markerCount = detection.count;
@@ -314,6 +358,12 @@ public final class OmrScanActivity extends ComponentActivity {
                     transform = null;
                 }
             }
+            boolean sheetGeometryReady = transform != null && markerCount == 4
+                    && stableMarkerFrames + 1 >= REQUIRED_STABLE_MARKER_FRAMES;
+            // Keep the guide overlay in sync even while QR-first identity mode is active.
+            // Previously the QR status branch skipped setReady(true), leaving the frame amber.
+            if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(sheetGeometryReady);
+
             if (transform != null && markerCount == 4) {
                 long diagnosticNow = android.os.SystemClock.elapsedRealtime();
                 if (diagnosticNow - lastDiagnosticFrameSaved > 300) {
@@ -348,21 +398,31 @@ public final class OmrScanActivity extends ComponentActivity {
             if (now - lastStatusUpdate > 350) {
                 lastStatusUpdate = now;
                 String message;
-                if (sheetConsumed) {
+                if (qrIdentityRequired && !qrIdentityScanned) {
+                    message = "مرحلهٔ ۱ از ۲: QR شرکت‌کننده را مقابل دوربین بگیرید؛ پس از شناسایی، پاسخنامه را اسکن کنید.";
+                } else if (qrIdentityRequired && qrIdentityScanned && !sheetConsumed) {
+                    message = sheetGeometryReady
+                            ? "QR تأیید شد: " + participantName + " • کادر سبز شد؛ حالا عکس پاسخنامه را بگیرید."
+                            : "QR تأیید شد: " + participantName + " • پاسخنامه را کامل داخل کادر قرار دهید تا سبز شود.";
+                } else if (sheetConsumed) {
                     message = waitingForNextName
                             ? "برگهٔ قبلی کنار رفت؛ نام شرکت‌کنندهٔ بعدی را ثبت کنید."
                             : (lastSheetResultMessage.isEmpty()
                                 ? "برگه شناسایی شد؛ در حال بررسی پاسخ‌ها..."
                                 : lastSheetResultMessage);
+                } else if (transform != null && stableMarkerFrames >= REQUIRED_STABLE_MARKER_FRAMES) {
+                    // Require a short run of consecutive valid frames before declaring readiness.
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(true);
+                    message = "چهار مربع پیدا شدند؛ کادر سبز شد. همین حالا عکس بگیرید.";
                 } else if (transform != null) {
-                    // Do not run the legacy live-bubble scanner in preview.
-                    // Preview is guidance only; capture starts only from the manual button.
-                    message = "پاسخنامه آماده است؛ دکمهٔ «عکس بگیر و تصحیح کن» را لمس کنید.";
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
+                    message = "چهار مربع پیدا شدند؛ گوشی و برگه را ثابت نگه دارید…";
                 } else if (markerCount >= 4) {
                     message = "نشانه‌های گوشه پیدا شدند، اما هندسهٔ برگه قابل اعتماد نیست؛ برگه را کامل و صاف داخل کادر بگیرید.";
                 } else if (markerCount >= 2) {
                     message = "چند نشانهٔ مربعی پیدا شد؛ کل برگه را داخل کادر و با نور یکنواخت نگه دارید.";
                 } else {
+                    if (sheetGuideOverlay != null) sheetGuideOverlay.setReady(false);
                     message = "در حال جست‌وجوی مربع‌های گوشه… چهار گوشهٔ برگه را داخل تصویر نگه دارید.";
                 }
                 updateStatus(message);
@@ -420,9 +480,9 @@ public final class OmrScanActivity extends ComponentActivity {
      * and bubble sampling are validated against printed sheets.
      */
     private MarkerDetection detectDarkCornerMarkers(byte[] yPlane, int width, int height) {
-        // Work on a half-resolution luma image. Accept both the legacy 3 mm
-        // outlined marks and new 16 mm solid vector marks.
-        final int sample = 2;
+        // Analyze full-resolution luma so small corner marks remain detectable
+        // when the A4 sheet is distant or the camera preview is softly focused.
+        final int sample = 1;
         final int gw = (width + sample - 1) / sample;
         final int gh = (height + sample - 1) / sample;
         final boolean[] visited = new boolean[gw * gh];
@@ -431,8 +491,8 @@ public final class OmrScanActivity extends ComponentActivity {
         // Search a wider outer corner window so perspective/margins do not put
         // the printed registration squares outside the detector's search area.
         // Opposite windows remain separated, avoiding duplicate corner matches.
-        final int cornerW = Math.max(12, (int) Math.round(gw * 0.40));
-        final int cornerH = Math.max(12, (int) Math.round(gh * 0.40));
+        final int cornerW = Math.max(12, (int) Math.round(gw * 0.46));
+        final int cornerH = Math.max(12, (int) Math.round(gh * 0.46));
         final int rightStart = gw - cornerW;
         final int bottomStart = gh - cornerH;
         final int[][] regions = {
@@ -513,9 +573,13 @@ public final class OmrScanActivity extends ComponentActivity {
                     // encountered first; without this preference the transform can
                     // map a small mark as if it were the page corner, compressing all
                     // bubble coordinates and causing filled answers to read BLANK.
+                    // Strongly prefer the large primary registration marks (about 16 mm)
+                    // over the tiny auxiliary squares printed beside them (about 3 mm).
+                    // The auxiliary marks can be sharper at low resolution, so a small
+                    // shape/fill advantage must never outweigh a genuine primary marker.
                     double score = 2.0 - Math.abs(1.0 - aspect) * 1.4
                             + Math.min(1.0, fill) * 0.5
-                            + (newSize ? 0.9 : 0.0) - sizePenalty * 0.25;
+                            + (newSize ? 2.0 : 0.0) - sizePenalty * 0.25;
                     if (score > bestScore) {
                         bestScore = score;
                         bestSize = estimatedMm;
@@ -568,8 +632,12 @@ public final class OmrScanActivity extends ComponentActivity {
             double meanVertical = (left + right) * 0.5;
             double expectedMarkerPixels = markerSizeMm * gw / 210.0;
             double spacingInMarkerWidths = meanHorizontal / Math.max(1.0, expectedMarkerPixels);
-            boolean sidesConsistent = ratio(top, bottom) < 2.2
-                    && ratio(left, right) < 2.2;
+            // The two photos supplied for calibration showed that a very loose
+            // 2.2 side-ratio gate can accept a wrong corner candidate. Require
+            // opposing edges to agree within 10%; otherwise keep the guide amber
+            // and refuse scoring rather than place every bubble at a biased point.
+            boolean sidesConsistent = ratio(top, bottom) <= 1.10
+                    && ratio(left, right) <= 1.10;
 
             // THIRD CRITERION: validate both diagonals as a second independent
             // geometry check. For the primary marks, the canonical center-to-center
@@ -582,7 +650,7 @@ public final class OmrScanActivity extends ComponentActivity {
             double diagonal23 = distance(points[1], points[3]);
             double meanDiagonal = (diagonal14 + diagonal23) * 0.5;
             double expectedDiagonal = Math.hypot(meanHorizontal, meanVertical);
-            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.45;
+            boolean diagonalsMatchEachOther = ratio(diagonal14, diagonal23) <= 1.20;
             boolean diagonalsMatchSideScale = expectedDiagonal > 0
                     && meanDiagonal / expectedDiagonal >= 0.70
                     && meanDiagonal / expectedDiagonal <= 1.35;
@@ -627,9 +695,8 @@ public final class OmrScanActivity extends ComponentActivity {
             }
         }
         int mean = count == 0 ? 128 : (int) (sum / count);
-        // Keep the threshold permissive for shadows, but never so high that
-        // ordinary mid-gray paper texture becomes a black registration mark.
-        return Math.max(65, Math.min(145, mean - 35));
+        // Use automatic adaptive thresholding only; no manual day/night modes.
+        return Math.max(55, Math.min(125, mean - 45));
     }
 
     private int lumaAt(byte[] yPlane, int width, int height, int sampleX, int sampleY, int sample) {
@@ -743,10 +810,48 @@ public final class OmrScanActivity extends ComponentActivity {
                 luma[i] = (byte) ((Color.red(c) * 299 + Color.green(c) * 587
                         + Color.blue(c) * 114) / 1000);
             }
+            // QR is read from the captured, orientation-corrected photo (never from
+            // preview pixels). If present, its roster participant and model override
+            // any manual scanner defaults before selecting the matching grading key.
+            try {
+                String qrText = decodeParticipantQr(pixels, width, height);
+                if (qrText != null) {
+                    JSONObject qr = new JSONObject(qrText);
+                    String qrParticipantId = qr.optString("participant_id", "").trim();
+                    String qrModel = qr.optString("model_id", "");
+                    JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+                    String qrName = rosterStudent == null
+                            ? qr.optString("participant_name", "").trim()
+                            : rosterStudent.optString("name", "").trim();
+                    if (!qrName.isEmpty() && !qrName.matches("[?\\s]+")
+                            && qrModel.matches("[AB]")) {
+                        participantName = qrName;
+                        getIntent().putExtra("participant_name", qrName);
+                        getIntent().putExtra("answer_model", qrModel);
+                        getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                                .putString("last_qr_participant_id", qrParticipantId)
+                                .putString("last_qr_model_id", qrModel)
+                                .putString("last_qr_participant_code", rosterStudent == null
+                                        ? qr.optString("participant_code", "")
+                                        : rosterStudent.optString("code", ""))
+                                .putString("last_qr_grade_level", rosterStudent == null
+                                        ? qr.optString("grade_level", "")
+                                        : rosterStudent.optString("grade_level", ""))
+                                .putString("last_qr_group", rosterStudent == null
+                                        ? qr.optString("group", "")
+                                        : rosterStudent.optString("group", "")).apply();
+                        updateStatus("QR شناسایی شد: " + qrName + " — نسخه " + qrModel);
+                    }
+                }
+            } catch (Exception qrError) {
+                android.util.Log.d("AzmoonyarQR", "No readable participant QR on captured sheet", qrError);
+            }
             MarkerDetection detection = detectDarkCornerMarkers(luma, width, height);
             if (detection.count != 4) {
                 throw new java.io.IOException("Could not locate all four sheet registration marks");
             }
+            // The saved full-resolution photo is validated independently; preview
+            // readiness never authorizes scoring if the captured geometry is invalid.
             double inset = detection.markerSizeMm > 8 ? 13.0 : 6.5;
             double right = detection.markerSizeMm > 8 ? 197.0 : 203.5;
             double bottom = detection.markerSizeMm > 8 ? 284.0 : 290.5;
@@ -767,22 +872,175 @@ public final class OmrScanActivity extends ComponentActivity {
         }
     }
 
+    /** Read the participant QR continuously from the live camera before accepting an answer sheet. */
+    private void scanParticipantQrFromPreview(byte[] luma, int width, int height) {
+        if (qrIdentityScanned || luma == null || width <= 0 || height <= 0) return;
+        try {
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    luma, width, height, 0, 0, width, height, false);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+            MultiFormatReader reader = new MultiFormatReader();
+            EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+            hints.put(DecodeHintType.CHARACTER_SET, "UTF-8");
+            hints.put(DecodeHintType.POSSIBLE_FORMATS,
+                    java.util.Collections.singletonList(BarcodeFormat.QR_CODE));
+            reader.setHints(hints);
+            Result result;
+            try {
+                result = reader.decodeWithState(bitmap);
+            } finally {
+                reader.reset();
+            }
+            if (result == null || result.getText() == null) return;
+            JSONObject qr = new JSONObject(result.getText());
+            String qrParticipantId = qr.optString("participant_id", "").trim();
+            String qrModel = qr.optString("model_id", "").trim();
+            if (qrParticipantId.isEmpty() || !qrModel.matches("[AB]")) {
+                updateStatus("QR پیدا شد، اما شناسه یا مدل پاسخنامه معتبر نیست.");
+                return;
+            }
+
+            // The printed QR's Persian name may have been encoded incorrectly in
+            // older releases. Resolve the stable participant UUID against the
+            // original roster saved on this same device; that roster is authoritative.
+            JSONObject rosterStudent = findRosterStudentById(qrParticipantId);
+            String qrName = rosterStudent == null
+                    ? qr.optString("participant_name", "").trim()
+                    : rosterStudent.optString("name", "").trim();
+            String qrParticipantCode = rosterStudent == null
+                    ? qr.optString("participant_code", "").trim()
+                    : rosterStudent.optString("code", "").trim();
+            String qrGrade = rosterStudent == null
+                    ? qr.optString("grade_level", "").trim()
+                    : rosterStudent.optString("grade_level", "").trim();
+            String qrGroup = rosterStudent == null
+                    ? qr.optString("group", "").trim()
+                    : rosterStudent.optString("group", "").trim();
+            String qrParentContact = rosterStudent == null
+                    ? qr.optString("parent_contact", "").trim()
+                    : rosterStudent.optString("parent_contact", "").trim();
+            String qrExam = qr.optString("exam_name", "").trim();
+            if (qrName.isEmpty() || qrName.matches("[?\\s]+")) {
+                updateStatus("شناسه QR خوانده شد، اما شرکت‌کننده در فهرست این گوشی پیدا نشد. فهرست شرکت‌کنندگان را بازیابی کنید.");
+                return;
+            }
+            participantName = qrName;
+            getIntent().putExtra("participant_name", qrName);
+            getIntent().putExtra("answer_model", qrModel);
+            getSharedPreferences("azmoonyar_local", MODE_PRIVATE).edit()
+                    .putString("pending_scan_participant", qrName)
+                    .putString("last_qr_participant_id", qrParticipantId)
+                    .putString("last_qr_model_id", qrModel)
+                    .putString("last_qr_exam_name", qrExam)
+                    .putString("last_qr_participant_code", qrParticipantCode)
+                    .putString("last_qr_grade_level", qrGrade)
+                    .putString("last_qr_group", qrGroup)
+                    .putString("last_qr_parent_contact", qrParentContact).apply();
+            qrIdentityScanned = true;
+            showParticipantQrDetails(qrName, qrParticipantCode, qrGrade, qrGroup,
+                    qrExam, qrModel, qrParentContact);
+            updateStatus("QR تأیید شد: " + qrName + " — نسخهٔ " + qrModel
+                    + ". حالا پاسخنامه را داخل کادر قرار دهید.");
+        } catch (com.google.zxing.NotFoundException notFound) {
+            // No QR in this preview frame; keep waiting for the participant card.
+        } catch (Exception invalidQr) {
+            android.util.Log.d("AzmoonyarQR", "Ignoring unreadable participant QR preview", invalidQr);
+        }
+    }
+
+    /** Find the original participant record using the stable UUID embedded in printed QR codes. */
+    private JSONObject findRosterStudentById(String participantId) {
+        if (participantId == null || participantId.trim().isEmpty()) return null;
+        try {
+            String rosterJson = getSharedPreferences("azmoonyar_local", MODE_PRIVATE)
+                    .getString("students_json", "[]");
+            org.json.JSONArray students = new org.json.JSONArray(rosterJson);
+            for (int i = 0; i < students.length(); i++) {
+                JSONObject student = students.optJSONObject(i);
+                if (student == null) continue;
+                String savedId = student.optString("participant_id", "").trim();
+                if (participantId.equals(savedId)) return student;
+            }
+        } catch (Exception error) {
+            android.util.Log.e("AzmoonyarQR", "Cannot read local participant roster", error);
+        }
+        return null;
+    }
+
+    /** Show the identity and exam metadata read from the participant QR. */
+    private void showParticipantQrDetails(String name, String participantCode,
+            String gradeLevel, String groupName, String examName, String modelId,
+            String parentContact) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            LinearLayout details = new LinearLayout(this);
+            details.setOrientation(LinearLayout.VERTICAL);
+            details.setPadding((int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f));
+            addQrDetailRow(details, "نام و نام خانوادگی", name);
+            addQrDetailRow(details, "کد شرکت‌کننده", participantCode);
+            addQrDetailRow(details, "مقطع / پایه", gradeLevel);
+            addQrDetailRow(details, "کلاس / گروه", groupName);
+            addQrDetailRow(details, "آزمون", examName);
+            addQrDetailRow(details, "نسخه پاسخنامه", modelId);
+            addQrDetailRow(details, "شماره تماس", parentContact);
+            new AlertDialog.Builder(this)
+                    .setTitle("مشخصات شرکت‌کننده")
+                    .setView(details)
+                    .setPositiveButton("ادامه اسکن پاسخنامه", (dialog, which) -> dialog.dismiss())
+                    .setCancelable(false)
+                    .show();
+        });
+    }
+
+    private void addQrDetailRow(LinearLayout container, String label, String value) {
+        if (value == null || value.trim().isEmpty()) return;
+        TextView row = new TextView(this);
+        row.setText(label + " : " + value.trim());
+        row.setTextSize(17);
+        row.setTextColor(Color.rgb(30, 41, 59));
+        row.setGravity(Gravity.RIGHT);
+        row.setPadding((int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f), (int) (getResources().getDisplayMetrics().density * 4 + 0.5f), (int) (getResources().getDisplayMetrics().density * 8 + 0.5f));
+        container.addView(row, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** Decode the printed participant QR from a full captured bitmap. */
+    private String decodeParticipantQr(int[] pixels, int width, int height) {
+        if (pixels == null || width <= 0 || height <= 0) return null;
+        int[] rgb = new int[pixels.length];
+        for (int i = 0; i < pixels.length; i++) rgb[i] = pixels[i] & 0x00ffffff;
+        RGBLuminanceSource source = new RGBLuminanceSource(width, height, rgb);
+        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+        MultiFormatReader reader = new MultiFormatReader();
+        EnumMap<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, java.util.Collections.singletonList(BarcodeFormat.QR_CODE));
+        reader.setHints(hints);
+        try {
+            Result result = reader.decodeWithState(bitmap);
+            return result == null ? null : result.getText();
+        } catch (com.google.zxing.NotFoundException notFound) {
+            return null;
+        } finally {
+            reader.reset();
+        }
+    }
+
     private void processRecognizedSheet(byte[] luma, int width, int height,
             SheetPerspectiveTransform transform) {
         try {
             SharedPreferences prefs = getSharedPreferences("azmoonyar_local", MODE_PRIVATE);
             int total = Math.max(1, Math.min(100, prefs.getInt("question_count", 20)));
-            String answerKey = prefs.getString("answer_key", "");
-            // The dashboard's "کلید اصلی پاسخ" is derived from question_bank_json,
-            // not from the legacy answer_key field. Prefer a complete saved model key,
-            // then derive the original key from the same question bank shown in that dialog.
+            String answerModel = getIntent().getStringExtra("answer_model");
+            if (answerModel == null || !answerModel.matches("[AB]")) answerModel = "A";
+            String answerKey = prefs.getString("answer_key_model_" + answerModel, "");
+            // Use the selected exam model key when A/B mode is enabled; retain the
+            // original-bank fallback for A-only exams and legacy saved exams.
             if (!isValidAnswerKey(answerKey, total)) {
-                String modelKey = prefs.getString("answer_key_model_A", "");
-                if (isValidAnswerKey(modelKey, total)) {
-                    answerKey = modelKey;
-                } else {
-                    answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
-                }
+                answerKey = prefs.getString("answer_key", "");
+            }
+            if (!isValidAnswerKey(answerKey, total)) {
+                answerKey = buildAnswerKeyFromQuestionBank(prefs.getString("question_bank_json", "[]"), total);
             }
             if (participantName.trim().isEmpty()) {
                 updateSheetResultStatus("برگه شناسایی شد، اما نام شرکت‌کننده ثبت نشده است.");
@@ -794,10 +1052,20 @@ public final class OmrScanActivity extends ComponentActivity {
             }
             double[][][] centers = OmrTemplateLayout.bubbleCentersForPage(total, 0);
             List<OMRSheetReader.QuestionResult> questions =
-                    new OMRSheetReader().read(luma, width, height, transform, centers, 1.45);
+                    new OMRSheetReader().read(luma, width, height, transform, centers,
+                            OmrTemplateLayout.BUBBLE_RADIUS_MM);
             java.util.ArrayList<OMRAnswerClassifier.Result> answers = new java.util.ArrayList<>();
-            for (OMRSheetReader.QuestionResult q : questions) answers.add(q.classification);
-            // Correct = +1; wrong = 0; blank = 0. Uncertain answers remain in the review queue.
+            int answeredCount = 0;
+            for (OMRSheetReader.QuestionResult q : questions) {
+                answers.add(q.classification);
+                if (q.classification.status == OMRAnswerClassifier.Status.ANSWERED) answeredCount++;
+            }
+            int minimumMarksForValidSheet = Math.max(2, (int) Math.ceil(total * 0.05));
+            if (answeredCount < minimumMarksForValidSheet) {
+                updateSheetResultStatus("پاسخنامه خالی یا فاقد پاسخ معتبر است؛ تصحیح و ثبت نمره انجام نشد. لطفاً برگه تکمیل‌شده را اسکن کنید.");
+                return;
+            }
+            // A truly blank sheet must never be recorded as a graded result.
             String activeKey = answerKey.substring(0, total);
 
             // Keep a small, anonymized calibration record for reverse-engineering OMR.
@@ -851,9 +1119,15 @@ public final class OmrScanActivity extends ComponentActivity {
                 pending.put("source", "saved_camera_photo");
                 pending.put("needsReview", score.needsReview);
                 pending.put("totalQuestions", score.totalQuestions);
+                pending.put("confirmedCorrect", score.correct);
+                pending.put("confirmedWrong", score.wrong);
+                pending.put("confirmedBlank", score.blank);
+                pending.put("multipleMarks", score.multipleMarks);
+                JSONArray reviewQuestionNumbers = new JSONArray();
                 JSONArray questionStates = new JSONArray();
                 for (int i = 0; i < questions.size(); i++) {
                     OMRAnswerClassifier.Result answer = questions.get(i).classification;
+                    if (answer.status == OMRAnswerClassifier.Status.REVIEW) reviewQuestionNumbers.put(i + 1);
                     JSONObject item = new JSONObject();
                     item.put("question", i + 1);
                     item.put("status", answer.status.name());
@@ -867,19 +1141,23 @@ public final class OmrScanActivity extends ComponentActivity {
                     item.put("optionScores", optionScores);
                     questionStates.put(item);
                 }
+                pending.put("reviewQuestionNumbers", reviewQuestionNumbers);
                 pending.put("questions", questionStates);
                 queue.put(pending);
                 prefs.edit().putString("grading_review_queue", queue.toString()).apply();
-                updateSheetResultStatus("برگهٔ " + participantName + " خوانده شد؛ " + score.needsReview
-                        + " سؤال نیازمند بازبینی است. نمرهٔ قطعی ذخیره نشد و برگه به صف بازبینی اضافه شد.");
-                return;
+                // Continue to save a provisional score. Determinate answers are scored now;
+                // REVIEW answers remain in the review queue and provisionally earn zero.
             }
             JSONArray saved;
             try { saved = new JSONArray(prefs.getString("grading_results", "[]")); }
             catch (Exception ignored) { saved = new JSONArray(); }
             JSONObject record = new JSONObject();
             record.put("name", participantName.trim());
-            record.put("examName", prefs.getString("exam_name", "آزمون بدون نام"));
+            record.put("participantCode", prefs.getString("last_qr_participant_code", ""));
+            record.put("gradeLevel", prefs.getString("last_qr_grade_level", ""));
+            record.put("group", prefs.getString("last_qr_group", ""));
+            record.put("examName", prefs.getString("last_qr_exam_name",
+                    prefs.getString("exam_name", "آزمون بدون نام")));
             JSONArray wrongQuestions = new JSONArray();
             JSONArray wrongDetails = new JSONArray();
             for (int i = 0; i < questions.size(); i++) {
@@ -899,25 +1177,66 @@ public final class OmrScanActivity extends ComponentActivity {
                     wrongDetails.put(detail);
                 }
             }
-            record.put("score", score.percentage());
+            JSONArray questionDetails = new JSONArray();
+            JSONArray correctQuestions = new JSONArray();
+            JSONArray blankQuestions = new JSONArray();
+            JSONArray reviewQuestions = new JSONArray();
+            for (int i = 0; i < questions.size(); i++) {
+                OMRSheetReader.QuestionResult question = questions.get(i);
+                OMRAnswerClassifier.Result answer = question.classification;
+                char expected = activeKey.charAt(i);
+                JSONObject detail = new JSONObject();
+                detail.put("question", i + 1);
+                detail.put("correctOption", String.valueOf(expected));
+                detail.put("status", answer.status.name());
+                detail.put("selectedOption", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        ? String.valueOf((char) ('A' + answer.optionIndex)) : "");
+                detail.put("isCorrect", answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        && answer.optionIndex == expected - 'A');
+                detail.put("strongestScore", answer.strongestScore);
+                detail.put("margin", answer.margin);
+                JSONArray optionScores = new JSONArray();
+                for (double darkness : question.darkness) optionScores.put(darkness);
+                detail.put("optionScores", optionScores);
+                questionDetails.put(detail);
+
+                if (answer.status == OMRAnswerClassifier.Status.ANSWERED
+                        && answer.optionIndex == expected - 'A') {
+                    correctQuestions.put(i + 1);
+                } else if (answer.status == OMRAnswerClassifier.Status.BLANK) {
+                    blankQuestions.put(i + 1);
+                } else if (answer.status == OMRAnswerClassifier.Status.REVIEW) {
+                    reviewQuestions.put(i + 1);
+                }
+            }
+            record.put("score", score.isComplete() ? score.percentage() : score.provisionalPercentage());
             record.put("earnedPoints", score.earnedPoints);
             record.put("correct", score.correct);
             record.put("wrong", score.wrong);
             record.put("wrongQuestions", wrongQuestions);
             record.put("wrongDetails", wrongDetails);
             record.put("blank", score.blank);
+            record.put("blankQuestions", blankQuestions);
+            record.put("correctQuestions", correctQuestions);
+            record.put("reviewQuestions", reviewQuestions);
+            record.put("questionDetails", questionDetails);
             record.put("multipleMarks", score.multipleMarks);
+            record.put("needsReview", score.needsReview);
+            record.put("provisional", score.needsReview > 0);
+            record.put("markThreshold", 0.12);
+            record.put("twoMarkGapThreshold", 0.20);
             record.put("totalQuestions", score.totalQuestions);
             record.put("createdAt", System.currentTimeMillis());
             saved.put(record);
             prefs.edit().putString("grading_results", saved.toString()).apply();
             String wrongList = wrongQuestions.length() == 0 ? "ندارد"
                     : wrongQuestions.toString().replace("[", "").replace("]", "");
-            updateSheetResultStatus("تصحیح خودکار انجام شد: " + participantName
-                    + " • امتیاز خالص " + String.format(java.util.Locale.US, "%.1f", score.earnedPoints)
-                    + " از " + total + " • صحیح: " + score.correct + " • غلط: " + score.wrong
+            updateSheetResultStatus("تصحیح " + (score.needsReview > 0 ? "موقت" : "کامل") + " انجام شد: " + participantName
+                    + " • نمره فعلی " + String.format(java.util.Locale.US, "%.1f", score.isComplete() ? score.percentage() : score.provisionalPercentage())
+                    + " از ۱۰۰ • صحیح: " + score.correct + " • غلط: " + score.wrong
+                    + " • نیازمند بازبینی: " + score.needsReview
                     + " • شماره سؤال‌های غلط: " + wrongList
-                    + ". برگه را کنار ببرید تا نفر بعدی را ثبت کنیم.");
+                    + ". پاسخ‌های مشخص نمره گرفتند؛ موارد نامطمئن برای بازبینی نگه داشته شدند.");
         } catch (Exception e) {
             updateSheetResultStatus("برگه شناسایی شد، اما خواندن حباب‌ها خطا داد: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()) + "؛ برگه را کامل داخل کادر بگیرید.");
         }
@@ -957,11 +1276,11 @@ public final class OmrScanActivity extends ComponentActivity {
                     Color.rgb(0, 190, 70),     // C: vivid green
                     Color.rgb(255, 190, 0)     // D: vivid yellow/amber
             };
-            // The paired answer sheet shown by the user prints each bubble as
-            // 4.2 x 3.2 mm. Match its exact dimensions in the diagnostic rings;
-            // homography scales locally to account for perspective.
-            final double halfBubbleWidthMm = 2.10;
-            final double halfBubbleHeightMm = 1.60;
+            // Match the actual standard A4 print template: a 5.2 mm circular bubble.
+            // Map its physical radius through the same page homography used for centers,
+            // so the diagnostic ring follows perspective at every column and page edge.
+            final double halfBubbleWidthMm = OmrTemplateLayout.BUBBLE_RADIUS_MM;
+            final double halfBubbleHeightMm = OmrTemplateLayout.BUBBLE_RADIUS_MM;
             for (int q = 0; q < centers.length; q++) {
                 for (int option = 0; option < 4; option++) {
                     double x = centers[q][option][0];
@@ -979,10 +1298,9 @@ public final class OmrScanActivity extends ComponentActivity {
                             + Math.hypot(rightEdge.x - p.x, rightEdge.y - p.y)) * 0.5f;
                     float ry = (float) (Math.hypot(p.x - topEdge.x, p.y - topEdge.y)
                             + Math.hypot(bottomEdge.x - p.x, bottomEdge.y - p.y)) * 0.5f;
-                    // Keep the colored ring slightly inside the printed 4.2 x 3.2 mm
-                    // ellipse border while retaining the exact bubble center.
-                    rx = Math.max(2.0f, rx * 0.98f);
-                    ry = Math.max(2.0f, ry * 0.98f);
+                    // Use the measured 5.2 mm printed circular border-box directly.
+                    // The homography already accounts for scale and perspective;
+                    // applying another shrink factor would misrepresent alignment.
                     paint.setColor(bubbleOverlayColors[option]);
                     canvas.drawOval((float) p.x - rx, (float) p.y - ry,
                             (float) p.x + rx, (float) p.y + ry, paint);
