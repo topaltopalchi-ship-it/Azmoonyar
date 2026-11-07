@@ -1,6 +1,9 @@
 name: Android Build
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 permissions:
   contents: read
 jobs:
@@ -31,8 +34,10 @@ jobs:
           test -s "$KEYSTORE"
           keytool -list -keystore "$KEYSTORE" -storepass "$AZMOONYAR_KEYSTORE_PASSWORD" -alias "$AZMOONYAR_KEY_ALIAS" >/dev/null
           echo "AZMOONYAR_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+      - name: Run unit tests
+        run: gradle --no-daemon testDebugUnitTest
       - name: Compile debug and release variants
-        run: gradle assembleDebug assembleRelease
+        run: gradle --no-daemon assembleDebug assembleRelease
       - name: Upload debug APK (testing only)
         uses: actions/upload-artifact@v4
         with:
