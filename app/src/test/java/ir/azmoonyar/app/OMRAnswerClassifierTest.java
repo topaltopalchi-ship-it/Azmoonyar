@@ -23,9 +23,14 @@ public class OMRAnswerClassifierTest {
                 classifier.classify(new double[]{0.10, 0.09, 0.08, 0.01}).status);
     }
 
+    @Test public void exactPointTwoIsBlank() {
+        assertEquals(OMRAnswerClassifier.Status.BLANK,
+                classifier.classify(new double[]{0.20, 0.09, 0.08, 0.01}).status);
+    }
+
     @Test public void twoMarksWithGapLessThanPointOneGoToReview() {
         assertEquals(OMRAnswerClassifier.Status.REVIEW,
-                classifier.classify(new double[]{0.71, 0.09, 0.68, 0.08}).status);
+                classifier.classify(new double[]{0.71, 0.69, 0.08, 0.04}).status);
     }
 
     @Test public void twoMarksWithGapGreaterThanPointOneChooseDarker() {
@@ -52,8 +57,8 @@ public class OMRAnswerClassifierTest {
 
     @Test public void diagnosticModesDoNotChangeFixedThresholds() {
         OMRAnswerClassifier c = OMRAnswerClassifier.forSheetScores(new double[][]{{0.09, 0.08, 0.07, 0.06}});
-        assertEquals(0.10, c.getMarkThreshold(), 0.000001);
-        assertEquals(0.10, c.getBlankThreshold(), 0.000001);
+        assertEquals(0.20, c.getMarkThreshold(), 0.000001);
+        assertEquals(0.20, c.getBlankThreshold(), 0.000001);
         assertEquals(0.10, c.getMinimumMargin(), 0.000001);
         assertEquals(OMRAnswerClassifier.Status.BLANK,
                 c.classify(new double[]{0.09, 0.08, 0.07, 0.06}).status);
