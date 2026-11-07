@@ -1,12 +1,9 @@
 package ir.azmoonyar.app;
 
 /**
- * Sensitivity-oriented classifier for four locally normalized bubble-darkness measurements.
- *
- * Input values must be calibrated darkness scores in [0, 1], where 0 is paper-white
- * and 1 is fully dark. Geometry detection, perspective correction, local background
- * normalization and image-quality checks must happen before calling this class.
- * Weak or ambiguous evidence is sent for review instead of guessed.
+ * Classifies four normalized bubble-darkness scores.
+ * Scores above 0.20 are considered marked. A close double mark is reviewed
+ * only when the difference between the two marked options is below 0.10.
  */
 public final class OMRAnswerClassifier {
     public enum Status { ANSWERED, BLANK, MULTIPLE_MARKS, REVIEW }
@@ -33,16 +30,12 @@ public final class OMRAnswerClassifier {
     private final double minimumMargin;
 
     public OMRAnswerClassifier() {
-        // Calibrated against the current phone-photo diagnostics: clearly stronger marks
-        // Keep low-contrast marks from being guessed: values below 0.16 are blank,
-        // a mark must reach 0.28, and the strongest bubble must lead by at least 0.24.
-        // This preserves clearly dominant real-photo marks while routing borderline cases to review.
-        this(0.28, 0.16, 0.24);
+        this(0.20, 0.20, 0.10);
     }
 
     public OMRAnswerClassifier(double markThreshold, double blankThreshold, double minimumMargin) {
         if (blankThreshold < 0 || blankThreshold > 1 || markThreshold < 0 || markThreshold > 1
-                || blankThreshold >= markThreshold || minimumMargin < 0 || minimumMargin > 1) {
+                || blankThreshold > markThreshold || minimumMargin < 0 || minimumMargin > 1) {
             throw new IllegalArgumentException("آستانه‌های تشخیص پاسخ معتبر نیستند.");
         }
         this.markThreshold = markThreshold;
@@ -54,49 +47,41 @@ public final class OMRAnswerClassifier {
         if (darkness == null || darkness.length != 4) {
             throw new IllegalArgumentException("برای هر سؤال باید چهار امتیاز حباب ارائه شود.");
         }
-        double[] scores = darkness.clone();
-        for (double score : scores) {
+
+        int strongestIndex = -1;
+        int markedCount = 0;
+        double strongest = -1.0;
+        double second = -1.0;
+        for (int i = 0; i < darkness.length; i++) {
+            double score = darkness[i];
             if (Double.isNaN(score) || Double.isInfinite(score) || score < 0 || score > 1) {
                 throw new IllegalArgumentException("امتیاز حباب باید عددی بین صفر و یک باشد.");
             }
-        }
-
-        int strongestIndex = 0;
-        double strongest = scores[0];
-        double second = -1;
-        boolean tiedForStrongest = false;
-        for (int i = 1; i < scores.length; i++) {
-            if (scores[i] > strongest) {
+            if (score > markThreshold) {
+                markedCount++;
+            }
+            if (score > strongest) {
                 second = strongest;
-                strongest = scores[i];
+                strongest = score;
                 strongestIndex = i;
-                tiedForStrongest = false;
-            } else if (scores[i] == strongest) {
-                second = strongest;
-                tiedForStrongest = true;
-            } else if (scores[i] > second) {
-                second = scores[i];
+            } else if (score > second) {
+                second = score;
             }
         }
 
-        // The tested scanner workflow selects the relatively darkest option even
-        // when its lead is very small. Boost only that winning option, never all
-        // four bubbles. A true all-zero row remains blank; an exact tie is reviewed.
-        if (strongest <= 0.0) {
-            return new Result(Status.BLANK, -1, 0, 0);
+        if (markedCount == 0 || strongest <= blankThreshold) {
+            return new Result(Status.BLANK, -1, 0.0, Math.max(0.0, strongest));
         }
-        double margin = strongest - Math.max(0, second);
-        // Send a possible double-mark to manual review only when BOTH leading
-        // bubbles are genuinely dark (> 0.20) and their darkness gap is < 0.10.
-        // Keep the comparisons strict: exactly 0.20 or exactly 0.10 does not
-        // satisfy this double-mark review rule.
-        if (strongest > 0.20 && second > 0.20 && margin < 0.10) {
+
+        double margin = strongest - Math.max(0.0, second);
+        if (markedCount >= 3) {
             return new Result(Status.REVIEW, -1, margin, strongest);
         }
-        if (tiedForStrongest) {
-            return new Result(Status.REVIEW, -1, 0, strongest);
+
+        if (markedCount == 2 && margin < minimumMargin) {
+            return new Result(Status.REVIEW, -1, margin, strongest);
         }
-        double boostedStrongest = Math.min(1.0, strongest * 2.0);
-        return new Result(Status.ANSWERED, strongestIndex, margin, boostedStrongest);
+
+        return new Result(Status.ANSWERED, strongestIndex, margin, strongest);
     }
 }
