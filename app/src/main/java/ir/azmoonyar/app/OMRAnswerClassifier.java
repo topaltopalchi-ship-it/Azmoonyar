@@ -5,9 +5,9 @@ package ir.azmoonyar.app;
  * Scores are expected to be normalized to the range 0..1.
  */
 public final class OMRAnswerClassifier {
-    /** A bubble must be strictly darker than 0.20 to count as marked. */
-    public static final double MARK_THRESHOLD = 0.20;
-    /** Two marked bubbles closer than 0.10 are ambiguous and require review. */
+    /** A bubble must be strictly darker than 0.10 to count as marked. */
+    public static final double MARK_THRESHOLD = 0.10;
+    /** Two marked bubbles closer than or equal to 0.10 are ambiguous and require review. */
     public static final double REVIEW_GAP_THRESHOLD = 0.10;
     public static final double WHITE_SCORE_THRESHOLD = MARK_THRESHOLD;
     public static final double DOUBLE_MARK_PRIMARY_THRESHOLD = MARK_THRESHOLD;
@@ -57,10 +57,7 @@ public final class OMRAnswerClassifier {
         this.lightMode = lightMode;
     }
 
-    /**
-     * Retains the historical diagnostic mode label only. Classification always
-     * uses the fixed 0.20 and 0.10 thresholds requested by the operator.
-     */
+    /** Retains the historical diagnostic mode label only. Classification uses fixed 0.10 and 0.10 thresholds. */
     public static OMRAnswerClassifier forSheetScores(double[][] allQuestionScores) {
         if (allQuestionScores == null || allQuestionScores.length == 0) {
             throw new IllegalArgumentException("امتیازهای پاسخنامه برای انتخاب حالت نور لازم است.");
@@ -114,7 +111,7 @@ public final class OMRAnswerClassifier {
 
         double margin = best - Math.max(0.0, second);
 
-        // Scores at or below 0.20 are blank. Exactly 0.20 is not a marked answer.
+        // Scores at or below 0.10 are blank. Exactly 0.10 is not a marked answer.
         if (best <= MARK_THRESHOLD) {
             return new Result(Status.BLANK, -1, margin, best);
         }
@@ -124,7 +121,7 @@ public final class OMRAnswerClassifier {
             return new Result(Status.REVIEW, -1, margin, best);
         }
 
-        // With two marks above 0.20: gap <= 0.10 => review; gap > 0.10 => darker one wins.
+        // With two marks above 0.10: gap <= 0.10 => review; gap > 0.10 => darker one wins.
         if (markedCount == 2) {
             if (margin <= REVIEW_GAP_THRESHOLD) {
                 return new Result(Status.REVIEW, -1, margin, best);
