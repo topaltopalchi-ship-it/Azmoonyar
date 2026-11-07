@@ -11,12 +11,12 @@ android {
     compileSdk 35
 
     defaultConfig {
-        // Keep the Altay 3 package so Altay 4 can update it in place.
+        // Keep applicationId stable for in-place updates across legacy app names.
         applicationId 'ir.azmoonyar.app'
         minSdk 24
         targetSdk 35
-        versionCode 13
-        versionName '4.1.0'
+        versionCode 14
+        versionName '4.1.1'
     }
 
     signingConfigs {
