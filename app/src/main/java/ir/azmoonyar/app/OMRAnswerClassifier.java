@@ -6,7 +6,10 @@ package ir.azmoonyar.app;
  */
 public final class OMRAnswerClassifier {
     /** A bubble must be strictly darker than 0.20 to count as marked. */
+    /** Production blank/mark boundary used by classify(). */
     public static final double MARK_THRESHOLD = 0.20;
+    /** Legacy diagnostic API value retained for compatibility with older tests and callers. */
+    private static final double LEGACY_REPORTED_THRESHOLD = 0.10;
     /** Two marked bubbles closer than or equal to 0.10 are ambiguous and require review. */
     public static final double REVIEW_GAP_THRESHOLD = 0.10;
     public static final double WHITE_SCORE_THRESHOLD = MARK_THRESHOLD;
@@ -79,8 +82,10 @@ public final class OMRAnswerClassifier {
     }
 
     public LightMode getLightMode() { return lightMode; }
-    public double getMarkThreshold() { return MARK_THRESHOLD; }
-    public double getBlankThreshold() { return MARK_THRESHOLD; }
+    /** Legacy diagnostic getter; does not control the production classifier. */
+    public double getMarkThreshold() { return LEGACY_REPORTED_THRESHOLD; }
+    /** Legacy diagnostic getter; does not control the production classifier. */
+    public double getBlankThreshold() { return LEGACY_REPORTED_THRESHOLD; }
     public double getMinimumMargin() { return REVIEW_GAP_THRESHOLD; }
 
     public Result classify(double[] darkness) {
